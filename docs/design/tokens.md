@@ -47,3 +47,5 @@ Category colors (same in both themes): Groceries #3D4BD6, Bills #D06A1E, Transpo
 - Field boxes (Account, Date): 2 columns, gap 8, min height 52, padding 6 x 14, radius 14, border. Label 12 muted, value 14 / 500.
 - Keypad: 3 columns, gap 8, keys height 52, radius 14, surface2, mono 22 / 500. Pushed to the bottom.
 - Primary button (Save): height 54, radius 16, primary, 16 / 600.
+- Pace bar: track height 10 on summary cards, 8 on budget rows, 6 in the Home budgets section; fully rounded; fill in the category color, orange when low or over. Marker 2 wide, 4 taller than the track on both ends, text color on summary cards and muted on rows.
+- Budgets rows: 10 x 10 square with radius 3 in the category color, name 15 / 500, amounts mono 13 muted (orange when warning), hint 12 muted below the bar. Edit pill: height 40, radius 20, border, 14 / 500.
