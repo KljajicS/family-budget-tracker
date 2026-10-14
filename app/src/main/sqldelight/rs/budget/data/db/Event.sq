@@ -1,0 +1,27 @@
+CREATE TABLE event (
+    id TEXT NOT NULL PRIMARY KEY,
+    device_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    occurred_at INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    UNIQUE(device_id, seq)
+);
+
+CREATE INDEX event_order ON event(occurred_at, device_id, seq);
+
+insert:
+INSERT INTO event(id, device_id, seq, occurred_at, type, payload)
+VALUES (?, ?, ?, ?, ?, ?);
+
+count:
+SELECT COUNT(*) FROM event;
+
+lastSeq:
+SELECT MAX(seq) AS max_seq FROM event WHERE device_id = ?;
+
+allInOrder:
+SELECT * FROM event ORDER BY occurred_at, device_id, seq;
+
+countFor:
+SELECT COUNT(*) FROM event WHERE device_id = ? AND seq = ?;

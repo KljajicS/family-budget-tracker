@@ -1,0 +1,17 @@
+CREATE TABLE member (
+    id TEXT NOT NULL PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    device_id TEXT NOT NULL
+);
+
+upsert:
+INSERT OR REPLACE INTO member(id, display_name, device_id) VALUES (?, ?, ?);
+
+all:
+SELECT * FROM member ORDER BY display_name;
+
+byDevice:
+SELECT * FROM member WHERE device_id = ?;
+
+deleteAll:
+DELETE FROM member;

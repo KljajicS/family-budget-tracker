@@ -1,0 +1,44 @@
+CREATE TABLE tx (
+    id TEXT NOT NULL PRIMARY KEY,
+    type TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    account_id TEXT NOT NULL,
+    to_account_id TEXT,
+    category_id TEXT,
+    date TEXT NOT NULL,
+    note TEXT NOT NULL,
+    merchant TEXT NOT NULL,
+    paid_by TEXT NOT NULL,
+    source TEXT NOT NULL,
+    edited_at INTEGER NOT NULL
+);
+
+CREATE INDEX tx_date ON tx(date DESC);
+
+upsert:
+INSERT OR REPLACE INTO tx(id, type, amount, currency, account_id, to_account_id, category_id, date, note, merchant, paid_by, source, edited_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+editedAt:
+SELECT edited_at FROM tx WHERE id = ?;
+
+delete:
+DELETE FROM tx WHERE id = ?;
+
+recent:
+SELECT tx.*, category.name AS category_name, member.display_name AS paid_by_name
+FROM tx
+LEFT JOIN category ON category.id = tx.category_id
+LEFT JOIN member ON member.id = tx.paid_by
+ORDER BY date DESC, edited_at DESC, tx.id DESC
+LIMIT ?;
+
+inMonth:
+SELECT * FROM tx WHERE date >= ? AND date < ?;
+
+all:
+SELECT * FROM tx;
+
+deleteAll:
+DELETE FROM tx;
