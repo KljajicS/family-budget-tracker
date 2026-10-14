@@ -29,6 +29,9 @@ data class TransactionEdited(val transaction: Transaction) : Event
 @Serializable @SerialName("TransactionDeleted")
 data class TransactionDeleted(val transactionId: String) : Event
 
+@Serializable @SerialName("BudgetSet")
+data class BudgetSet(val budget: Budget) : Event
+
 /** One row of the append-only log. `seq` is per device and strictly increasing. */
 data class EventRecord(
     val id: String,

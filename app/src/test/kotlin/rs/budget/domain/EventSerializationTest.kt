@@ -27,6 +27,13 @@ class EventSerializationTest {
     }
 
     @Test
+    fun `budget set round trips`() {
+        val event: Event = BudgetSet(Budget("cat-groceries", java.time.YearMonth.of(2026, 10), Money.of("60000", Currency.RSD)))
+        val json = EventJson.encodeToString(Event.serializer(), event)
+        assertEquals(event, EventJson.decodeFromString(Event.serializer(), json))
+    }
+
+    @Test
     fun `money serializes as plain string amount`() {
         val json = EventJson.encodeToString(Money.serializer(), Money.of("12.5", Currency.EUR))
         assertEquals("""{"amount":"12.50","currency":"EUR"}""", json)
