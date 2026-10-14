@@ -3,6 +3,7 @@ package rs.budget.data
 import rs.budget.data.db.BudgetDb
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
+import rs.budget.domain.BudgetSet
 import rs.budget.domain.CategoryCreated
 import rs.budget.domain.EventRecord
 import rs.budget.domain.MemberCreated
@@ -31,10 +32,14 @@ class Projector(private val db: BudgetDb) {
                 if (current == null || current <= at) upsertTx(e.transaction, at)
             }
             is TransactionDeleted -> db.txQueries.delete(e.transactionId)
+            is BudgetSet -> db.budgetQueries.upsert(
+                e.budget.categoryId, e.budget.month.toString(), e.budget.money.amount.toPlainString(), e.budget.money.currency.name,
+            )
         }
     }
 
     fun clear() {
+        db.budgetQueries.deleteAll()
         db.txQueries.deleteAll()
         db.accountQueries.deleteAll()
         db.categoryQueries.deleteAll()

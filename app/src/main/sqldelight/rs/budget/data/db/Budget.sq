@@ -1,0 +1,16 @@
+CREATE TABLE budget (
+    category_id TEXT NOT NULL,
+    month TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    PRIMARY KEY (category_id, month)
+);
+
+upsert:
+INSERT OR REPLACE INTO budget(category_id, month, amount, currency) VALUES (?, ?, ?, ?);
+
+all:
+SELECT * FROM budget ORDER BY month, category_id;
+
+deleteAll:
+DELETE FROM budget;

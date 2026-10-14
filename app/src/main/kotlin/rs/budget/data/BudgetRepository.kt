@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import rs.budget.data.db.Account as AccountRow
+import rs.budget.data.db.Budget as BudgetRow
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.db.Category as CategoryRow
 import rs.budget.data.db.Member as MemberRow
@@ -16,6 +17,10 @@ import rs.budget.data.db.Tx as TxRow
 import rs.budget.domain.Account
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
+import rs.budget.domain.Budget
+import rs.budget.domain.BudgetCalculator
+import rs.budget.domain.BudgetSet
+import rs.budget.domain.BudgetStatus
 import rs.budget.domain.Category
 import rs.budget.domain.CategoryCreated
 import rs.budget.domain.Currency
@@ -34,6 +39,7 @@ import rs.budget.domain.TransactionType
 import rs.budget.domain.newId
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.YearMonth
 
 data class RecentTx(val transaction: Transaction, val categoryName: String?, val paidByName: String?)
 
@@ -58,9 +64,31 @@ class BudgetRepository(
     fun recent(limit: Int): Flow<List<RecentTx>> =
         db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }
 
-    // ponytail: rates are RSD-only until milestone 2 adds the NBS fetch; EUR/USD accounts show as partial.
-    val home: Flow<HomeSummary> = combine(accounts, transactions) { accs, txs ->
-        HomeCalculator.summarize(clock.today(), accs, txs, Rates(mapOf(Currency.RSD to BigDecimal.ONE)))
+    // ponytail: rates are RSD-only until the sync milestone adds the NBS fetch; EUR/USD accounts show as partial.
+    private val rsdRates = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
+
+    val budgets: Flow<List<Budget>> =
+        db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+
+    /** Stored budgets for the month, else the latest earlier month's amounts carried forward. */
+    fun effectiveBudgets(month: YearMonth): Flow<List<Budget>> = budgets.map { all ->
+        val own = all.filter { it.month == month }
+        if (own.isNotEmpty()) return@map own
+        val previous = all.map { it.month }.filter { it < month }.maxOrNull() ?: return@map emptyList()
+        all.filter { it.month == previous }.map { it.copy(month = month) }
+    }
+
+    val budgetStatuses: Flow<List<BudgetStatus>> =
+        combine(effectiveBudgets(YearMonth.from(clock.today())), transactions) { b, txs ->
+            BudgetCalculator.statuses(clock.today(), b, txs, rsdRates)
+        }
+
+    val home: Flow<HomeSummary> = combine(accounts, transactions, budgetStatuses) { accs, txs, statuses ->
+        HomeCalculator.summarize(clock.today(), accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses))
+    }
+
+    suspend fun setBudgets(month: YearMonth, amounts: Map<String, Money>) {
+        amounts.forEach { (categoryId, money) -> store.append(BudgetSet(Budget(categoryId, month, money))) }
     }
 
     suspend fun currentMember(): Member? = withContext(Dispatchers.IO) {
@@ -78,6 +106,7 @@ class BudgetRepository(
     suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) }
     suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
 
+    private fun BudgetRow.toDomain() = Budget(category_id, YearMonth.parse(month), Money.of(amount, Currency.valueOf(currency)))
     private fun AccountRow.toDomain() = Account(id, name, Currency.valueOf(currency), AccountKind.valueOf(kind), archived == 1L)
     private fun CategoryRow.toDomain() = Category(id, name, color, archived == 1L)
     private fun MemberRow.toDomain() = Member(id, display_name, device_id)
