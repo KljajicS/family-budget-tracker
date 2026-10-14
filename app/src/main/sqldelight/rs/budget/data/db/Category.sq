@@ -11,5 +11,8 @@ INSERT OR REPLACE INTO category(id, name, color, archived) VALUES (?, ?, ?, ?);
 active:
 SELECT * FROM category WHERE archived = 0 ORDER BY name;
 
+archive:
+UPDATE category SET archived = 1 WHERE id = ?;
+
 deleteAll:
 DELETE FROM category;

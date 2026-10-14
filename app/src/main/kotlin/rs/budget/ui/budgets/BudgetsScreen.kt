@@ -34,7 +34,7 @@ import rs.budget.data.StarterCategories
 import rs.budget.domain.BudgetStatus
 import rs.budget.domain.Category
 import rs.budget.domain.PaceState
-import rs.budget.ui.categoryLabel
+import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.formatAmount
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.CaptionStyle
@@ -105,7 +105,7 @@ private fun TotalCard(s: BudgetsState) {
 fun BudgetRow(st: BudgetStatus, categories: List<Category>, compact: Boolean = false) {
     val c = LocalColors.current
     val category = categories.firstOrNull { it.id == st.categoryId }
-    val name = categoryLabel(st.categoryId)?.let { stringResource(it) } ?: category?.name ?: st.categoryId
+    val name = categoryDisplayName(st.categoryId, category?.name)
     val color = StarterCategories.all.firstOrNull { it.id == st.categoryId }?.let { colorOf(it.color) } ?: category?.let { colorOf(it.color) } ?: c.muted
     val warn = st.state == PaceState.LOW || st.state == PaceState.OVER || st.state == PaceState.OVER_PACE
     val barColor = if (st.state == PaceState.LOW || st.state == PaceState.OVER) c.orange else color

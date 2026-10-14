@@ -3,9 +3,13 @@ package rs.budget.data
 import rs.budget.data.db.BudgetDb
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
+import rs.budget.domain.AccountUpdated
 import rs.budget.domain.BudgetRemoved
 import rs.budget.domain.BudgetSet
+import rs.budget.domain.CategoryArchived
 import rs.budget.domain.CategoryCreated
+import rs.budget.domain.CategoryUpdated
+import rs.budget.domain.MemberRenamed
 import rs.budget.domain.EventRecord
 import rs.budget.domain.MemberCreated
 import rs.budget.domain.Transaction
@@ -24,9 +28,17 @@ class Projector(private val db: BudgetDb) {
                 e.account.id, e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0,
             )
             is AccountArchived -> db.accountQueries.archive(e.accountId)
+            is AccountUpdated -> db.accountQueries.upsert(
+                e.account.id, e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0,
+            )
             is CategoryCreated -> db.categoryQueries.upsert(
                 e.category.id, e.category.name, e.category.color, if (e.category.archived) 1 else 0,
             )
+            is CategoryUpdated -> db.categoryQueries.upsert(
+                e.category.id, e.category.name, e.category.color, if (e.category.archived) 1 else 0,
+            )
+            is CategoryArchived -> db.categoryQueries.archive(e.categoryId)
+            is MemberRenamed -> db.memberQueries.rename(e.displayName, e.memberId)
             is TransactionAdded -> upsertTx(e.transaction, at)
             is TransactionEdited -> {
                 val current = db.txQueries.editedAt(e.transaction.id).executeAsOneOrNull()

@@ -10,6 +10,9 @@ INSERT OR REPLACE INTO member(id, display_name, device_id) VALUES (?, ?, ?);
 all:
 SELECT * FROM member ORDER BY display_name;
 
+rename:
+UPDATE member SET display_name = ? WHERE id = ?;
+
 byDevice:
 SELECT * FROM member WHERE device_id = ?;
 

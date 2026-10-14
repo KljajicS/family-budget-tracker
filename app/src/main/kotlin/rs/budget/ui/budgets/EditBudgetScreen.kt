@@ -47,7 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.domain.Category
 import rs.budget.domain.Currency
-import rs.budget.ui.categoryLabel
+import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
@@ -122,7 +122,7 @@ private fun CategoryPicker(categories: List<Category>, selectedId: String?, take
         modifier = Modifier.height((rows * 62 + (rows - 1) * 8).dp),
     ) {
         items(categories, key = { it.id }) { cat ->
-            val label = categoryLabel(cat.id)?.let { stringResource(it) } ?: cat.name
+            val label = categoryDisplayName(cat.id, cat.name)
             val selected = selectedId == cat.id
             // A category that already has a budget cannot get a second one; tap its row on the list to edit it instead.
             val disabled = (locked && !selected) || (!selected && cat.id in taken)

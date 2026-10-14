@@ -52,6 +52,11 @@ import rs.budget.ui.add.AddScreen
 import rs.budget.ui.budgets.BudgetsScreen
 import rs.budget.ui.budgets.EditBudgetScreen
 import rs.budget.ui.home.HomeScreen
+import rs.budget.ui.settings.AccountsScreen
+import rs.budget.ui.settings.CategoriesScreen
+import rs.budget.ui.settings.EditAccountScreen
+import rs.budget.ui.settings.EditCategoryScreen
+import rs.budget.ui.settings.SettingsScreen
 import rs.budget.ui.setup.SetupScreen
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.BudgetTheme
@@ -99,8 +104,25 @@ fun BudgetRoot() {
     ) { padding ->
         NavHost(nav, startDestination = if (hasMember == true) Tab.HOME.route else Routes.SETUP, modifier = Modifier.padding(padding)) {
             composable(Tab.HOME.route) {
-                HomeScreen(onAdd = { nav.navigate(Routes.ADD) }, onBudgets = { nav.navigate(Tab.BUDGETS.route) { launchSingleTop = true } })
+                HomeScreen(
+                    onAdd = { nav.navigate(Routes.ADD) },
+                    onBudgets = { nav.navigate(Tab.BUDGETS.route) { launchSingleTop = true } },
+                    onSettings = { nav.navigate(Routes.SETTINGS) },
+                )
             }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onBack = { nav.popBackStack() }, onCategories = { nav.navigate(Routes.CATEGORIES) }, onAccounts = { nav.navigate(Routes.ACCOUNTS) })
+            }
+            composable(Routes.CATEGORIES) {
+                CategoriesScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_CATEGORY) }, onEdit = { nav.navigate(Routes.editCategory(it)) })
+            }
+            composable(Routes.NEW_CATEGORY) { EditCategoryScreen(onClose = { nav.popBackStack() }) }
+            composable(Routes.EDIT_CATEGORY) { EditCategoryScreen(onClose = { nav.popBackStack() }) }
+            composable(Routes.ACCOUNTS) {
+                AccountsScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_ACCOUNT) }, onEdit = { nav.navigate(Routes.editAccount(it)) })
+            }
+            composable(Routes.NEW_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
+            composable(Routes.EDIT_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
             composable(Tab.INSIGHTS.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.SCAN.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.BUDGETS.route) {

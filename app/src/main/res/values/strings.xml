@@ -79,6 +79,36 @@
     <string name="home_see_all">See all</string>
     <string name="home_spent_of">%1$s spent of %2$s</string>
 
+    <string name="settings_title">Settings</string>
+    <string name="settings_name">Your name</string>
+    <string name="settings_categories">Categories</string>
+    <string name="settings_accounts">Accounts</string>
+    <string name="settings_save_name">Save name</string>
+
+    <string name="categories_title">Categories</string>
+    <string name="categories_empty">No categories. Tap New to add one.</string>
+    <string name="category_new_title">New category</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_name">Name</string>
+    <string name="category_color">Color</string>
+    <string name="category_save">Save category</string>
+    <string name="category_delete">Delete category</string>
+    <string name="category_delete_hint">Past transactions keep the name. The category disappears from pickers and budgets.</string>
+
+    <string name="accounts_title">Accounts</string>
+    <string name="accounts_empty">No accounts. Tap New to add one.</string>
+    <string name="account_new_title">New account</string>
+    <string name="account_edit_title">Edit account</string>
+    <string name="account_name">Name</string>
+    <string name="account_currency">Currency</string>
+    <string name="account_kind">Type</string>
+    <string name="account_kind_spending">Spending</string>
+    <string name="account_kind_savings">Savings</string>
+    <string name="account_save">Save account</string>
+    <string name="account_delete">Delete account</string>
+    <string name="account_delete_hint">Past transactions stay. The account and its balance disappear from Home and pickers.</string>
+    <string name="list_new">+ New</string>
+
     <string name="source_manual">Manual</string>
     <string name="source_receipt">QR receipt</string>
     <string name="source_recurring">Recurring</string>

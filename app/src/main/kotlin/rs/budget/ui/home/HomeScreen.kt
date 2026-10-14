@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -27,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -40,7 +43,7 @@ import rs.budget.domain.Money
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.ui.budgets.BudgetRow
-import rs.budget.ui.categoryLabel
+import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.formatAmount
 import rs.budget.ui.theme.BigAmountStyle
 import rs.budget.ui.theme.BodyStyle
@@ -61,7 +64,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onSettings: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
@@ -72,7 +75,14 @@ fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, vm: HomeViewModel = hil
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val settings = stringResource(R.string.settings_title)
+                Box(
+                    Modifier.size(44.dp).background(c.primary.copy(alpha = c.tintAlpha), CircleShape)
+                        .clickable(role = Role.Button, onClick = onSettings)
+                        .semantics { contentDescription = settings },
+                    contentAlignment = Alignment.Center,
+                ) { Text(s.memberName.take(1).uppercase(), style = sans(16, FontWeight.SemiBold), color = c.primary) }
                 Text(monthName(s.today), style = TitleStyle, color = c.text, modifier = Modifier.weight(1f))
                 RoundIconButton(Icons.Default.Add, stringResource(R.string.home_add), onAdd)
             }
@@ -176,7 +186,7 @@ private fun SavingsCard(total: Money, byCurrency: Map<Currency, Money>) {
 private fun RecentRow(r: RecentTx, me: String?, today: LocalDate) {
     val c = LocalColors.current
     val t = r.transaction
-    val category = t.categoryId?.let { id -> categoryLabel(id)?.let { stringResource(it) } ?: r.categoryName }
+    val category = t.categoryId?.let { id -> categoryDisplayName(id, r.categoryName) }
     val typeLabel = when (t.type) {
         TransactionType.EXPENSE -> R.string.add_expense
         TransactionType.INCOME -> R.string.add_income

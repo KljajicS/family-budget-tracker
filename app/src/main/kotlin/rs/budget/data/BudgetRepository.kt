@@ -16,8 +16,13 @@ import rs.budget.data.db.Member as MemberRow
 import rs.budget.data.db.Recent
 import rs.budget.data.db.Tx as TxRow
 import rs.budget.domain.Account
+import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
+import rs.budget.domain.AccountUpdated
+import rs.budget.domain.CategoryArchived
+import rs.budget.domain.CategoryUpdated
+import rs.budget.domain.MemberRenamed
 import rs.budget.domain.Budget
 import rs.budget.domain.BudgetCalculator
 import rs.budget.domain.BudgetRemoved
@@ -117,6 +122,16 @@ class BudgetRepository(
         StarterCategories.all.forEach { store.append(CategoryCreated(it)) }
         accounts.forEach { store.append(AccountCreated(it)) }
     }
+
+    suspend fun addCategory(name: String, color: String) { store.append(CategoryCreated(Category(newId(), name.trim(), color))) }
+    suspend fun updateCategory(category: Category) { store.append(CategoryUpdated(category)) }
+    suspend fun archiveCategory(id: String) { store.append(CategoryArchived(id)) }
+
+    suspend fun addAccount(account: Account) { store.append(AccountCreated(account)) }
+    suspend fun updateAccount(account: Account) { store.append(AccountUpdated(account)) }
+    suspend fun archiveAccount(id: String) { store.append(AccountArchived(id)) }
+
+    suspend fun renameMember(memberId: String, displayName: String) { store.append(MemberRenamed(memberId, displayName.trim())) }
 
     suspend fun add(t: Transaction) { store.append(TransactionAdded(t)) }
     suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) }

@@ -23,6 +23,7 @@ data class HomeState(
     val recent: List<RecentTx>,
     val currentMemberId: String?,
     val today: LocalDate,
+    val memberName: String = "",
     val budgets: List<BudgetStatus> = emptyList(),
     val budgetSpent: Money? = null,
     val budgetTotal: Money? = null,
@@ -36,10 +37,12 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : 
         repo.recent(20),
         flow { emit(repo.currentMember()?.id) },
         repo.budgetStatuses,
-    ) { summary, recent, member, statuses ->
+        repo.members,
+    ) { summary, recent, member, statuses, members ->
         val (spent, total) = BudgetCalculator.total(statuses, repo.rates)
         HomeState(
             summary, recent, member, clock.today(),
+            memberName = members.firstOrNull { it.id == member }?.displayName ?: "",
             budgets = statuses.take(3),
             budgetSpent = spent.takeIf { statuses.isNotEmpty() },
             budgetTotal = total.takeIf { statuses.isNotEmpty() },

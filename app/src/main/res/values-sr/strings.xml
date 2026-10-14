@@ -79,6 +79,36 @@
     <string name="home_see_all">Vidi sve</string>
     <string name="home_spent_of">%1$s potrošeno od %2$s</string>
 
+    <string name="settings_title">Podešavanja</string>
+    <string name="settings_name">Vaše ime</string>
+    <string name="settings_categories">Kategorije</string>
+    <string name="settings_accounts">Računi</string>
+    <string name="settings_save_name">Sačuvaj ime</string>
+
+    <string name="categories_title">Kategorije</string>
+    <string name="categories_empty">Nema kategorija. Dodirni Novi da dodaš.</string>
+    <string name="category_new_title">Nova kategorija</string>
+    <string name="category_edit_title">Izmena kategorije</string>
+    <string name="category_name">Naziv</string>
+    <string name="category_color">Boja</string>
+    <string name="category_save">Sačuvaj kategoriju</string>
+    <string name="category_delete">Obriši kategoriju</string>
+    <string name="category_delete_hint">Stare transakcije zadržavaju naziv. Kategorija nestaje iz izbora i budžeta.</string>
+
+    <string name="accounts_title">Računi</string>
+    <string name="accounts_empty">Nema računa. Dodirni Novi da dodaš.</string>
+    <string name="account_new_title">Novi račun</string>
+    <string name="account_edit_title">Izmena računa</string>
+    <string name="account_name">Naziv</string>
+    <string name="account_currency">Valuta</string>
+    <string name="account_kind">Tip</string>
+    <string name="account_kind_spending">Za trošenje</string>
+    <string name="account_kind_savings">Štednja</string>
+    <string name="account_save">Sačuvaj račun</string>
+    <string name="account_delete">Obriši račun</string>
+    <string name="account_delete_hint">Stare transakcije ostaju. Račun i njegovo stanje nestaju sa početne i iz izbora.</string>
+    <string name="list_new">+ Novi</string>
+
     <string name="source_manual">Ručno</string>
     <string name="source_receipt">QR račun</string>
     <string name="source_recurring">Ponavljajuće</string>

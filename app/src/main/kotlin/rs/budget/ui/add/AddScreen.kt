@@ -50,7 +50,7 @@ import rs.budget.R
 import rs.budget.domain.Account
 import rs.budget.domain.Currency
 import rs.budget.domain.TransactionType
-import rs.budget.ui.categoryLabel
+import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.theme.BudgetDatePickerDialog
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.FieldBox
@@ -152,7 +152,7 @@ private fun CategoryGrid(categories: List<rs.budget.domain.Category>, selectedId
         modifier = Modifier.height((rows * 62 + (rows - 1) * 8).dp),
     ) {
         items(categories, key = { it.id }) { cat ->
-            val label = categoryLabel(cat.id)?.let { stringResource(it) } ?: cat.name
+            val label = categoryDisplayName(cat.id, cat.name)
             OutlinedBox(Modifier.height(62.dp), radius = 14, padding = PaddingValues(0.dp), selected = selectedId == cat.id, onClick = { onSelect(cat.id) }) {
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Box(Modifier.size(10.dp).background(colorOf(cat.color), CircleShape))

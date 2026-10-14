@@ -21,6 +21,18 @@ data class AccountArchived(val accountId: String) : Event
 @Serializable @SerialName("CategoryCreated")
 data class CategoryCreated(val category: Category) : Event
 
+@Serializable @SerialName("CategoryUpdated")
+data class CategoryUpdated(val category: Category) : Event
+
+@Serializable @SerialName("CategoryArchived")
+data class CategoryArchived(val categoryId: String) : Event
+
+@Serializable @SerialName("AccountUpdated")
+data class AccountUpdated(val account: Account) : Event
+
+@Serializable @SerialName("MemberRenamed")
+data class MemberRenamed(val memberId: String, val displayName: String) : Event
+
 @Serializable @SerialName("TransactionAdded")
 data class TransactionAdded(val transaction: Transaction) : Event
 
