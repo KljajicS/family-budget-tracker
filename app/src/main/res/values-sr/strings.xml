@@ -1,0 +1,64 @@
+<resources>
+    <string name="app_name">Kućni budžet</string>
+    <string name="tab_home">Početna</string>
+    <string name="tab_insights">Uvidi</string>
+    <string name="tab_scan">Skeniraj</string>
+    <string name="tab_budgets">Budžeti</string>
+    <string name="tab_goals">Ciljevi</string>
+    <string name="coming_soon">Stiže u nekoj od sledećih verzija</string>
+
+    <string name="setup_title">Dobrodošli</string>
+    <string name="setup_name_label">Vaše ime</string>
+    <string name="setup_accounts_title">Računi</string>
+    <string name="setup_account_cash">Keš</string>
+    <string name="setup_account_card">Kartica</string>
+    <string name="setup_account_savings">Štednja</string>
+    <string name="setup_add_account">Dodaj račun</string>
+    <string name="setup_account_name">Naziv računa</string>
+    <string name="setup_account_savings_toggle">Štedni račun</string>
+    <string name="setup_done">Počni</string>
+
+    <string name="home_safe_to_spend">Slobodno za trošenje</string>
+    <string name="home_per_day">≈ %1$s dnevno · još %2$d dana</string>
+    <string name="home_partial">Neki računi nemaju kurs i nisu uračunati</string>
+    <string name="home_income">Prihodi</string>
+    <string name="home_spent">Potrošeno</string>
+    <string name="home_savings">Štednja, sve valute</string>
+    <string name="home_recent">Nedavno</string>
+    <string name="home_empty">Još nema transakcija. Dodirni + da dodaš.</string>
+    <string name="home_add">Dodaj</string>
+    <string name="home_today">Danas</string>
+    <string name="home_yesterday">Juče</string>
+
+    <string name="add_expense">Trošak</string>
+    <string name="add_income">Prihod</string>
+    <string name="add_transfer">Prenos</string>
+    <string name="add_account">Račun</string>
+    <string name="add_to_account">Na račun</string>
+    <string name="add_date">Datum</string>
+    <string name="dialog_ok">U redu</string>
+    <string name="dialog_cancel">Otkaži</string>
+    <string name="add_merchant">Prodavnica ili beleška</string>
+    <string name="add_save_expense">Sačuvaj trošak</string>
+    <string name="add_save_income">Sačuvaj prihod</string>
+    <string name="add_save_transfer">Sačuvaj prenos</string>
+    <string name="add_close">Zatvori</string>
+    <string name="add_backspace">Obriši cifru</string>
+    <string name="add_same_account">Izaberi drugi odredišni račun</string>
+    <string name="add_currency_mismatch">Prenos između valuta stiže kasnije</string>
+
+    <string name="cat_groceries">Namirnice</string>
+    <string name="cat_bills">Računi</string>
+    <string name="cat_transport">Prevoz</string>
+    <string name="cat_eating_out">Restorani</string>
+    <string name="cat_household">Domaćinstvo</string>
+    <string name="cat_kids">Deca</string>
+    <string name="cat_fun">Zabava</string>
+    <string name="cat_health">Zdravlje</string>
+    <string name="cat_other">Ostalo</string>
+
+    <string name="source_manual">Ručno</string>
+    <string name="source_receipt">QR račun</string>
+    <string name="source_recurring">Ponavljajuće</string>
+    <string name="member_you">Ti</string>
+</resources>

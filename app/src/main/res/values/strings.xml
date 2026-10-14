@@ -1,0 +1,64 @@
+<resources>
+    <string name="app_name">Family Budget</string>
+    <string name="tab_home">Home</string>
+    <string name="tab_insights">Insights</string>
+    <string name="tab_scan">Scan</string>
+    <string name="tab_budgets">Budgets</string>
+    <string name="tab_goals">Goals</string>
+    <string name="coming_soon">Coming in a later release</string>
+
+    <string name="setup_title">Welcome</string>
+    <string name="setup_name_label">Your name</string>
+    <string name="setup_accounts_title">Accounts</string>
+    <string name="setup_account_cash">Cash</string>
+    <string name="setup_account_card">Card</string>
+    <string name="setup_account_savings">Savings</string>
+    <string name="setup_add_account">Add account</string>
+    <string name="setup_account_name">Account name</string>
+    <string name="setup_account_savings_toggle">Savings account</string>
+    <string name="setup_done">Start</string>
+
+    <string name="home_safe_to_spend">Safe to spend</string>
+    <string name="home_per_day">≈ %1$s per day · %2$d days left</string>
+    <string name="home_partial">Some accounts have no exchange rate and are not counted</string>
+    <string name="home_income">Income</string>
+    <string name="home_spent">Spent</string>
+    <string name="home_savings">Savings, all currencies</string>
+    <string name="home_recent">Recent</string>
+    <string name="home_empty">No transactions yet. Tap + to add one.</string>
+    <string name="home_add">Add</string>
+    <string name="home_today">Today</string>
+    <string name="home_yesterday">Yesterday</string>
+
+    <string name="add_expense">Expense</string>
+    <string name="add_income">Income</string>
+    <string name="add_transfer">Transfer</string>
+    <string name="add_account">Account</string>
+    <string name="add_to_account">To account</string>
+    <string name="add_date">Date</string>
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="add_merchant">Merchant or note</string>
+    <string name="add_save_expense">Save expense</string>
+    <string name="add_save_income">Save income</string>
+    <string name="add_save_transfer">Save transfer</string>
+    <string name="add_close">Close</string>
+    <string name="add_backspace">Delete digit</string>
+    <string name="add_same_account">Pick a different destination account</string>
+    <string name="add_currency_mismatch">Transfers between currencies come later</string>
+
+    <string name="cat_groceries">Groceries</string>
+    <string name="cat_bills">Bills</string>
+    <string name="cat_transport">Transport</string>
+    <string name="cat_eating_out">Eating out</string>
+    <string name="cat_household">Household</string>
+    <string name="cat_kids">Kids</string>
+    <string name="cat_fun">Fun</string>
+    <string name="cat_health">Health</string>
+    <string name="cat_other">Other</string>
+
+    <string name="source_manual">Manual</string>
+    <string name="source_receipt">QR receipt</string>
+    <string name="source_recurring">Recurring</string>
+    <string name="member_you">You</string>
+</resources>
