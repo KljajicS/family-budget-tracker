@@ -1,6 +1,7 @@
 package rs.budget.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -37,6 +39,7 @@ import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
+import rs.budget.ui.budgets.BudgetRow
 import rs.budget.ui.categoryLabel
 import rs.budget.ui.formatAmount
 import rs.budget.ui.theme.BigAmountStyle
@@ -45,6 +48,7 @@ import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
+import rs.budget.ui.theme.PaceBar
 import rs.budget.ui.theme.RoundIconButton
 import rs.budget.ui.theme.SectionStyle
 import rs.budget.ui.theme.TitleStyle
@@ -57,7 +61,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun HomeScreen(onAdd: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
@@ -81,6 +85,18 @@ fun HomeScreen(onAdd: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
             }
         }
         item { SavingsCard(s.summary.savingsTotal, s.summary.savingsByCurrency) }
+        if (s.budgets.isNotEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.home_budgets), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
+                    Text(
+                        stringResource(R.string.home_see_all), style = sans(14), color = c.primary,
+                        modifier = Modifier.clickable(role = Role.Button, onClick = onBudgets).padding(vertical = 10.dp),
+                    )
+                }
+                s.budgets.forEach { BudgetRow(it, emptyList(), compact = true) }
+            }
+        }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.home_recent), style = SectionStyle, color = c.text, modifier = Modifier.padding(bottom = 6.dp))
@@ -109,6 +125,14 @@ private fun SafeToSpendCard(s: HomeState) {
         }
         Text(stringResource(R.string.home_per_day, formatAmount(s.summary.safePerDay), s.summary.daysLeft), style = sans(14), color = c.muted)
         if (s.summary.partial) Text(stringResource(R.string.home_partial), style = LabelStyle, color = c.orange)
+        val spent = s.budgetSpent
+        val total = s.budgetTotal
+        if (spent != null && total != null && !total.isZero) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PaceBar(spent.amount.toFloat() / total.amount.toFloat(), s.pace, c.primary, 10.dp)
+                Text(stringResource(R.string.home_spent_of, formatAmount(spent), formatAmount(total)), style = LabelStyle, color = c.muted)
+            }
+        }
     }
 }
 

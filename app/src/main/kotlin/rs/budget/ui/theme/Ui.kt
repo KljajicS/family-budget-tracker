@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -19,10 +20,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Small building blocks that mirror the mockup components. Material widgets are used only where they look identical. */
@@ -49,6 +53,7 @@ fun OutlinedBox(
     val shape = RoundedCornerShape(radius.dp)
     Column(
         modifier
+            .clip(shape)
             .then(if (selected) Modifier.background(c.primarySoft, shape) else Modifier)
             .border(1.dp, if (selected) c.primary else c.border, shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier)
@@ -66,6 +71,20 @@ fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
             .clickable(enabled = enabled, onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) { Text(text, style = sans(16, FontWeight.SemiBold), color = if (enabled) c.onPrimary else c.muted) }
+}
+
+/** Filled bar with a thin vertical marker at today's pace, as in the mockups. */
+@Composable
+fun PaceBar(ratio: Float, pace: Float, color: Color, height: Dp, modifier: Modifier = Modifier) {
+    val c = LocalColors.current
+    val markerColor = if (height >= 10.dp) c.text else c.muted
+    Box(modifier.fillMaxWidth().height(height + 8.dp), contentAlignment = Alignment.CenterStart) {
+        Box(Modifier.fillMaxWidth().height(height).background(c.track, RoundedCornerShape(height / 2)))
+        Box(Modifier.fillMaxWidth(ratio.coerceIn(0f, 1f)).height(height).background(color, RoundedCornerShape(height / 2)))
+        Box(Modifier.fillMaxWidth(pace.coerceIn(0f, 1f)), contentAlignment = Alignment.CenterEnd) {
+            Box(Modifier.width(2.dp).height(height + 8.dp).background(markerColor))
+        }
+    }
 }
 
 /** Bordered single-line input that matches the field boxes in the mockups. */

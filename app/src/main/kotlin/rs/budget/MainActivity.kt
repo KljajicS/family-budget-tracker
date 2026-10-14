@@ -49,6 +49,8 @@ import rs.budget.data.BudgetRepository
 import rs.budget.ui.Routes
 import rs.budget.ui.Tab
 import rs.budget.ui.add.AddScreen
+import rs.budget.ui.budgets.BudgetsScreen
+import rs.budget.ui.budgets.EditBudgetsScreen
 import rs.budget.ui.home.HomeScreen
 import rs.budget.ui.setup.SetupScreen
 import rs.budget.ui.theme.BodyStyle
@@ -96,10 +98,13 @@ fun BudgetRoot() {
         },
     ) { padding ->
         NavHost(nav, startDestination = if (hasMember == true) Tab.HOME.route else Routes.SETUP, modifier = Modifier.padding(padding)) {
-            composable(Tab.HOME.route) { HomeScreen(onAdd = { nav.navigate(Routes.ADD) }) }
+            composable(Tab.HOME.route) {
+                HomeScreen(onAdd = { nav.navigate(Routes.ADD) }, onBudgets = { nav.navigate(Tab.BUDGETS.route) { launchSingleTop = true } })
+            }
             composable(Tab.INSIGHTS.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.SCAN.route) { Stub(stringResource(R.string.coming_soon)) }
-            composable(Tab.BUDGETS.route) { Stub(stringResource(R.string.coming_soon)) }
+            composable(Tab.BUDGETS.route) { BudgetsScreen(onEdit = { nav.navigate(Routes.EDIT_BUDGETS) }) }
+            composable(Routes.EDIT_BUDGETS) { EditBudgetsScreen(onClose = { nav.popBackStack() }) }
             composable(Tab.GOALS.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Routes.SETUP) {
                 SetupScreen(onDone = { nav.navigate(Tab.HOME.route) { popUpTo(Routes.SETUP) { inclusive = true } } })

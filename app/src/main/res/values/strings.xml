@@ -57,6 +57,25 @@
     <string name="cat_health">Health</string>
     <string name="cat_other">Other</string>
 
+    <string name="budgets_title">Budgets</string>
+    <string name="budgets_subtitle">%1$s · %2$d days left</string>
+    <string name="budgets_edit">Edit</string>
+    <string name="budgets_left">RSD left</string>
+    <string name="budgets_of">of %1$s</string>
+    <string name="budgets_empty">No budgets yet. Tap Edit to set monthly limits per category.</string>
+    <string name="budgets_row_left">%1$s left</string>
+    <string name="budgets_ahead">ahead of pace</string>
+    <string name="budgets_on_track">on track</string>
+    <string name="budgets_over_pace">over pace</string>
+    <string name="budgets_low">Only %1$s left</string>
+    <string name="budgets_over">Over by %1$s</string>
+    <string name="budgets_edit_title">Edit budgets</string>
+    <string name="budgets_edit_hint">Monthly limit in RSD. Leave empty for no budget.</string>
+    <string name="budgets_save">Save budgets</string>
+    <string name="home_budgets">Budgets</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_spent_of">%1$s spent of %2$s</string>
+
     <string name="source_manual">Manual</string>
     <string name="source_receipt">QR receipt</string>
     <string name="source_recurring">Recurring</string>

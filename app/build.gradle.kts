@@ -44,6 +44,8 @@ sqldelight {
     databases {
         create("BudgetDb") {
             packageName.set("rs.budget.data.db")
+            // Migrations live next to the .sq files; the version is derived from the highest N.sqm plus one.
+            verifyMigrations.set(true)
         }
     }
 }
