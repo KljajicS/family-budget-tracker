@@ -1,0 +1,49 @@
+# Design tokens
+
+Extracted from `screens.html` (the Claude Design export). Compose code in `app/src/main/kotlin/rs/budget/ui/theme` mirrors these values; change them here and there together.
+
+## Fonts
+
+- Text: Geist 400, 500, 600 (`res/font/geist_*.ttf`).
+- Numbers and amounts: Geist Mono 500, 600 (`res/font/geist_mono_*.ttf`).
+- Both are SIL Open Font License, from Google Fonts.
+
+## Colors
+
+| Token | Light | AMOLED | Use |
+|---|---|---|---|
+| bg | #FFFFFF | #000000 | screen background |
+| text | #0E1014 | #F3F4F6 | primary text |
+| muted | #5B616B | #9AA0AA | secondary text, labels |
+| surface2 | #F3F4F6 | #0E0F12 | filled cards, keypad keys, chips |
+| border | #E3E5E9 | #1F2227 | outlined cards, nav top border |
+| track | #E5E7EB | #1C1E23 | progress bar background |
+| primary | #3D4BD6 | #8C96FF | accent, Save button, active tab, Scan button |
+| onPrimary | #FFFFFF | #05060F | text on primary |
+| primarySoft | #ECEEFE | rgba(140,150,255,0.18) | selected category background |
+| green | #1B7A57 | #4CC79A | income, synced dot |
+| orange | #A8520E | #F0A05A | over budget |
+
+Category colors (same in both themes): Groceries #3D4BD6, Bills #D06A1E, Transport #1A8A7B, Eating out #7B55C7, Household #6E747D, Kids #B8467F, Fun #A88412, Health #2A7FC0, Other #6E747D. Avatars use the color at 12% (light) or 18% (dark) alpha behind the letter.
+
+## Layout
+
+- Screen padding: 24 top, 20 sides, 120 bottom on Home (for the nav bar). Add screen: 20 top and sides, 24 bottom.
+- Section gap: 20 on Home, 14 on Add.
+- Body text 15. Screen title 26 / 600 / letter spacing -0.02em.
+
+## Components
+
+- Safe to spend card: radius 24, padding 22 x 20, background surface2, inner gap 14. Label 13 / 500 / uppercase / 0.06em muted. Amount mono 40 / 600 / -0.03em with currency 16 / 500 muted on the baseline. Hint line 14 muted. Progress track 10 high radius 5, pace marker 2 x 18.
+- Stat cards (Income, Spent): two columns, gap 12, radius 18, 1px border, padding 16, label 13 muted, value mono 20 / 600. Income value green.
+- Savings card: radius 18, border, padding 18 x 16, gap 12. Total mono 24 / 600 with RSD 14 muted. Per-currency chips: padding 6 x 10, radius 10, surface2, mono 13.
+- Section header: 17 / 600. Link text 14 primary.
+- Recent row: min height 56, gap 12. Avatar 40 x 40 radius 12, letter 600 in the category color on its 12% tint. Title 15 / 500, subtitle 13 muted. Amount mono 15 / 500 right aligned, date 12 muted beneath.
+- Bottom nav: height 84, padding 0 12 12, 5 equal columns, top border, labels 11 / 500, active item primary. Scan item is a 56 circle filled primary, lifted 24 up.
+- Round icon button (close, add): 44 circle, surface2.
+- Segmented control (Expense / Income / Transfer): width 270, surface2, radius 14, padding 4; items height 36, radius 10, selected one bg (white in light, surface2 lifted in dark) 14 / 500, others muted.
+- Amount entry: mono 48 / 600 / -0.03em, currency 18 / 500 muted. Currency pills: min width 64, height 34, radius 17, border; selected is text color filled with bg-colored text, mono 13 / 500.
+- Category tiles: 4 columns, gap 8, height 62, radius 14, border, dot 10 in category color above a 12 / 500 label. Selected: primary border, primarySoft background.
+- Field boxes (Account, Date): 2 columns, gap 8, min height 52, padding 6 x 14, radius 14, border. Label 12 muted, value 14 / 500.
+- Keypad: 3 columns, gap 8, keys height 52, radius 14, surface2, mono 22 / 500. Pushed to the bottom.
+- Primary button (Save): height 54, radius 16, primary, 16 / 600.
