@@ -1,5 +1,6 @@
 package rs.budget.ui.budgets
 
+import androidx.lifecycle.SavedStateHandle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterNotNull
@@ -10,6 +11,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import rs.budget.data.BudgetRepository
@@ -19,6 +22,7 @@ import rs.budget.data.Projector
 import rs.budget.data.testDb
 import rs.budget.domain.Account
 import rs.budget.domain.AccountKind
+import rs.budget.domain.Budget
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import java.time.Instant
@@ -36,22 +40,33 @@ class BudgetsViewModelTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `edit prefills carried-forward amounts and save writes the current month`() = runTest(dispatcher) {
+    fun `create a budget with its own currency, then edit prefills and delete removes it`() = runTest(dispatcher) {
         repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
-        repo.setBudgets(YearMonth.of(2026, 9), mapOf("cat-groceries" to Money.of("50000", Currency.RSD)))
-        val edit = EditBudgetsViewModel(repo, clock)
-        val rows = edit.state.first { it.rows.isNotEmpty() }.rows
-        assertEquals("50000", rows.first { it.category.id == "cat-groceries" }.amountText)
-        assertEquals("", rows.first { it.category.id == "cat-fun" }.amountText)
-        edit.setAmount("cat-fun", "5000")
-        edit.setAmount("cat-groceries", "60000")
-        edit.save()
-        edit.state.first { it.saved }
-        val vm = BudgetsViewModel(repo, clock)
-        val s = vm.state.filterNotNull().first { it.statuses.size == 2 }
-        assertEquals(YearMonth.of(2026, 10), s.month)
-        assertEquals(18, s.daysLeft)
-        assertEquals(Money.of("65000", Currency.RSD), s.total)
-        assertEquals(Money.of("50000", Currency.RSD), repo.effectiveBudgets(YearMonth.of(2026, 9)).first().single().money)
+        repo.setBudget(Budget("cat-groceries", YearMonth.of(2026, 9), Money.of("50000", Currency.RSD)))
+
+        val create = EditBudgetViewModel(repo, clock, SavedStateHandle())
+        create.state.first { it.categories.isNotEmpty() }
+        assertFalse(create.state.value.canSave)
+        assertTrue("cat-groceries" in create.state.value.taken)
+        create.setCategory("cat-fun")
+        create.setAmount("50")
+        create.setCurrency(Currency.EUR)
+        assertTrue(create.state.value.canSave)
+        create.save()
+        create.state.first { it.done }
+
+        val list = BudgetsViewModel(repo, clock).state.filterNotNull().first { it.statuses.size == 2 }
+        assertEquals(YearMonth.of(2026, 10), list.month)
+        assertEquals(18, list.daysLeft)
+
+        val edit = EditBudgetViewModel(repo, clock, SavedStateHandle(mapOf("category" to "cat-fun")))
+        val s = edit.state.first { it.categories.isNotEmpty() }
+        assertTrue(s.editing)
+        assertEquals("50", s.amountText)
+        assertEquals(Currency.EUR, s.currency)
+        edit.delete()
+        edit.state.first { it.done }
+        assertEquals(listOf("cat-groceries"), repo.effectiveBudgets(YearMonth.of(2026, 10)).first().map { it.categoryId })
+        assertEquals(1, repo.effectiveBudgets(YearMonth.of(2026, 9)).first().size)
     }
 }

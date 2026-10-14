@@ -59,19 +59,22 @@
 
     <string name="budgets_title">Budgets</string>
     <string name="budgets_subtitle">%1$s · %2$d days left</string>
-    <string name="budgets_edit">Edit</string>
+    <string name="budgets_new">+ New</string>
+    <string name="budget_new_title">New budget</string>
+    <string name="budget_edit_title">Edit budget</string>
+    <string name="budget_category">Category</string>
+    <string name="budget_amount">Monthly limit</string>
+    <string name="budget_save">Save budget</string>
+    <string name="budget_delete">Delete budget</string>
     <string name="budgets_left">RSD left</string>
     <string name="budgets_of">of %1$s</string>
-    <string name="budgets_empty">No budgets yet. Tap Edit to set monthly limits per category.</string>
+    <string name="budgets_empty">No budgets yet. Tap New to set a monthly limit for a category.</string>
     <string name="budgets_row_left">%1$s left</string>
     <string name="budgets_ahead">ahead of pace</string>
     <string name="budgets_on_track">on track</string>
     <string name="budgets_over_pace">over pace</string>
     <string name="budgets_low">Only %1$s left</string>
     <string name="budgets_over">Over by %1$s</string>
-    <string name="budgets_edit_title">Edit budgets</string>
-    <string name="budgets_edit_hint">Monthly limit in RSD. Leave empty for no budget.</string>
-    <string name="budgets_save">Save budgets</string>
     <string name="home_budgets">Budgets</string>
     <string name="home_see_all">See all</string>
     <string name="home_spent_of">%1$s spent of %2$s</string>

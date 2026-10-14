@@ -58,10 +58,29 @@ class BudgetCalculatorTest {
             rates,
         )
         assertEquals(listOf("b", "a"), statuses.map { it.categoryId })
-        assertEquals(Money.of("700", Currency.RSD), BudgetCalculator.reserve(statuses))
-        val (spent, total) = BudgetCalculator.total(statuses)
+        assertEquals(Money.of("700", Currency.RSD), BudgetCalculator.reserve(statuses, rates))
+        val (spent, total) = BudgetCalculator.total(statuses, rates)
         assertEquals(Money.of("1800", Currency.RSD), spent)
         assertEquals(Money.of("2000", Currency.RSD), total)
+    }
+
+    @Test
+    fun `budget in another currency counts only spending it can convert`() {
+        val eur = Budget("g", month, Money.of("100", Currency.EUR))
+        val statuses = BudgetCalculator.statuses(
+            today, listOf(eur),
+            listOf(
+                Transaction("1", TransactionType.EXPENSE, Money.of("20", Currency.EUR), "cash", null, "g", today, "", "", "m1", TransactionSource.MANUAL),
+                tx("2", "5000", "g"),
+            ),
+            rates,
+        )
+        val s = statuses.single()
+        assertEquals(Money.of("20", Currency.EUR), s.spent)
+        assertEquals(Money.of("80", Currency.EUR), s.left)
+        assertEquals(Money.zero(Currency.RSD), BudgetCalculator.reserve(statuses, rates))
+        val withEur = rates.plus(Currency.EUR, BigDecimal("117.20"))
+        assertEquals(Money.of("9376", Currency.RSD), BudgetCalculator.reserve(statuses, withEur))
     }
 
     @Test

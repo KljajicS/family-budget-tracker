@@ -3,6 +3,7 @@ package rs.budget.data
 import rs.budget.data.db.BudgetDb
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
+import rs.budget.domain.BudgetRemoved
 import rs.budget.domain.BudgetSet
 import rs.budget.domain.CategoryCreated
 import rs.budget.domain.EventRecord
@@ -35,6 +36,7 @@ class Projector(private val db: BudgetDb) {
             is BudgetSet -> db.budgetQueries.upsert(
                 e.budget.categoryId, e.budget.month.toString(), e.budget.money.amount.toPlainString(), e.budget.money.currency.name,
             )
+            is BudgetRemoved -> db.budgetQueries.delete(e.categoryId, e.month.toString())
         }
     }
 

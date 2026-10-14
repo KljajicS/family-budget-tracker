@@ -59,19 +59,22 @@
 
     <string name="budgets_title">Budžeti</string>
     <string name="budgets_subtitle">%1$s · još %2$d dana</string>
-    <string name="budgets_edit">Izmeni</string>
+    <string name="budgets_new">+ Novi</string>
+    <string name="budget_new_title">Novi budžet</string>
+    <string name="budget_edit_title">Izmena budžeta</string>
+    <string name="budget_category">Kategorija</string>
+    <string name="budget_amount">Mesečni limit</string>
+    <string name="budget_save">Sačuvaj budžet</string>
+    <string name="budget_delete">Obriši budžet</string>
     <string name="budgets_left">RSD preostalo</string>
     <string name="budgets_of">od %1$s</string>
-    <string name="budgets_empty">Još nema budžeta. Dodirni Izmeni da postaviš mesečne limite po kategoriji.</string>
+    <string name="budgets_empty">Još nema budžeta. Dodirni Novi da postaviš mesečni limit za kategoriju.</string>
     <string name="budgets_row_left">preostalo %1$s</string>
     <string name="budgets_ahead">ispred plana</string>
     <string name="budgets_on_track">po planu</string>
     <string name="budgets_over_pace">iznad plana</string>
     <string name="budgets_low">Samo %1$s preostalo</string>
     <string name="budgets_over">Prekoračeno za %1$s</string>
-    <string name="budgets_edit_title">Izmena budžeta</string>
-    <string name="budgets_edit_hint">Mesečni limit u RSD. Ostavi prazno ako nema budžeta.</string>
-    <string name="budgets_save">Sačuvaj budžete</string>
     <string name="home_budgets">Budžeti</string>
     <string name="home_see_all">Vidi sve</string>
     <string name="home_spent_of">%1$s potrošeno od %2$s</string>

@@ -5,6 +5,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import rs.budget.data.db.Account as AccountRow
@@ -19,6 +20,7 @@ import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Budget
 import rs.budget.domain.BudgetCalculator
+import rs.budget.domain.BudgetRemoved
 import rs.budget.domain.BudgetSet
 import rs.budget.domain.BudgetStatus
 import rs.budget.domain.Category
@@ -65,7 +67,8 @@ class BudgetRepository(
         db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }
 
     // ponytail: rates are RSD-only until the sync milestone adds the NBS fetch; EUR/USD accounts show as partial.
-    private val rsdRates = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
+    val rates: Rates = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
+    private val rsdRates get() = rates
 
     val budgets: Flow<List<Budget>> =
         db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
@@ -84,11 +87,24 @@ class BudgetRepository(
         }
 
     val home: Flow<HomeSummary> = combine(accounts, transactions, budgetStatuses) { accs, txs, statuses ->
-        HomeCalculator.summarize(clock.today(), accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses))
+        HomeCalculator.summarize(clock.today(), accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses, rsdRates))
     }
 
-    suspend fun setBudgets(month: YearMonth, amounts: Map<String, Money>) {
-        amounts.forEach { (categoryId, money) -> store.append(BudgetSet(Budget(categoryId, month, money))) }
+    suspend fun setBudget(budget: Budget) {
+        materialize(budget.month)
+        store.append(BudgetSet(budget))
+    }
+
+    suspend fun removeBudget(categoryId: String, month: YearMonth) {
+        materialize(month)
+        store.append(BudgetRemoved(categoryId, month))
+    }
+
+    /** First edit in a month pins the carried-forward set as real rows, so a delete cannot resurrect it through carry-forward. */
+    private suspend fun materialize(month: YearMonth) {
+        val all = budgets.first()
+        if (all.any { it.month == month }) return
+        effectiveBudgets(month).first().forEach { store.append(BudgetSet(it)) }
     }
 
     suspend fun currentMember(): Member? = withContext(Dispatchers.IO) {

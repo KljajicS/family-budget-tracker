@@ -10,6 +10,15 @@ class Rates(private val toRsd: Map<Currency, BigDecimal>) {
         return Money.of(m.amount * rate, Currency.RSD)
     }
 
+    /** Through RSD: null when either side has no rate. */
+    fun convert(m: Money, target: Currency): Money? {
+        if (m.currency == target) return m
+        val inRsd = convert(m) ?: return null
+        if (target == Currency.RSD) return inRsd
+        val rate = toRsd[target] ?: return null
+        return Money.of(inRsd.amount.divide(rate, 2, java.math.RoundingMode.HALF_UP), target)
+    }
+
     fun plus(currency: Currency, rate: BigDecimal = BigDecimal.ONE) = Rates(toRsd + (currency to rate))
 
     companion object {

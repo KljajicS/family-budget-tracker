@@ -50,7 +50,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun BudgetsScreen(onEdit: () -> Unit, vm: BudgetsViewModel = hiltViewModel()) {
+fun BudgetsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: BudgetsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
@@ -67,16 +67,18 @@ fun BudgetsScreen(onEdit: () -> Unit, vm: BudgetsViewModel = hiltViewModel()) {
                     Text(stringResource(R.string.budgets_subtitle, monthName(s.month), s.daysLeft), style = LabelStyle, color = c.muted)
                 }
                 Box(
-                    Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, c.border, RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onEdit).padding(horizontal = 14.dp),
+                    Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, c.border, RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onNew).padding(horizontal = 14.dp),
                     contentAlignment = Alignment.Center,
-                ) { Text(stringResource(R.string.budgets_edit), style = sans(14, FontWeight.Medium), color = c.text) }
+                ) { Text(stringResource(R.string.budgets_new), style = sans(14, FontWeight.Medium), color = c.text) }
             }
         }
         if (s.statuses.isEmpty()) {
             item { Text(stringResource(R.string.budgets_empty), style = BodyStyle, color = c.muted) }
         } else {
             item { TotalCard(s) }
-            items(s.statuses, key = { it.categoryId }) { BudgetRow(it, s.categories) }
+            items(s.statuses, key = { it.categoryId }) { st ->
+                Box(Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onEdit(st.categoryId) }) { BudgetRow(st, s.categories) }
+            }
         }
     }
 }
@@ -118,7 +120,8 @@ fun BudgetRow(st: BudgetStatus, categories: List<Category>, compact: Boolean = f
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!compact) Box(Modifier.size(10.dp).background(color, RoundedCornerShape(3.dp)))
             Text(name, style = if (compact) sans(14) else sans(15, FontWeight.Medium), color = c.text, modifier = Modifier.weight(1f))
-            Text("${formatAmount(st.spent)} / ${formatAmount(st.budget)}", style = mono(13), color = if (warn) c.orange else c.muted)
+            val suffix = if (st.budget.currency == rs.budget.domain.Currency.RSD) "" else " ${st.budget.currency}"
+            Text("${formatAmount(st.spent)} / ${formatAmount(st.budget)}$suffix", style = mono(13), color = if (warn) c.orange else c.muted)
         }
         PaceBar(st.ratio.toFloat(), st.pace.toFloat(), barColor, if (compact) 6.dp else 8.dp)
         if (!compact) Text(hint, style = CaptionStyle, color = if (warn) c.orange else c.muted)

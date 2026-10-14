@@ -4,6 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.Instant
+import java.time.YearMonth
 
 @Serializable
 sealed interface Event
@@ -31,6 +32,12 @@ data class TransactionDeleted(val transactionId: String) : Event
 
 @Serializable @SerialName("BudgetSet")
 data class BudgetSet(val budget: Budget) : Event
+
+@Serializable @SerialName("BudgetRemoved")
+data class BudgetRemoved(
+    val categoryId: String,
+    @Serializable(with = YearMonthSerializer::class) val month: YearMonth,
+) : Event
 
 /** One row of the append-only log. `seq` is per device and strictly increasing. */
 data class EventRecord(

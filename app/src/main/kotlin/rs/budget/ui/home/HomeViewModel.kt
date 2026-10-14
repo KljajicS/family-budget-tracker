@@ -37,7 +37,7 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : 
         flow { emit(repo.currentMember()?.id) },
         repo.budgetStatuses,
     ) { summary, recent, member, statuses ->
-        val (spent, total) = BudgetCalculator.total(statuses)
+        val (spent, total) = BudgetCalculator.total(statuses, repo.rates)
         HomeState(
             summary, recent, member, clock.today(),
             budgets = statuses.take(3),

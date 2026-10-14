@@ -7,6 +7,7 @@ import java.time.YearMonth
 
 enum class PaceState { AHEAD, ON_TRACK, OVER_PACE, LOW, OVER }
 
+/** Amounts are in the budget's own currency. */
 data class BudgetStatus(
     val categoryId: String,
     val budget: Money,
@@ -19,20 +20,22 @@ data class BudgetStatus(
 
 object BudgetCalculator {
 
-    /** One status per budget with a positive amount, sorted by spent ÷ budget descending. Amounts not convertible to RSD are skipped. */
+    /**
+     * One status per budget with a positive amount, sorted by spent ÷ budget descending.
+     * Spending is converted into the budget's currency; amounts with no rate are skipped.
+     */
     fun statuses(today: LocalDate, budgets: List<Budget>, transactions: List<Transaction>, rates: Rates): List<BudgetStatus> {
         val month = YearMonth.from(today)
         val pace = today.dayOfMonth.toDouble() / month.lengthOfMonth()
-        val spentByCategory = transactions
-            .filter { it.type == TransactionType.EXPENSE && it.categoryId != null && YearMonth.from(it.date) == month }
-            .groupBy { it.categoryId!! }
-            .mapValues { (_, txs) -> txs.fold(Money.zero(Currency.RSD)) { acc, t -> acc + (rates.convert(t.money) ?: Money.zero(Currency.RSD)) } }
+        val expenses = transactions.filter { it.type == TransactionType.EXPENSE && it.categoryId != null && YearMonth.from(it.date) == month }
 
         return budgets
             .filter { it.month == month && it.money.amount.signum() > 0 }
             .map { b ->
-                val budget = rates.convert(b.money) ?: Money.zero(Currency.RSD)
-                val spent = spentByCategory[b.categoryId] ?: Money.zero(Currency.RSD)
+                val budget = b.money
+                val spent = expenses
+                    .filter { it.categoryId == b.categoryId }
+                    .fold(Money.zero(budget.currency)) { acc, t -> acc + (rates.convert(t.money, budget.currency) ?: Money.zero(budget.currency)) }
                 val left = budget - spent
                 val ratio = spent.amount.divide(budget.amount, 4, RoundingMode.HALF_UP).toDouble()
                 val state = when {
@@ -47,11 +50,13 @@ object BudgetCalculator {
             .sortedByDescending { it.ratio }
     }
 
-    /** Money the budgets still claim this month. Overspent categories contribute nothing. */
-    fun reserve(statuses: List<BudgetStatus>): Money =
-        statuses.fold(Money.zero(Currency.RSD)) { acc, s -> if (s.left.isNegative) acc else acc + s.left }
+    /** Money the budgets still claim this month, in RSD. Overspent categories and unconvertible currencies contribute nothing. */
+    fun reserve(statuses: List<BudgetStatus>, rates: Rates): Money =
+        statuses.fold(Money.zero(Currency.RSD)) { acc, s -> if (s.left.isNegative) acc else acc + (rates.convert(s.left) ?: Money.zero(Currency.RSD)) }
 
-    /** Total spent and total budgeted across all statuses. */
-    fun total(statuses: List<BudgetStatus>): Pair<Money, Money> =
-        statuses.fold(Money.zero(Currency.RSD)) { a, s -> a + s.spent } to statuses.fold(Money.zero(Currency.RSD)) { a, s -> a + s.budget }
+    /** Total spent and total budgeted in RSD; unconvertible currencies are skipped. */
+    fun total(statuses: List<BudgetStatus>, rates: Rates): Pair<Money, Money> {
+        fun sum(pick: (BudgetStatus) -> Money) = statuses.fold(Money.zero(Currency.RSD)) { a, s -> a + (rates.convert(pick(s)) ?: Money.zero(Currency.RSD)) }
+        return sum { it.spent } to sum { it.budget }
+    }
 }

@@ -21,5 +21,7 @@ enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVect
 object Routes {
     const val SETUP = "setup"
     const val ADD = "add"
-    const val EDIT_BUDGETS = "budgets/edit"
+    const val NEW_BUDGET = "budgets/new"
+    const val EDIT_BUDGET = "budgets/edit/{category}"
+    fun editBudget(categoryId: String) = "budgets/edit/$categoryId"
 }

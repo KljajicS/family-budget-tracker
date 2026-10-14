@@ -48,4 +48,5 @@ Category colors (same in both themes): Groceries #3D4BD6, Bills #D06A1E, Transpo
 - Keypad: 3 columns, gap 8, keys height 52, radius 14, surface2, mono 22 / 500. Pushed to the bottom.
 - Primary button (Save): height 54, radius 16, primary, 16 / 600.
 - Pace bar: track height 10 on summary cards, 8 on budget rows, 6 in the Home budgets section; fully rounded; fill in the category color, orange when low or over. Marker 2 wide, 4 taller than the track on both ends, text color on summary cards and muted on rows.
-- Budgets rows: 10 x 10 square with radius 3 in the category color, name 15 / 500, amounts mono 13 muted (orange when warning), hint 12 muted below the bar. Edit pill: height 40, radius 20, border, 14 / 500.
+- Budgets rows: 10 x 10 square with radius 3 in the category color, name 15 / 500, amounts mono 13 muted (orange when warning), hint 12 muted below the bar; non-RSD budgets show their currency after the amounts. Rows are tappable and open the edit form. "+ New" pill: height 40, radius 20, border, 14 / 500.
+- Budget form: category tiles as on Add (already-budgeted ones dimmed to 40%, locked when editing), amount box mono 22 with currency suffix, currency pills, "Delete budget" text link in orange when editing, primary Save.

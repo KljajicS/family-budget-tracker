@@ -50,7 +50,7 @@ import rs.budget.ui.Routes
 import rs.budget.ui.Tab
 import rs.budget.ui.add.AddScreen
 import rs.budget.ui.budgets.BudgetsScreen
-import rs.budget.ui.budgets.EditBudgetsScreen
+import rs.budget.ui.budgets.EditBudgetScreen
 import rs.budget.ui.home.HomeScreen
 import rs.budget.ui.setup.SetupScreen
 import rs.budget.ui.theme.BodyStyle
@@ -103,8 +103,11 @@ fun BudgetRoot() {
             }
             composable(Tab.INSIGHTS.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.SCAN.route) { Stub(stringResource(R.string.coming_soon)) }
-            composable(Tab.BUDGETS.route) { BudgetsScreen(onEdit = { nav.navigate(Routes.EDIT_BUDGETS) }) }
-            composable(Routes.EDIT_BUDGETS) { EditBudgetsScreen(onClose = { nav.popBackStack() }) }
+            composable(Tab.BUDGETS.route) {
+                BudgetsScreen(onNew = { nav.navigate(Routes.NEW_BUDGET) }, onEdit = { nav.navigate(Routes.editBudget(it)) })
+            }
+            composable(Routes.NEW_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
+            composable(Routes.EDIT_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
             composable(Tab.GOALS.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Routes.SETUP) {
                 SetupScreen(onDone = { nav.navigate(Tab.HOME.route) { popUpTo(Routes.SETUP) { inclusive = true } } })
