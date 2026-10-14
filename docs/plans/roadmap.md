@@ -4,7 +4,7 @@ One milestone per screen, in the order the spec's build order dictates. Each mil
 
 | # | Milestone | Delivers | Plan |
 |---|---|---|---|
-| 1 | Foundation and Home | Project skeleton, domain core (money, events, projector), local DB, first-run setup (member, accounts), Add transaction sheet, Home screen with safe to spend, income, spent, savings, recent. Other tabs are stubs. | [2026-10-14-m1-foundation-home.md](2026-10-14-m1-foundation-home.md) |
+| 1 | Foundation and Home | Done 2026-10-14. Project skeleton, domain core (money, events, projector), local DB, first-run setup (member, accounts), Add transaction sheet, Home screen with safe to spend, income, spent, savings, recent. Other tabs are stubs. | [2026-10-14-m1-foundation-home.md](2026-10-14-m1-foundation-home.md) |
 | 2 | Sync | Google sign-in, Drive appDataFolder client, family key setup and QR share, recovery phrase, encrypted per-device event logs, WorkManager sync, "synced X ago" on Home. | |
 | 3 | Budgets | Budget per category per month, pace bars, budget section on Home, budget reserve in safe to spend. | |
 | 4 | Recurring bills | Recurring rules, upcoming list on Budgets, confirm-as-paid, bills in safe to spend. | |
