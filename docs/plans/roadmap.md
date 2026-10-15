@@ -10,7 +10,7 @@ One milestone per screen, in the order the spec's build order dictates. Each mil
 | 3 | Recurring bills | Done 2026-10-15. Recurring rules under Settings, Upcoming list on Budgets with overdue carry, pay through the pre-filled Add sheet or skip, unpaid bills held back in safe to spend (ADR 9). | [2026-10-15-m3-recurring.md](2026-10-15-m3-recurring.md) |
 | 4 | Scan receipt | CameraX + ML Kit QR, fiscal receipt fetch and parse, pre-filled Add sheet, merchant memory for category guess. | |
 | 5 | Insights | Done 2026-10-15. Month navigation, category donut, six-month income vs expenses, savings trend, one rule-based tip for the current month. Built before Scan because it needs no camera. | [2026-10-15-m5-insights.md](2026-10-15-m5-insights.md) |
-| 6 | Goals | Goals, allocations, ETA, unassigned savings, contributions in safe to spend. | |
+| 6 | Goals | Done 2026-10-15. Goals with their own currency, explicit allocations, progress and arrival month, unassigned savings, needs line, this month's unassigned contributions held back in safe to spend. | [2026-10-15-m6-goals.md](2026-10-15-m6-goals.md) |
 | 7 | Sync | Google sign-in, Drive appDataFolder client, family key setup and QR share, recovery phrase, encrypted per-device event logs, WorkManager sync, "synced X ago" on Home. Moved last on 2026-10-14: the family tests on one phone until the screens exist. | |
 
 Cross-cutting, done inside milestone 1 and kept green after: Serbian and English strings, light and AMOLED themes, JVM tests, `make check`, `make run`, GitHub Actions debug APK.
