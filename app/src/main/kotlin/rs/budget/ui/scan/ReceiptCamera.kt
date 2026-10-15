@@ -4,6 +4,7 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.TorchState
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Observer
 import rs.budget.R
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -40,6 +42,14 @@ fun ReceiptCamera(modifier: Modifier, onCode: (String) -> Unit, onError: () -> U
     val errorCallback by rememberUpdatedState(onError)
     var camera by remember { mutableStateOf<Camera?>(null) }
     var torch by remember { mutableStateOf(false) }
+
+    DisposableEffect(camera, owner) {
+        val state = camera?.cameraInfo?.torchState
+        val observer = Observer<Int> { torch = it == TorchState.ON }
+        torch = state?.value == TorchState.ON
+        state?.observe(owner, observer)
+        onDispose { state?.removeObserver(observer) }
+    }
 
     DisposableEffect(owner) {
         val executor = Executors.newSingleThreadExecutor()
@@ -87,7 +97,7 @@ fun ReceiptCamera(modifier: Modifier, onCode: (String) -> Unit, onError: () -> U
     Box(modifier) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
         if (camera?.cameraInfo?.hasFlashUnit() == true) {
-            TextButton(onClick = { torch = !torch; camera?.cameraControl?.enableTorch(torch) },
+            TextButton(onClick = { camera?.cameraControl?.enableTorch(!torch) },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
                 Text(stringResource(if (torch) R.string.scan_torch_off else R.string.scan_torch_on))
             }
