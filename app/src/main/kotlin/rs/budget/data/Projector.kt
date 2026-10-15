@@ -33,14 +33,13 @@ class Projector(private val db: BudgetDb) {
             is AccountCreated -> db.accountQueries.insertIgnore(
                 e.account.id, e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0,
             )
-            is AccountUpdated -> db.accountQueries.update(
-                e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0, e.account.id,
-            )
+            // Edits never change archived: a stale edit from the other phone must not bring a deleted row back (ADR 8).
+            is AccountUpdated -> db.accountQueries.update(e.account.name, e.account.currency.name, e.account.kind.name, e.account.id)
             is AccountArchived -> db.accountQueries.archive(e.accountId)
             is CategoryCreated -> db.categoryQueries.insertIgnore(
                 e.category.id, e.category.name, e.category.color, if (e.category.archived) 1 else 0,
             )
-            is CategoryUpdated -> db.categoryQueries.update(e.category.name, e.category.color, if (e.category.archived) 1 else 0, e.category.id)
+            is CategoryUpdated -> db.categoryQueries.update(e.category.name, e.category.color, e.category.id)
             is CategoryArchived -> db.categoryQueries.archive(e.categoryId)
             is TransactionAdded -> with(e.transaction) {
                 db.txQueries.insertIgnore(
@@ -60,7 +59,6 @@ class Projector(private val db: BudgetDb) {
             )
             // A zero row is the tombstone: it stops carry-forward from an earlier month (see BudgetCalculator.effective).
             is BudgetRemoved -> db.budgetQueries.upsert(e.categoryId, e.month.toString(), "0.00", "RSD")
-            // Archived stays archived: a stale edit from the other phone must not bring a deleted bill back (ADR 8).
             is RecurringRuleSet -> with(e.rule) {
                 db.recurringRuleQueries.insertIgnore(id, name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString())
                 db.recurringRuleQueries.update(name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString(), id)

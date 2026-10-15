@@ -9,7 +9,7 @@ insertIgnore:
 INSERT OR IGNORE INTO category(id, name, color, archived) VALUES (?, ?, ?, ?);
 
 update:
-UPDATE category SET name = ?, color = ?, archived = ? WHERE id = ?;
+UPDATE category SET name = ?, color = ? WHERE id = ?;
 
 active:
 SELECT * FROM category WHERE archived = 0 ORDER BY name;

@@ -10,7 +10,7 @@ insertIgnore:
 INSERT OR IGNORE INTO account(id, name, currency, kind, archived) VALUES (?, ?, ?, ?, ?);
 
 update:
-UPDATE account SET name = ?, currency = ?, kind = ?, archived = ? WHERE id = ?;
+UPDATE account SET name = ?, currency = ?, kind = ? WHERE id = ?;
 
 archive:
 UPDATE account SET archived = 1 WHERE id = ?;

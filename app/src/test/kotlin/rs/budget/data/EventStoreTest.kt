@@ -5,8 +5,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.budget.domain.Account
+import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
+import rs.budget.domain.AccountUpdated
+import rs.budget.domain.CategoryArchived
 import rs.budget.domain.BillSkipped
 import rs.budget.domain.Cadence
 import rs.budget.domain.RecurringRule
@@ -95,6 +98,22 @@ class EventStoreTest {
         store.append(CategoryUpdated(Category("cat-fun", "Zabava", "#111111")))
         store.applyRemote(listOf(EventRecord("remote-1", "dev-2", 1, at(12), CategoryCreated(Category("cat-fun", "Fun", "#111111")))))
         assertEquals("Zabava", db.categoryQueries.active().executeAsList().single().name)
+    }
+
+    @Test
+    fun `a later edit does not bring an archived category or account back`() = runTest {
+        store.append(CategoryCreated(Category("c1", "Fun", "#111111")))
+        store.append(AccountCreated(Account("a1", "Cash", Currency.RSD, AccountKind.SPENDING)))
+        clock.instant = at(11)
+        store.append(CategoryArchived("c1"))
+        store.append(AccountArchived("a1"))
+        store.applyRemote(listOf(
+            EventRecord("remote-1", "dev-2", 1, at(12), CategoryUpdated(Category("c1", "Zabava", "#222222"))),
+            EventRecord("remote-2", "dev-2", 2, at(12), AccountUpdated(Account("a1", "Keš", Currency.RSD, AccountKind.SPENDING))),
+        ))
+        assertEquals(0, db.categoryQueries.active().executeAsList().size)
+        assertEquals(0, db.accountQueries.active().executeAsList().size)
+        assertEquals("Keš", db.accountQueries.byId("a1").executeAsOne().name)
     }
 
     @Test
