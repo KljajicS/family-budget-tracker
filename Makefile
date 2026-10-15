@@ -1,4 +1,4 @@
-.PHONY: check lint test build run shot emu
+.PHONY: check lint test build release run shot emu
 
 check: lint test
 
@@ -10,6 +10,9 @@ test:
 
 build:
 	./gradlew --quiet :app:assembleDebug
+
+release:
+	./gradlew --quiet :app:assembleRelease
 
 run: build
 	adb install -r app/build/outputs/apk/debug/app-debug.apk
