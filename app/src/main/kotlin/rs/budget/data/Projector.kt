@@ -1,6 +1,8 @@
 package rs.budget.data
 
 import rs.budget.data.db.BudgetDb
+import kotlinx.serialization.encodeToString
+import rs.budget.domain.EventJson
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountUpdated
@@ -46,6 +48,13 @@ class Projector(private val db: BudgetDb) {
             is CategoryUpdated -> db.categoryQueries.update(e.category.name, e.category.color, e.category.id)
             is CategoryArchived -> db.categoryQueries.archive(e.categoryId)
             is TransactionAdded -> with(e.transaction) {
+                e.receipt?.let { receipt ->
+                    require(id == receipt.transactionId && source == rs.budget.domain.TransactionSource.RECEIPT)
+                    if (db.receiptQueries.byId(receipt.id).executeAsOneOrNull() != null) return
+                    db.receiptQueries.insert(receipt.id, id, receipt.issuer, receipt.invoiceNumber,
+                        receipt.fiscalUrl, receipt.merchant, receipt.date.toString(),
+                        receipt.total.amount.toPlainString(), EventJson.encodeToString(receipt.items))
+                }
                 db.txQueries.insertIgnore(
                     id, type.name, money.amount.toPlainString(), money.currency.name, accountId, toAccountId, categoryId,
                     date.toString(), note, merchant, paidBy, source.name, at,
@@ -82,6 +91,7 @@ class Projector(private val db: BudgetDb) {
     }
 
     fun clear() {
+        db.receiptQueries.deleteAll()
         db.goalAllocationQueries.deleteAll()
         db.goalQueries.deleteAll()
         db.billSkipQueries.deleteAll()
@@ -95,6 +105,6 @@ class Projector(private val db: BudgetDb) {
 
     companion object {
         /** Bump when a projector change must reach existing installs; the app rebuilds once on mismatch. */
-        const val VERSION = 3
+        const val VERSION = 4
     }
 }
