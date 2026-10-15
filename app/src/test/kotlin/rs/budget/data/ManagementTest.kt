@@ -37,6 +37,9 @@ class ManagementTest {
         assertEquals("Euro savings", repo.accounts.first().first { it.id == "eur" }.name)
         repo.archiveAccount("cash")
         assertEquals(listOf("eur"), repo.accounts.first().map { it.id })
+        assertEquals(listOf("cash", "eur"), repo.allAccounts.first().map { it.id }.sorted())
+        repo.archiveCategory("cat-fun")
+        assertEquals(StarterCategories.all.size, repo.allCategories.first().size)
         val m = repo.currentMember()!!
         repo.renameMember(m.id, "Siniša")
         assertEquals("Siniša", repo.currentMember()!!.displayName)

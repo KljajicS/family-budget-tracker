@@ -72,6 +72,13 @@ class BudgetRepository(
     val categories: Flow<List<Category>> =
         db.categoryQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
 
+    /** Archived rows included: history screens need the names and balances of things that no longer exist. */
+    val allAccounts: Flow<List<Account>> =
+        db.accountQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+
+    val allCategories: Flow<List<Category>> =
+        db.categoryQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+
     val members: Flow<List<Member>> =
         db.memberQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
 

@@ -14,6 +14,9 @@ UPDATE category SET name = ?, color = ? WHERE id = ?;
 active:
 SELECT * FROM category WHERE archived = 0 ORDER BY name;
 
+all:
+SELECT * FROM category ORDER BY name;
+
 archive:
 UPDATE category SET archived = 1 WHERE id = ?;
 

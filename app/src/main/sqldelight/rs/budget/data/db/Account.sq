@@ -18,6 +18,9 @@ UPDATE account SET archived = 1 WHERE id = ?;
 active:
 SELECT * FROM account WHERE archived = 0 ORDER BY name;
 
+all:
+SELECT * FROM account ORDER BY name;
+
 byId:
 SELECT * FROM account WHERE id = ?;
 
