@@ -1,0 +1,11 @@
+CREATE TABLE receipt (
+    id TEXT NOT NULL PRIMARY KEY,
+    transaction_id TEXT NOT NULL UNIQUE,
+    issuer TEXT NOT NULL,
+    invoice_number TEXT NOT NULL,
+    fiscal_url TEXT NOT NULL,
+    merchant TEXT NOT NULL,
+    date TEXT NOT NULL,
+    total TEXT NOT NULL,
+    items_json TEXT NOT NULL
+);

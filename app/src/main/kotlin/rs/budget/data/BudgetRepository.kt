@@ -57,6 +57,7 @@ import rs.budget.domain.Member
 import rs.budget.domain.MemberCreated
 import rs.budget.domain.Money
 import rs.budget.domain.Rates
+import rs.budget.domain.Receipt
 import rs.budget.domain.Transaction
 import rs.budget.domain.TransactionAdded
 import rs.budget.domain.TransactionDeleted
@@ -69,6 +70,9 @@ import java.time.LocalDate
 import java.time.YearMonth
 
 data class RecentTx(val transaction: Transaction, val categoryName: String?, val paidByName: String?)
+class DuplicateReceipt : IllegalStateException("Receipt already saved")
+class InvalidReceiptAccount : IllegalStateException("Receipt requires an active RSD account")
+class InvalidReceiptCategory : IllegalStateException("Category no longer available")
 
 class BudgetRepository(
     private val db: BudgetDb,
@@ -192,6 +196,27 @@ class BudgetRepository(
     suspend fun renameMember(memberId: String, displayName: String) { store.append(MemberRenamed(memberId, displayName.trim())) }
 
     suspend fun add(t: Transaction) { store.append(TransactionAdded(t)) }
+
+    suspend fun hasReceipt(id: String): Boolean = withContext(Dispatchers.IO) {
+        db.receiptQueries.byId(id).executeAsOneOrNull() != null
+    }
+
+    suspend fun receiptCategory(issuer: String): String? = withContext(Dispatchers.IO) {
+        db.receiptQueries.suggestCategory(issuer).executeAsOneOrNull()?.category_id
+    }
+
+    suspend fun addReceipt(t: Transaction, receipt: Receipt) {
+        require(t.id == receipt.transactionId && t.source == TransactionSource.RECEIPT && t.type == TransactionType.EXPENSE)
+        require(t.money.currency == Currency.RSD && receipt.total.currency == Currency.RSD)
+        store.append(TransactionAdded(t, receipt)) {
+            if (db.receiptQueries.byId(receipt.id).executeAsOneOrNull() != null) throw DuplicateReceipt()
+            val account = db.accountQueries.byId(t.accountId).executeAsOneOrNull()
+            if (account == null || account.archived != 0L || account.currency != "RSD") throw InvalidReceiptAccount()
+            if (t.categoryId != null && db.categoryQueries.active().executeAsList().none { it.id == t.categoryId }) {
+                throw InvalidReceiptCategory()
+            }
+        }
+    }
     suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) }
     suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
 

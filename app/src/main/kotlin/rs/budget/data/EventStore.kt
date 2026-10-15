@@ -18,8 +18,12 @@ class EventStore(
     private val clock: Clock,
     private val projector: Projector,
 ) {
-    suspend fun append(event: Event): EventRecord = withContext(Dispatchers.IO) {
+    private val writeLock = Any()
+
+    suspend fun append(event: Event, validate: () -> Unit = {}): EventRecord = withContext(Dispatchers.IO) {
+        synchronized(writeLock) {
         db.transactionWithResult {
+            validate()
             val seq = (db.eventQueries.lastSeq(deviceId).executeAsOne().max_seq ?: 0L) + 1
             // Logical clock: never earlier than anything already in the log, so causality survives a skewed phone clock.
             val last = db.eventQueries.lastOccurredAt().executeAsOne().max_at ?: 0L
@@ -29,17 +33,18 @@ class EventStore(
             projector.apply(record)
             record
         }
+        }
     }
 
     /** Records from other devices. Unknown `(deviceId, seq)` pairs are stored, then read tables are rebuilt in log order. */
-    fun applyRemote(records: List<EventRecord>) = db.transaction {
+    fun applyRemote(records: List<EventRecord>) = synchronized(writeLock) { db.transaction {
         val fresh = records.filter { db.eventQueries.countFor(it.deviceId, it.seq).executeAsOne() == 0L }
         if (fresh.isEmpty()) return@transaction
         fresh.forEach(::insert)
         rebuildInTransaction()
-    }
+    } }
 
-    fun rebuild() = db.transaction { rebuildInTransaction() }
+    fun rebuild() = synchronized(writeLock) { db.transaction { rebuildInTransaction() } }
 
     private fun rebuildInTransaction() {
         projector.clear()

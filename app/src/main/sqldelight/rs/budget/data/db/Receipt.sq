@@ -1,0 +1,27 @@
+CREATE TABLE receipt (
+    id TEXT NOT NULL PRIMARY KEY,
+    transaction_id TEXT NOT NULL UNIQUE,
+    issuer TEXT NOT NULL,
+    invoice_number TEXT NOT NULL,
+    fiscal_url TEXT NOT NULL,
+    merchant TEXT NOT NULL,
+    date TEXT NOT NULL,
+    total TEXT NOT NULL,
+    items_json TEXT NOT NULL
+);
+
+insert:
+INSERT INTO receipt VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+byId:
+SELECT * FROM receipt WHERE id = ?;
+
+suggestCategory:
+SELECT tx.category_id FROM receipt
+JOIN tx ON tx.id = receipt.transaction_id
+JOIN category ON category.id = tx.category_id
+WHERE receipt.issuer = ? AND category.archived = 0 AND tx.type = 'EXPENSE'
+ORDER BY tx.edited_at DESC, tx.id DESC LIMIT 1;
+
+deleteAll:
+DELETE FROM receipt;
