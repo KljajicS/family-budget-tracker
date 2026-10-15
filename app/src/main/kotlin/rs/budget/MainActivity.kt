@@ -58,6 +58,7 @@ import rs.budget.ui.add.AddScreen
 import rs.budget.ui.budgets.BudgetsScreen
 import rs.budget.ui.budgets.EditBudgetScreen
 import rs.budget.ui.home.HomeScreen
+import rs.budget.ui.goals.GoalsScreen
 import rs.budget.ui.insights.InsightsScreen
 import rs.budget.ui.settings.AccountsScreen
 import rs.budget.ui.settings.CategoriesScreen
@@ -164,7 +165,7 @@ fun BudgetRoot(root: RootViewModel) {
             }
             composable(Routes.NEW_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
-            composable(Tab.GOALS.route) { Stub(stringResource(R.string.coming_soon)) }
+            composable(Tab.GOALS.route) { GoalsScreen(onNew = {}, onOpen = {}) }
             composable(Routes.SETUP) {
                 SetupScreen(onDone = { nav.navigate(Tab.HOME.route) { popUpTo(Routes.SETUP) { inclusive = true } } })
             }
