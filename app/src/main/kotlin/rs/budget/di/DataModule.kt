@@ -1,6 +1,7 @@
 package rs.budget.di
 
 import android.content.Context
+import androidx.core.content.edit
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import dagger.Module
 import dagger.Provides
@@ -30,6 +31,12 @@ object DataModule {
     @Provides @Singleton
     fun repository(@ApplicationContext context: Context, db: BudgetDb, clock: Clock): BudgetRepository {
         val id = deviceId(context)
-        return BudgetRepository(db, EventStore(db, id, clock, Projector(db)), clock, id)
+        val store = EventStore(db, id, clock, Projector(db))
+        val prefs = context.getSharedPreferences("projection", Context.MODE_PRIVATE)
+        if (prefs.getInt("version", 0) != Projector.VERSION) {
+            store.rebuild()
+            prefs.edit { putInt("version", Projector.VERSION) }
+        }
+        return BudgetRepository(db, store, clock, id)
     }
 }

@@ -20,6 +20,9 @@ SELECT COUNT(*) FROM event;
 lastSeq:
 SELECT MAX(seq) AS max_seq FROM event WHERE device_id = ?;
 
+lastOccurredAt:
+SELECT MAX(occurred_at) AS max_at FROM event;
+
 allInOrder:
 SELECT * FROM event ORDER BY occurred_at, device_id, seq;
 

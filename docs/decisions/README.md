@@ -11,3 +11,4 @@ One file per decision, numbered, never edited after acceptance. A reversed decis
 | [0005](0005-family-key-encryption.md) | One shared family key, AES-GCM via Tink |
 | [0006](0006-sqldelight-storage.md) | SQLDelight for local storage |
 | [0007](0007-safe-to-spend-formula.md) | Safe-to-spend formula |
+| [0008](0008-deterministic-replay.md) | Deterministic replay, logical clock, delete wins |

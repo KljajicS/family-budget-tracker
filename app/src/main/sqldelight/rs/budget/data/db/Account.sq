@@ -6,8 +6,11 @@ CREATE TABLE account (
     archived INTEGER NOT NULL DEFAULT 0
 );
 
-upsert:
-INSERT OR REPLACE INTO account(id, name, currency, kind, archived) VALUES (?, ?, ?, ?, ?);
+insertIgnore:
+INSERT OR IGNORE INTO account(id, name, currency, kind, archived) VALUES (?, ?, ?, ?, ?);
+
+update:
+UPDATE account SET name = ?, currency = ?, kind = ?, archived = ? WHERE id = ?;
 
 archive:
 UPDATE account SET archived = 1 WHERE id = ?;

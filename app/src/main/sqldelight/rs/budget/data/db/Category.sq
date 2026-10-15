@@ -5,8 +5,11 @@ CREATE TABLE category (
     archived INTEGER NOT NULL DEFAULT 0
 );
 
-upsert:
-INSERT OR REPLACE INTO category(id, name, color, archived) VALUES (?, ?, ?, ?);
+insertIgnore:
+INSERT OR IGNORE INTO category(id, name, color, archived) VALUES (?, ?, ?, ?);
+
+update:
+UPDATE category SET name = ?, color = ?, archived = ? WHERE id = ?;
 
 active:
 SELECT * FROM category WHERE archived = 0 ORDER BY name;

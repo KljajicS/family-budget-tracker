@@ -12,37 +12,44 @@ import rs.budget.domain.CategoryUpdated
 import rs.budget.domain.MemberRenamed
 import rs.budget.domain.EventRecord
 import rs.budget.domain.MemberCreated
-import rs.budget.domain.Transaction
 import rs.budget.domain.TransactionAdded
 import rs.budget.domain.TransactionDeleted
 import rs.budget.domain.TransactionEdited
 
-/** Only writer of read tables. Idempotent per record; later `occurredAt` wins for edits. */
+/**
+ * Only writer of read tables. Correct only when records arrive in log order (see ADR 8):
+ * a create never overwrites, an edit only touches an existing row, a delete is final.
+ */
 class Projector(private val db: BudgetDb) {
 
     fun apply(record: EventRecord) {
         val at = record.occurredAt.toEpochMilli()
         when (val e = record.event) {
-            is MemberCreated -> db.memberQueries.upsert(e.member.id, e.member.displayName, e.member.deviceId)
-            is AccountCreated -> db.accountQueries.upsert(
+            is MemberCreated -> db.memberQueries.insertIgnore(e.member.id, e.member.displayName, e.member.deviceId)
+            is MemberRenamed -> db.memberQueries.rename(e.displayName, e.memberId)
+            is AccountCreated -> db.accountQueries.insertIgnore(
                 e.account.id, e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0,
+            )
+            is AccountUpdated -> db.accountQueries.update(
+                e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0, e.account.id,
             )
             is AccountArchived -> db.accountQueries.archive(e.accountId)
-            is AccountUpdated -> db.accountQueries.upsert(
-                e.account.id, e.account.name, e.account.currency.name, e.account.kind.name, if (e.account.archived) 1 else 0,
-            )
-            is CategoryCreated -> db.categoryQueries.upsert(
+            is CategoryCreated -> db.categoryQueries.insertIgnore(
                 e.category.id, e.category.name, e.category.color, if (e.category.archived) 1 else 0,
             )
-            is CategoryUpdated -> db.categoryQueries.upsert(
-                e.category.id, e.category.name, e.category.color, if (e.category.archived) 1 else 0,
-            )
+            is CategoryUpdated -> db.categoryQueries.update(e.category.name, e.category.color, if (e.category.archived) 1 else 0, e.category.id)
             is CategoryArchived -> db.categoryQueries.archive(e.categoryId)
-            is MemberRenamed -> db.memberQueries.rename(e.displayName, e.memberId)
-            is TransactionAdded -> upsertTx(e.transaction, at)
-            is TransactionEdited -> {
-                val current = db.txQueries.editedAt(e.transaction.id).executeAsOneOrNull()
-                if (current == null || current <= at) upsertTx(e.transaction, at)
+            is TransactionAdded -> with(e.transaction) {
+                db.txQueries.insertIgnore(
+                    id, type.name, money.amount.toPlainString(), money.currency.name, accountId, toAccountId, categoryId,
+                    date.toString(), note, merchant, paidBy, source.name, at,
+                )
+            }
+            is TransactionEdited -> with(e.transaction) {
+                db.txQueries.update(
+                    type.name, money.amount.toPlainString(), money.currency.name, accountId, toAccountId, categoryId,
+                    date.toString(), note, merchant, paidBy, source.name, at, id,
+                )
             }
             is TransactionDeleted -> db.txQueries.delete(e.transactionId)
             is BudgetSet -> db.budgetQueries.upsert(
@@ -60,19 +67,8 @@ class Projector(private val db: BudgetDb) {
         db.memberQueries.deleteAll()
     }
 
-    private fun upsertTx(t: Transaction, at: Long) = db.txQueries.upsert(
-        id = t.id,
-        type = t.type.name,
-        amount = t.money.amount.toPlainString(),
-        currency = t.money.currency.name,
-        account_id = t.accountId,
-        to_account_id = t.toAccountId,
-        category_id = t.categoryId,
-        date = t.date.toString(),
-        note = t.note,
-        merchant = t.merchant,
-        paid_by = t.paidBy,
-        source = t.source.name,
-        edited_at = at,
-    )
+    companion object {
+        /** Bump when a projector change must reach existing installs; the app rebuilds once on mismatch. */
+        const val VERSION = 2
+    }
 }

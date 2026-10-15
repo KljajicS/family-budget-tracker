@@ -2,6 +2,8 @@ package rs.budget.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.db.Event as EventRow
 import rs.budget.domain.Event
@@ -19,43 +21,46 @@ class EventStore(
     suspend fun append(event: Event): EventRecord = withContext(Dispatchers.IO) {
         db.transactionWithResult {
             val seq = (db.eventQueries.lastSeq(deviceId).executeAsOne().max_seq ?: 0L) + 1
-            val record = EventRecord(newId(), deviceId, seq, clock.now(), event)
+            // Logical clock: never earlier than anything already in the log, so causality survives a skewed phone clock.
+            val last = db.eventQueries.lastOccurredAt().executeAsOne().max_at ?: 0L
+            val at = Instant.ofEpochMilli(maxOf(clock.now().toEpochMilli(), last + 1))
+            val record = EventRecord(newId(), deviceId, seq, at, event)
             insert(record)
             projector.apply(record)
             record
         }
     }
 
-    /** Records from other devices. Unknown `(deviceId, seq)` pairs are stored and projected; the rest are skipped. */
+    /** Records from other devices. Unknown `(deviceId, seq)` pairs are stored, then read tables are rebuilt in log order. */
     fun applyRemote(records: List<EventRecord>) = db.transaction {
-        records
-            .filter { db.eventQueries.countFor(it.deviceId, it.seq).executeAsOne() == 0L }
-            .sortedWith(compareBy({ it.occurredAt }, { it.deviceId }, { it.seq }))
-            .forEach {
-                insert(it)
-                projector.apply(it)
-            }
+        val fresh = records.filter { db.eventQueries.countFor(it.deviceId, it.seq).executeAsOne() == 0L }
+        if (fresh.isEmpty()) return@transaction
+        fresh.forEach(::insert)
+        rebuildInTransaction()
     }
 
-    fun rebuild() = db.transaction {
+    fun rebuild() = db.transaction { rebuildInTransaction() }
+
+    private fun rebuildInTransaction() {
         projector.clear()
-        db.eventQueries.allInOrder().executeAsList().forEach { projector.apply(toRecord(it)) }
+        db.eventQueries.allInOrder().executeAsList().forEach { row -> toRecord(row)?.let(projector::apply) }
     }
 
-    private fun insert(r: EventRecord) = db.eventQueries.insert(
-        id = r.id,
-        device_id = r.deviceId,
-        seq = r.seq,
-        occurred_at = r.occurredAt.toEpochMilli(),
-        type = r.event::class.simpleName!!,
-        payload = EventJson.encodeToString(Event.serializer(), r.event),
-    )
+    private fun insert(r: EventRecord) {
+        val payload = EventJson.encodeToString(Event.serializer(), r.event)
+        db.eventQueries.insert(
+            id = r.id,
+            device_id = r.deviceId,
+            seq = r.seq,
+            occurred_at = r.occurredAt.toEpochMilli(),
+            type = EventJson.parseToJsonElement(payload).jsonObject.getValue("type").jsonPrimitive.content,
+            payload = payload,
+        )
+    }
 
-    private fun toRecord(row: EventRow) = EventRecord(
-        id = row.id,
-        deviceId = row.device_id,
-        seq = row.seq,
-        occurredAt = Instant.ofEpochMilli(row.occurred_at),
-        event = EventJson.decodeFromString(Event.serializer(), row.payload),
-    )
+    /** Null for events this app version cannot read (newer type or shape); they stay in the log and are skipped. */
+    private fun toRecord(row: EventRow): EventRecord? {
+        val event = runCatching { EventJson.decodeFromString(Event.serializer(), row.payload) }.getOrNull() ?: return null
+        return EventRecord(row.id, row.device_id, row.seq, Instant.ofEpochMilli(row.occurred_at), event)
+    }
 }

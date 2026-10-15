@@ -16,12 +16,13 @@ CREATE TABLE tx (
 
 CREATE INDEX tx_date ON tx(date DESC);
 
-upsert:
-INSERT OR REPLACE INTO tx(id, type, amount, currency, account_id, to_account_id, category_id, date, note, merchant, paid_by, source, edited_at)
+insertIgnore:
+INSERT OR IGNORE INTO tx(id, type, amount, currency, account_id, to_account_id, category_id, date, note, merchant, paid_by, source, edited_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
-editedAt:
-SELECT edited_at FROM tx WHERE id = ?;
+update:
+UPDATE tx SET type = ?, amount = ?, currency = ?, account_id = ?, to_account_id = ?, category_id = ?, date = ?, note = ?, merchant = ?, paid_by = ?, source = ?, edited_at = ?
+WHERE id = ?;
 
 delete:
 DELETE FROM tx WHERE id = ?;

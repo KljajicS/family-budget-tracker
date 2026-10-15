@@ -4,8 +4,8 @@ CREATE TABLE member (
     device_id TEXT NOT NULL
 );
 
-upsert:
-INSERT OR REPLACE INTO member(id, display_name, device_id) VALUES (?, ?, ?);
+insertIgnore:
+INSERT OR IGNORE INTO member(id, display_name, device_id) VALUES (?, ?, ?);
 
 all:
 SELECT * FROM member ORDER BY display_name;
