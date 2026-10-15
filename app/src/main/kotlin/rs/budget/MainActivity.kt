@@ -3,6 +3,8 @@ package rs.budget
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.LocalActivity
+import androidx.compose.ui.graphics.Color
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,8 +95,6 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            // The system only knows its own dark setting; the app's choice must set the status bar icon color too.
-            LaunchedEffect(dark) { WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !dark }
             BudgetTheme(dark) { BudgetRoot(root) }
         }
     }
@@ -112,10 +115,16 @@ fun BudgetRoot(root: RootViewModel) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    val showBar = Tab.entries.any { it.route == route }
+    var scanEditing by remember { mutableStateOf(false) }
+    val cameraSurface = route == Tab.SCAN.route && !scanEditing
+    val showBar = route != Tab.SCAN.route && Tab.entries.any { it.route == route }
+    val activity = LocalActivity.current
+    LaunchedEffect(c.dark, cameraSurface) {
+        activity?.window?.let { WindowCompat.getInsetsController(it, it.decorView).isAppearanceLightStatusBars = !c.dark && !cameraSurface }
+    }
 
     Scaffold(
-        containerColor = c.bg,
+        containerColor = if (cameraSurface) (if (c.dark) Color.Black else Color(0xFF111315)) else c.bg,
         bottomBar = {
             if (showBar) BottomBar(route) { tab ->
                 nav.navigate(tab.route) {
@@ -161,6 +170,8 @@ fun BudgetRoot(root: RootViewModel) {
             composable(Tab.INSIGHTS.route) { InsightsScreen() }
             composable(Tab.SCAN.route) {
                 ScanScreen(
+                    onEditingChanged = { scanEditing = it },
+                    onClose = { nav.popBackStack() },
                     onSaved = { nav.navigate(Tab.HOME.route) { popUpTo(Tab.HOME.route) { inclusive = false }; launchSingleTop = true } },
                     onManual = { nav.navigate(Routes.add()) },
                 )
