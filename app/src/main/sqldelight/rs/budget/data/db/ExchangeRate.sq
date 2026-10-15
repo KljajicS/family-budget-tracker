@@ -1,0 +1,12 @@
+CREATE TABLE exchange_rate (
+    currency TEXT NOT NULL PRIMARY KEY,
+    rate TEXT NOT NULL,
+    effective_date TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL
+);
+
+all:
+SELECT * FROM exchange_rate ORDER BY currency;
+
+upsert:
+INSERT OR REPLACE INTO exchange_rate VALUES (?, ?, ?, ?);

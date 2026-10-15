@@ -18,6 +18,7 @@ import rs.budget.domain.GoalArchived
 import rs.budget.domain.GoalSet
 import rs.budget.domain.MemberRenamed
 import rs.budget.domain.EventRecord
+import rs.budget.domain.ExchangeRateOverrideSet
 import rs.budget.domain.MemberCreated
 import rs.budget.domain.RecurringRuleArchived
 import rs.budget.domain.RecurringRuleSet
@@ -31,6 +32,7 @@ class Projector(private val db: BudgetDb) {
     fun apply(record: EventRecord) {
         val at = record.occurredAt.toEpochMilli()
         when (val e = record.event) {
+            is ExchangeRateOverrideSet -> db.exchangeRateOverrideQueries.upsert(e.currency.name, e.rate, at)
             is MemberCreated -> db.memberQueries.insertIgnore(e.member.id, e.member.displayName, e.member.deviceId)
             is MemberRenamed -> db.memberQueries.rename(e.displayName, e.memberId)
             is AccountCreated -> db.accountQueries.insertIgnore(
@@ -88,6 +90,7 @@ class Projector(private val db: BudgetDb) {
     }
 
     fun clear() {
+        db.exchangeRateOverrideQueries.deleteAll()
         db.receiptQueries.deleteAll()
         db.goalAllocationQueries.deleteAll()
         db.goalQueries.deleteAll()
@@ -102,6 +105,6 @@ class Projector(private val db: BudgetDb) {
 
     companion object {
         /** Bump when a projector change must reach existing installs; the app rebuilds once on mismatch. */
-        const val VERSION = 4
+        const val VERSION = 5
     }
 }

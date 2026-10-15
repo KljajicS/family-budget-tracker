@@ -1,0 +1,12 @@
+CREATE TABLE exchange_rate (
+    currency TEXT NOT NULL PRIMARY KEY,
+    rate TEXT NOT NULL,
+    effective_date TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL
+);
+
+CREATE TABLE exchange_rate_override (
+    currency TEXT NOT NULL PRIMARY KEY,
+    rate TEXT,
+    changed_at INTEGER NOT NULL
+);

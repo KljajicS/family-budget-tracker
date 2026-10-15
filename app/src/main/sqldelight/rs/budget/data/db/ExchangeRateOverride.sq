@@ -1,0 +1,14 @@
+CREATE TABLE exchange_rate_override (
+    currency TEXT NOT NULL PRIMARY KEY,
+    rate TEXT,
+    changed_at INTEGER NOT NULL
+);
+
+all:
+SELECT * FROM exchange_rate_override ORDER BY currency;
+
+upsert:
+INSERT OR REPLACE INTO exchange_rate_override VALUES (?, ?, ?);
+
+deleteAll:
+DELETE FROM exchange_rate_override;
