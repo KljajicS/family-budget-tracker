@@ -24,6 +24,7 @@ import rs.budget.domain.AccountKind
 import rs.budget.domain.Cadence
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
+import rs.budget.domain.RecurringRule
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -81,5 +82,25 @@ class RecurringViewModelsTest {
         delete.delete()
         delete.state.first { it.done }
         assertEquals(0, repo.rules.first().size)
+    }
+
+    @Test
+    fun `amounts that round to zero and rules on an archived account cannot be saved`() = runTest(dispatcher) {
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING), Account("old", "Old", Currency.RSD, AccountKind.SPENDING)))
+        val create = EditRecurringViewModel(repo, clock, SavedStateHandle())
+        create.state.first { it.accounts.isNotEmpty() }
+        create.setName("Rent")
+        create.setAmount("0.001")
+        assertFalse(create.state.value.canSave)
+        create.setAmount("0.01")
+        assertTrue(create.state.value.canSave)
+
+        repo.setRule(RecurringRule("r", "Rent", Money.of("100", Currency.RSD), "old", "cat-bills", Cadence.MONTHLY, LocalDate.of(2026, 10, 20)))
+        repo.archiveAccount("old")
+        val edit = EditRecurringViewModel(repo, clock, SavedStateHandle(mapOf("id" to "r")))
+        edit.state.first { it.name == "Rent" && it.accounts.isNotEmpty() }
+        assertFalse(edit.state.value.canSave)
+        edit.setAccount("cash")
+        assertTrue(edit.state.value.canSave)
     }
 }

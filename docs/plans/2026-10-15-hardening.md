@@ -2,7 +2,7 @@
 
 **Goal:** Fix what the 2026-10-15 architecture review found before recurring bills build on top of it: a crash reachable today, a projector that would not converge once two phones sync, and a budget carry-forward trap.
 
-**Source:** Review by Claude Fable 5.1 with an independent Claude Opus 5.5 pass (Codex Astra was out of quota). Decisions recorded in ADR 8.
+**Source:** Architecture review of 2026-10-15 with an independent second pass. Decisions recorded in ADR 8.
 
 ## Steps
 

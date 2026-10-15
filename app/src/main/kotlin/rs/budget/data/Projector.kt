@@ -60,10 +60,10 @@ class Projector(private val db: BudgetDb) {
             )
             // A zero row is the tombstone: it stops carry-forward from an earlier month (see BudgetCalculator.effective).
             is BudgetRemoved -> db.budgetQueries.upsert(e.categoryId, e.month.toString(), "0.00", "RSD")
+            // Archived stays archived: a stale edit from the other phone must not bring a deleted bill back (ADR 8).
             is RecurringRuleSet -> with(e.rule) {
-                db.recurringRuleQueries.upsert(
-                    id, name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString(), if (archived) 1 else 0,
-                )
+                db.recurringRuleQueries.insertIgnore(id, name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString())
+                db.recurringRuleQueries.update(name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString(), id)
             }
             is RecurringRuleArchived -> db.recurringRuleQueries.archive(e.ruleId)
             is BillSkipped -> db.billSkipQueries.insertIgnore(e.ruleId, e.period)

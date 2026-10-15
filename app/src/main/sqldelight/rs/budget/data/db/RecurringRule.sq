@@ -10,9 +10,13 @@ CREATE TABLE recurring_rule (
     archived INTEGER NOT NULL DEFAULT 0
 );
 
-upsert:
-INSERT OR REPLACE INTO recurring_rule(id, name, amount, currency, account_id, category_id, cadence, first_due, archived)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+insertIgnore:
+INSERT OR IGNORE INTO recurring_rule(id, name, amount, currency, account_id, category_id, cadence, first_due)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+update:
+UPDATE recurring_rule SET name = ?, amount = ?, currency = ?, account_id = ?, category_id = ?, cadence = ?, first_due = ?
+WHERE id = ?;
 
 archive:
 UPDATE recurring_rule SET archived = 1 WHERE id = ?;

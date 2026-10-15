@@ -10,6 +10,7 @@ import rs.budget.domain.AccountKind
 import rs.budget.domain.BillSkipped
 import rs.budget.domain.Cadence
 import rs.budget.domain.RecurringRule
+import rs.budget.domain.RecurringRuleArchived
 import rs.budget.domain.RecurringRuleSet
 import rs.budget.domain.billTxId
 import rs.budget.domain.Category
@@ -94,6 +95,17 @@ class EventStoreTest {
         store.append(CategoryUpdated(Category("cat-fun", "Zabava", "#111111")))
         store.applyRemote(listOf(EventRecord("remote-1", "dev-2", 1, at(12), CategoryCreated(Category("cat-fun", "Fun", "#111111")))))
         assertEquals("Zabava", db.categoryQueries.active().executeAsList().single().name)
+    }
+
+    @Test
+    fun `a later rule edit does not bring an archived rule back`() = runTest {
+        val rule = RecurringRule("r1", "Rent", Money.of("40000", Currency.RSD), "a1", "c1", Cadence.MONTHLY, LocalDate.of(2026, 10, 20))
+        store.append(RecurringRuleSet(rule))
+        clock.instant = at(11)
+        store.append(RecurringRuleArchived("r1"))
+        store.applyRemote(listOf(EventRecord("remote-1", "dev-2", 1, at(12), RecurringRuleSet(rule.copy(name = "Kirija")))))
+        assertEquals(0, db.recurringRuleQueries.active().executeAsList().size)
+        assertEquals("Kirija", db.recurringRuleQueries.byId("r1").executeAsOne().name)
     }
 
     @Test

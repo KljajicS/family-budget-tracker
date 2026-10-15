@@ -178,7 +178,8 @@ data class EditRecurringState(
     val done: Boolean = false,
 ) {
     val currency: Currency? get() = accounts.firstOrNull { it.id == accountId }?.currency
-    val canSave: Boolean get() = name.isNotBlank() && (amountText.toBigDecimalOrNull()?.signum() ?: 0) > 0 && accountId != null && categoryId != null
+    val amount: Money? get() = currency?.let { c -> amountText.toBigDecimalOrNull()?.let { Money.of(it, c) } }?.takeIf { !it.isZero && !it.isNegative }
+    val canSave: Boolean get() = name.isNotBlank() && amount != null && categoryId != null
 }
 
 @HiltViewModel
@@ -221,7 +222,7 @@ class EditRecurringViewModel @Inject constructor(private val repo: BudgetReposit
         val s = _state.value
         if (!s.canSave) return
         viewModelScope.launch {
-            repo.setRule(RecurringRule(s.id ?: newId(), s.name.trim(), Money.of(s.amountText.toBigDecimal(), s.currency!!), s.accountId!!, s.categoryId!!, s.cadence, s.firstDue))
+            repo.setRule(RecurringRule(s.id ?: newId(), s.name.trim(), s.amount!!, s.accountId!!, s.categoryId!!, s.cadence, s.firstDue))
             _state.update { it.copy(done = true) }
         }
     }
