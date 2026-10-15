@@ -27,6 +27,9 @@ import rs.budget.domain.Cadence
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import rs.budget.domain.RecurringRule
+import rs.budget.domain.Receipt
+import rs.budget.domain.ReceiptItem
+import java.math.BigDecimal
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.domain.billTxId
@@ -145,5 +148,61 @@ class AddViewModelTest {
         vm.state.first { it.saved }
         assertEquals(0, repo.transactions.first().size)
         assertEquals(0, repo.upcomingBills.first().size)
+    }
+
+    private fun receipt() = Receipt("https://suf.purs.gov.rs/v/?vl=test", "123456789", "ABCDEFGH-IJKLMNOP-1", "Shop",
+        LocalDate.of(2026, 10, 1), Money.of("123", Currency.RSD),
+        listOf(ReceiptItem("Food", BigDecimal.ONE, BigDecimal("123"), BigDecimal("123"))))
+
+    @Test fun `receipt prefill locks expense and RSD and preserves edits on repeated delivery`() = runTest(dispatcher) {
+        val vm = seeded()
+        val receipt = receipt()
+        vm.prefillReceipt(receipt, "cat-household")
+        vm.setType(TransactionType.INCOME)
+        assertEquals(TransactionType.EXPENSE, vm.state.value.type)
+        vm.setAccount("eur")
+        assertFalse(vm.state.value.canSave)
+        vm.setAccount("cash")
+        vm.setMerchant("Edited")
+        vm.press('<')
+        vm.press('5')
+        vm.prefillReceipt(receipt, "cat-groceries")
+        assertEquals("Edited", vm.state.value.merchant)
+        assertEquals("cat-household", vm.state.value.categoryId)
+        vm.save()
+        vm.save()
+        vm.state.first { it.saved }
+        val t = repo.transactions.first().single()
+        assertEquals(receipt.transactionId, t.id)
+        assertEquals(TransactionSource.RECEIPT, t.source)
+        assertEquals("123.05", t.money.amount.toPlainString())
+        assertEquals("123.00", db.receiptQueries.byId(receipt.id).executeAsOne().total)
+    }
+
+    @Test fun `duplicate save shows error and retains receipt review`() = runTest(dispatcher) {
+        val vm = seeded()
+        vm.prefillReceipt(receipt(), null)
+        vm.save()
+        vm.state.first { it.saved }
+        val second = AddViewModel(repo, clock, SavedStateHandle())
+        second.state.first { it.accounts.isNotEmpty() }
+        second.prefillReceipt(receipt(), null)
+        second.save()
+        second.state.first { it.saveError != null }
+        assertEquals(R.string.scan_duplicate, second.state.value.saveError)
+        assertEquals(receipt(), second.state.value.receipt)
+        assertEquals(1, repo.transactions.first().size)
+    }
+
+    @Test fun `archived receipt account disables save and cancel clears draft`() = runTest(dispatcher) {
+        val vm = seeded()
+        vm.prefillReceipt(receipt(), null)
+        val selected = vm.state.value.accountId!!
+        repo.archiveAccount(selected)
+        vm.state.first { it.accounts.none { a -> a.id == selected } }
+        assertFalse(vm.state.value.canSave)
+        vm.resetReceipt()
+        assertEquals(null, vm.state.value.receipt)
+        assertFalse(vm.state.value.canSave)
     }
 }

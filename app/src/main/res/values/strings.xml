@@ -200,4 +200,10 @@
     <string name="source_receipt">QR receipt</string>
     <string name="source_recurring">Recurring</string>
     <string name="member_you">You</string>
+    <string name="scan_review">Review receipt</string>
+    <string name="scan_duplicate">Receipt already recorded, possibly deleted. It cannot be added again.</string>
+    <string name="scan_rsd_account">Choose an active RSD account. Create one in Settings if needed.</string>
+    <string name="scan_category_changed">Choose an available category.</string>
+    <string name="scan_original">Original receipt: %1$s RSD · %2$d items</string>
+    <string name="add_save_failed">Could not save. Your entries are kept; please try again.</string>
 </resources>
