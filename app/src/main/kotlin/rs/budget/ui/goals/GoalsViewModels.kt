@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +26,8 @@ import rs.budget.domain.Money
 import rs.budget.domain.newId
 import java.time.LocalDate
 import java.time.YearMonth
+import rs.budget.ui.WriteOperation
+import rs.budget.ui.parseMoneyInput
 import javax.inject.Inject
 
 data class GoalsState(
@@ -44,7 +48,7 @@ class GoalsViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) :
         val (needs, p2) = GoalCalculator.needs(statuses, repo.rates)
         val insights = InsightsCalculator.summarize(today, YearMonth.from(today), txs, accounts, budgets, repo.rates)
         GoalsState(statuses, home.savingsTotal, home.savingsByCurrency, unassigned, needs, insights.averageSaved, home.partial || p1 || p2 || insights.partial)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
 data class EditGoalState(
@@ -57,13 +61,14 @@ data class EditGoalState(
     val currencyLocked: Boolean = false,
     val done: Boolean = false,
 ) {
-    val target: Money? get() = targetText.toBigDecimalOrNull()?.let { Money.of(it, currency) }?.takeIf { !it.isZero && !it.isNegative }
-    val monthly: Money? get() = (if (monthlyText.isBlank()) "0" else monthlyText).toBigDecimalOrNull()?.let { Money.of(it, currency) }?.takeIf { !it.isNegative }
+    val target: Money? get() = parseMoneyInput(targetText, currency)?.takeIf { !it.isZero && !it.isNegative }
+    val monthly: Money? get() = parseMoneyInput(if (monthlyText.isBlank()) "0" else monthlyText, currency)?.takeIf { !it.isNegative }
     val canSave: Boolean get() = name.isNotBlank() && target != null && monthly != null
 }
 
 @HiltViewModel
 class EditGoalViewModel @Inject constructor(private val repo: BudgetRepository, savedState: SavedStateHandle) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(EditGoalState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id")))
     val state: StateFlow<EditGoalState> = _state
 
@@ -90,14 +95,14 @@ class EditGoalViewModel @Inject constructor(private val repo: BudgetRepository, 
     fun setMonthly(text: String) = setNumber(text) { s, t -> s.copy(monthlyText = t) }
 
     private fun setNumber(text: String, apply: (EditGoalState, String) -> EditGoalState) {
-        if (text.isNotEmpty() && text.toBigDecimalOrNull() == null) return
+        if (text.length > 64) return
         _state.update { apply(it, text) }
     }
 
     fun save() {
         val s = _state.value
         if (!s.canSave) return
-        viewModelScope.launch {
+        writes.run {
             repo.setGoal(Goal(s.id ?: newId(), s.name.trim(), s.target!!, s.monthly!!))
             _state.update { it.copy(done = true) }
         }
@@ -105,7 +110,7 @@ class EditGoalViewModel @Inject constructor(private val repo: BudgetRepository, 
 
     fun delete() {
         val id = _state.value.id ?: return
-        viewModelScope.launch {
+        writes.run {
             repo.archiveGoal(id)
             _state.update { it.copy(done = true) }
         }
@@ -119,22 +124,23 @@ data class GoalDetailState(
     val date: LocalDate,
     val gone: Boolean = false,
 ) {
-    val amount: Money? get() = status?.let { s -> amountText.toBigDecimalOrNull()?.let { Money.of(it, s.goal.target.currency) } }?.takeIf { !it.isZero && !it.isNegative }
+    val amount: Money? get() = status?.let { s -> parseMoneyInput(amountText, s.goal.target.currency) }?.takeIf { !it.isZero && !it.isNegative }
     val canAdd: Boolean get() = amount != null
 }
 
 @HiltViewModel
 class GoalDetailViewModel @Inject constructor(private val repo: BudgetRepository, clock: Clock, savedState: SavedStateHandle) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val goalId: String = savedState.get<String>("id")!!
     private val form = MutableStateFlow(GoalDetailState(date = clock.today()))
 
     val state: StateFlow<GoalDetailState> = combine(form, repo.goalStatuses, repo.allocations) { f, statuses, allocations ->
         val status = statuses.firstOrNull { it.goal.id == goalId }
         f.copy(status = status, allocations = allocations.filter { it.goalId == goalId }, gone = status == null)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), form.value)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), form.value)
 
     fun setAmount(text: String) {
-        if (text.isNotEmpty() && text.toBigDecimalOrNull() == null) return
+        if (text.length > 64) return
         form.update { it.copy(amountText = text) }
     }
 
@@ -142,16 +148,16 @@ class GoalDetailViewModel @Inject constructor(private val repo: BudgetRepository
 
     fun add() {
         val f = form.value
-        if (f.amountText.toBigDecimalOrNull()?.signum() != 1) return
-        // Cleared before the write so a second tap during the write cannot record the same entry twice.
-        form.update { it.copy(amountText = "") }
-        viewModelScope.launch {
-            val goal = repo.goal(goalId) ?: return@launch
-            repo.allocate(GoalAllocation(newId(), goalId, Money.of(f.amountText.toBigDecimal(), goal.target.currency), f.date))
+        writes.run(finish = false) {
+            val goal = requireNotNull(repo.goal(goalId))
+            val amount = requireNotNull(parseMoneyInput(f.amountText, goal.target.currency))
+            require(!amount.isZero)
+            repo.allocate(GoalAllocation(newId(), goalId, amount, f.date))
+            form.update { if (it.amountText == f.amountText) it.copy(amountText = "") else it }
         }
     }
 
-    fun deleteAllocation(id: String) { viewModelScope.launch { repo.deleteAllocation(id) } }
+    fun deleteAllocation(id: String) { writes.run(finish = false) { repo.deleteAllocation(id) } }
 
-    fun deleteGoal() { viewModelScope.launch { repo.archiveGoal(goalId) } }
+    fun deleteGoal() { writes.run { repo.archiveGoal(goalId) } }
 }

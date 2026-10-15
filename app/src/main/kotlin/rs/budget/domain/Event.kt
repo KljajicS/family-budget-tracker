@@ -57,7 +57,6 @@ data class RecurringRuleSet(val rule: RecurringRule) : Event
 @Serializable @SerialName("RecurringRuleArchived")
 data class RecurringRuleArchived(val ruleId: String) : Event
 
-/** One occurrence of a rule the family chose not to pay. `period` is `yyyy-MM` for monthly rules and `yyyy` for yearly. */
 @Serializable @SerialName("BillSkipped")
 data class BillSkipped(val ruleId: String, val period: String) : Event
 
@@ -73,7 +72,6 @@ data class GoalAllocated(val allocation: GoalAllocation) : Event
 @Serializable @SerialName("GoalAllocationDeleted")
 data class GoalAllocationDeleted(val allocationId: String) : Event
 
-/** One row of the append-only log. `seq` is per device and strictly increasing. */
 data class EventRecord(
     val id: String,
     val deviceId: String,

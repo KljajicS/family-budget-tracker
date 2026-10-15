@@ -69,9 +69,22 @@ class AddViewModelTest {
         val t = repo.transactions.first().single()
         assertEquals(TransactionType.EXPENSE, t.type)
         assertEquals("1240.00", t.money.amount.toPlainString())
-        // Account.sq `active` orders by name, so "Card" is the default account.
         assertEquals("card", t.accountId)
         assertEquals(clock.today(), t.date)
+    }
+
+    @Test
+    fun `manual entry replaces archived default category before saving`() = runTest(dispatcher) {
+        val vm = seeded()
+        assertEquals("cat-groceries", vm.state.value.categoryId)
+        repo.archiveCategory("cat-groceries")
+        val state = vm.state.first { it.categories.none { category -> category.id == "cat-groceries" } }
+        assertTrue(state.categories.any { it.id == state.categoryId })
+        assertEquals(state.categories.first().id, state.categoryId)
+        "100".forEach(vm::press)
+        vm.save()
+        vm.state.first { it.saved }
+        assertEquals(state.categoryId, repo.transactions.first().single().categoryId)
     }
 
     @Test
@@ -127,7 +140,9 @@ class AddViewModelTest {
         assertEquals("cash", s.accountId)
         assertEquals("cat-bills", s.categoryId)
         assertEquals("Rent", s.merchant)
-        assertEquals(LocalDate.of(2026, 10, 20), s.date)
+        assertEquals(clock.today(), s.date)
+        vm.setDate(clock.today().plusDays(5))
+        assertEquals(clock.today(), vm.state.value.date)
         vm.setType(TransactionType.INCOME)
         assertEquals(TransactionType.EXPENSE, vm.state.value.type)
         vm.press('<')

@@ -2,7 +2,6 @@ package rs.budget.domain
 
 import java.math.BigDecimal
 
-/** Middle rates to RSD. RSD itself is always 1. */
 class Rates(private val toRsd: Map<Currency, BigDecimal>) {
     fun convert(m: Money): Money? {
         if (m.currency == Currency.RSD) return m
@@ -10,7 +9,6 @@ class Rates(private val toRsd: Map<Currency, BigDecimal>) {
         return Money.of(m.amount * rate, Currency.RSD)
     }
 
-    /** Through RSD: null when either side has no rate. */
     fun convert(m: Money, target: Currency): Money? {
         if (m.currency == target) return m
         val inRsd = convert(m) ?: return null

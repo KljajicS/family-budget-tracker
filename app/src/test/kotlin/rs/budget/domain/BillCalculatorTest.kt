@@ -78,7 +78,6 @@ class BillCalculatorTest {
         val net = rule("net", "3000", LocalDate.of(2026, 10, 25), category = "cat-fun")
         val bills = BillCalculator.upcoming(today, listOf(rent, net), accounts, emptyList(), emptySet())
         val (held, partial) = BillCalculator.reserve(today, bills, listOf(status("cat-bills", "50000", "15000")), rates)
-        // September rent 40000 in full; October rent 40000 minus 35000 left in the bills budget; net 3000 unbudgeted in full.
         assertEquals(Money.of("48000", Currency.RSD), held)
         assertFalse(partial)
     }

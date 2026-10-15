@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LocalColors
@@ -54,7 +55,8 @@ fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () 
     ) {
         ScreenHeader(stringResource(R.string.settings_title), onBack)
         FieldBox(stringResource(R.string.settings_name), s.name, vm::setName)
-        PrimaryButton(stringResource(R.string.settings_save_name), enabled = s.name.isNotBlank() && !s.saved, onClick = vm::saveName)
+        WriteFeedback(vm.writes)
+        PrimaryButton(stringResource(R.string.settings_save_name), enabled = s.name.isNotBlank() && !s.saved && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::saveName)
         Text(stringResource(R.string.settings_theme), style = LabelStyle, color = c.muted)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ThemeMode.entries.forEach { mode ->

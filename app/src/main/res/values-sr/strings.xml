@@ -230,4 +230,9 @@
     <string name="scan_edit">Izmeni detalje troška</string>
     <string name="scan_save_next">Sačuvaj i skeniraj</string>
     <string name="scan_save">Sačuvaj</string>
+    <string name="write_failed">Čuvanje nije uspelo. Izmene su sačuvane u obrascu. Pokušajte ponovo.</string>
+    <string name="startup_failed">Budžet nije moguće otvoriti. Pokušajte ponovo.</string>
+    <string name="startup_retry">Pokušaj ponovo</string>
+    <string name="recurring_schedule_locked">Za promenu rasporeda arhivirajte ovu obavezu i napravite novu. Prethodne uplate ostaju zabeležene.</string>
+    <string name="add_account_unavailable">Izaberite dostupan račun da biste sačuvali transakciju.</string>
 </resources>

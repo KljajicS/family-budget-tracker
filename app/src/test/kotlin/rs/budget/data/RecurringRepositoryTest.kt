@@ -33,7 +33,7 @@ class RecurringRepositoryTest {
     }
 
     private fun pay(bill: Bill, member: String) = Transaction(
-        bill.txId, TransactionType.EXPENSE, bill.rule.money, bill.rule.accountId, null, bill.rule.categoryId, bill.dueDate, "", bill.rule.name, member, TransactionSource.RECURRING,
+        bill.txId, TransactionType.EXPENSE, bill.rule.money, bill.rule.accountId, null, bill.rule.categoryId, clock.today(), "", bill.rule.name, member, TransactionSource.RECURRING,
     )
 
     @Test

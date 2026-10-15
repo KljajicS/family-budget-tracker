@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Currency
@@ -114,7 +115,8 @@ fun EditAccountScreen(onClose: () -> Unit, vm: EditAccountViewModel = hiltViewMo
             )
         }
         Spacer(Modifier.weight(1f))
-        PrimaryButton(stringResource(R.string.account_save), enabled = s.canSave, onClick = vm::save)
+        WriteFeedback(vm.writes)
+        PrimaryButton(stringResource(R.string.account_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
     }
 }
 

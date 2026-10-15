@@ -104,15 +104,17 @@ fun AddContent(
             if (s.type == TransactionType.TRANSFER) {
                 AccountBox(stringResource(R.string.add_to_account), s.accounts, s.toAccountId, onToAccount, Modifier.weight(1f))
             } else {
-                DateBox(s.date, onDate, Modifier.weight(1f))
+                DateBox(s.date, onDate, Modifier.weight(1f), enabled = s.bill == null)
             }
         }
         s.error?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
         s.saveError?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
         if (s.receipt != null && s.accounts.none { it.id == s.accountId && it.currency == Currency.RSD }) {
             Text(stringResource(R.string.scan_rsd_account), style = sans(13), color = c.orange)
+        } else if (s.accounts.none { it.id == s.accountId && it.currency == s.currency }) {
+            Text(stringResource(R.string.add_account_unavailable), style = sans(13), color = c.orange)
         }
-        if (s.receipt != null && s.categoryId != null && s.categories.none { it.id == s.categoryId }) {
+        if (s.type == TransactionType.EXPENSE && s.categoryId != null && s.categories.none { it.id == s.categoryId }) {
             Text(stringResource(R.string.scan_category_changed), style = sans(13), color = c.orange)
         }
 
@@ -196,9 +198,8 @@ fun AccountBox(label: String, accounts: List<Account>, selectedId: String?, onSe
     }
 }
 
-/** Tap opens the Material date picker; the box itself is a button whose label reads "Date, Today, 14 Oct" to screen readers. */
 @Composable
-fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier, label: String = stringResource(R.string.add_date)) {
+fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier, label: String = stringResource(R.string.add_date), enabled: Boolean = true) {
     val c = LocalColors.current
     val locale = LocalLocale.current.platformLocale
     val today = LocalDate.now()
@@ -212,7 +213,7 @@ fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier, la
 
     OutlinedBox(
         modifier.semantics(mergeDescendants = true) { contentDescription = "$label, $value" },
-        radius = 14, padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), onClick = { open = true },
+        radius = 14, padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), onClick = if (enabled) ({ open = true }) else null,
     ) {
         Text(label, style = CaptionStyle, color = c.muted)
         Text(value, style = sans(14, FontWeight.Medium), color = c.text, modifier = Modifier.padding(top = 2.dp))

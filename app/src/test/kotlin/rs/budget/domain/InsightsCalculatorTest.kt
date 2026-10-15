@@ -62,7 +62,6 @@ class InsightsCalculatorTest {
         assertEquals((5..10).map { YearMonth.of(2026, it) }, s.months.map { it.month })
         assertEquals(listOf(false, false, false, false, false, true), s.months.map { it.inProgress })
         assertEquals(rsd("0"), s.months[1].income)
-        // Completed months: May +60000, Jun 0, Jul 0, Aug 0, Sep +30000, so 18000 on average.
         assertEquals(rsd("18000"), s.averageSaved)
         assertEquals(YearMonth.of(2026, 5)..oct, s.range)
     }
@@ -103,13 +102,11 @@ class InsightsCalculatorTest {
         assertEquals(rsd("500"), budget.left)
         assertNull(budget.average)
 
-        // Average over three months with July empty: (0 + 5000 + 7000) / 3.
         val above = InsightsCalculator.summarize(today, oct, txs, accounts, emptyList(), rates).tip as Tip.AboveAverage
         assertEquals("e", above.categoryId)
         assertEquals(rsd("9000"), above.spent)
         assertEquals(rsd("4000"), above.average)
 
-        // Spending in a category with no history is not "above average": the saved tip wins.
         val fresh = listOf(tx("5", "9000", today, "n"), txs.last())
         assertTrue(InsightsCalculator.summarize(today, oct, fresh, accounts, emptyList(), rates).tip is Tip.Saved)
 

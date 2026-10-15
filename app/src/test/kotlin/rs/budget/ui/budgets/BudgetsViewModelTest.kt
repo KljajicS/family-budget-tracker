@@ -80,7 +80,6 @@ class BudgetsViewModelTest {
         repo.setRule(RecurringRule("rent", "Rent", Money.of("40000", Currency.RSD), "cash", "cat-bills", Cadence.MONTHLY, LocalDate.of(2026, 9, 5)))
         val s = BudgetsViewModel(repo, clock).state.filterNotNull().first { it.upcoming.size == 3 }
         assertEquals(listOf("Rent", "Rent", "Internet"), s.upcoming.map { it.rule.name })
-        // Today is 14 Oct: the September rent and the 5 Oct rent are both past due.
         assertEquals(listOf(true, true, false), s.upcoming.map { it.overdue })
         assertEquals(Money.of("83490", Currency.RSD), s.upcomingTotal)
         assertEquals("Cash", s.accountNames["cash"])

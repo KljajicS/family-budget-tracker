@@ -29,7 +29,6 @@ class GoalCalculatorTest {
         val s = GoalCalculator.statuses(today, goals, allocations).associateBy { it.goal.id }
         assertEquals(0.8, s.getValue("fund").ratio, 1e-9)
         assertFalse(s.getValue("fund").reached)
-        // 300000 left at 40000 a month is 7.5 months, rounded up to 8: June 2027.
         assertEquals(YearMonth.of(2027, 6), s.getValue("fund").arrival)
         assertTrue(s.getValue("done").reached)
         assertNull(s.getValue("done").arrival)
@@ -61,7 +60,6 @@ class GoalCalculatorTest {
         )
         val statuses = GoalCalculator.statuses(today, goals, allocations)
         val (held, partial) = GoalCalculator.hold(today, statuses, allocations, rates)
-        // a: capped at zero, b: 60 left, c: last month's money does not count so 100, done: nothing.
         assertEquals(rsd("160"), held)
         assertFalse(partial)
     }

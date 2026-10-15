@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,8 @@ import rs.budget.domain.Category
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import java.time.YearMonth
+import rs.budget.ui.WriteOperation
+import rs.budget.ui.parseMoneyInput
 import javax.inject.Inject
 
 data class BudgetsState(
@@ -45,10 +49,9 @@ class BudgetsViewModel @Inject constructor(repo: BudgetRepository, clock: Clock)
         val (spent, total) = BudgetCalculator.total(statuses, repo.rates)
         val upcomingTotal = bills.fold(Money.zero(Currency.RSD)) { acc, b -> acc + (repo.rates.convert(b.rule.money) ?: Money.zero(Currency.RSD)) }
         BudgetsState(month, month.lengthOfMonth() - today.dayOfMonth + 1, statuses, spent, total, categories, bills, upcomingTotal, accounts.associate { it.id to it.name })
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
-/** One budget: pick a category (locked when editing), amount, currency. */
 data class EditState(
     val editing: Boolean = false,
     val categories: List<Category> = emptyList(),
@@ -58,7 +61,7 @@ data class EditState(
     val currency: Currency = Currency.RSD,
     val done: Boolean = false,
 ) {
-    val canSave: Boolean get() = categoryId != null && (amountText.toBigDecimalOrNull()?.signum() ?: 0) > 0
+    val canSave: Boolean get() = categoryId != null && parseMoneyInput(amountText, currency)?.let { !it.isZero } == true
 }
 
 @HiltViewModel
@@ -67,6 +70,7 @@ class EditBudgetViewModel @Inject constructor(
     clock: Clock,
     savedState: SavedStateHandle,
 ) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val month = YearMonth.from(clock.today())
     private val _state = MutableStateFlow(EditState(editing = savedState.get<String>("category") != null, categoryId = savedState.get<String>("category")))
     val state: StateFlow<EditState> = _state
@@ -91,22 +95,22 @@ class EditBudgetViewModel @Inject constructor(
     fun setCurrency(currency: Currency) = _state.update { it.copy(currency = currency) }
 
     fun setAmount(text: String) {
-        if (text.isNotEmpty() && text.toBigDecimalOrNull() == null) return
+        if (text.length > 64) return
         _state.update { it.copy(amountText = text) }
     }
 
     fun save() {
         val s = _state.value
         if (!s.canSave) return
-        viewModelScope.launch {
-            repo.setBudget(Budget(s.categoryId!!, month, Money.of(s.amountText.toBigDecimal(), s.currency)))
+        writes.run {
+            repo.setBudget(Budget(s.categoryId!!, month, parseMoneyInput(s.amountText, s.currency)!!))
             _state.update { it.copy(done = true) }
         }
     }
 
     fun delete() {
         val id = _state.value.categoryId ?: return
-        viewModelScope.launch {
+        writes.run {
             repo.removeBudget(id, month)
             _state.update { it.copy(done = true) }
         }

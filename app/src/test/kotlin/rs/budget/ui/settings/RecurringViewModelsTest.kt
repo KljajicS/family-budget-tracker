@@ -69,9 +69,11 @@ class RecurringViewModelsTest {
         assertEquals("12.99", edit.state.value.amountText)
         assertEquals("eur", edit.state.value.accountId)
         edit.setCadence(Cadence.YEARLY)
+        edit.setFirstDue(LocalDate.of(2026, 1, 1))
         edit.save()
         edit.state.first { it.done }
-        assertEquals(Cadence.YEARLY, repo.rules.first().single().cadence)
+        assertEquals(Cadence.MONTHLY, repo.rules.first().single().cadence)
+        assertEquals(rule.firstDue, repo.rules.first().single().firstDue)
 
         val account = EditAccountViewModel(repo, SavedStateHandle(mapOf("id" to "eur")))
         account.state.first { it.name == "Euro" }

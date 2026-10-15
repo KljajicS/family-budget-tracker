@@ -2,7 +2,6 @@ package rs.budget.ui.add
 
 import java.math.BigDecimal
 
-/** Keypad state. Keys: '0'..'9', '.', and '<' for backspace. */
 data class AmountInput(val text: String = "") {
     val value: BigDecimal?
         get() = text.toBigDecimalOrNull()?.takeIf { it.signum() > 0 }

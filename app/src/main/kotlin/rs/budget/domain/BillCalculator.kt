@@ -3,7 +3,6 @@ package rs.budget.domain
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** One occurrence of a rule that is neither paid nor skipped. */
 data class Bill(
     val rule: RecurringRule,
     val dueDate: LocalDate,
@@ -38,7 +37,7 @@ object BillCalculator {
         skips: Set<Pair<String, String>>,
     ): List<Bill> {
         val monthEnd = YearMonth.from(today).atEndOfMonth()
-        val paid = transactions.map { it.id }.toHashSet()
+        val paid = transactions.filter { it.date <= today }.map { it.id }.toHashSet()
         return rules
             .filter { !it.archived && it.accountId in activeAccountIds }
             .flatMap { rule ->

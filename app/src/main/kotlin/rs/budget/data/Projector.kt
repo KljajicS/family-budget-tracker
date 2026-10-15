@@ -25,10 +25,7 @@ import rs.budget.domain.TransactionAdded
 import rs.budget.domain.TransactionDeleted
 import rs.budget.domain.TransactionEdited
 
-/**
- * Only writer of read tables. Correct only when records arrive in log order (see ADR 8):
- * a create never overwrites, an edit only touches an existing row, a delete is final.
- */
+// Replay in log order so older edits cannot overwrite newer changes.
 class Projector(private val db: BudgetDb) {
 
     fun apply(record: EventRecord) {

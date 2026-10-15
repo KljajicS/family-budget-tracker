@@ -2,7 +2,6 @@ package rs.budget.data
 
 import rs.budget.domain.Category
 
-/** Names are keys resolved through strings.xml by the UI (see CategoryNames). Colors follow docs/design/tokens.md. */
 object StarterCategories {
     val all = listOf(
         Category("cat-groceries", "Groceries", "#3D4BD6"),

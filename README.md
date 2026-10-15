@@ -2,11 +2,13 @@
 
 # Family Budget Tracker
 
-Privacy-first, offline-first family budgeting for Android. Data stays on your phones; Google Drive only ever sees encrypted files.
+Privacy-first, offline-first family budgeting for Android. Financial data currently stays on your device. Planned Google Drive synchronization will use encrypted files.
 
 ## Status
 
-Milestone 1 (foundation and Home) done. See `docs/plans/roadmap.md`.
+Home, manual transactions, budgets, recurring bills, receipt scanning, insights and savings goals are implemented. The reliability audit fixes are complete, with 134 JVM tests passing.
+
+Remaining MVP work: encrypted family sync and recovery, exchange rates, and physical-phone acceptance testing for receipt scanning and performance. Bank statement imports are outside the MVP. See [the roadmap](docs/plans/roadmap.md).
 
 ## Build
 

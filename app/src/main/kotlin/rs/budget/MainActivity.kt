@@ -49,10 +49,14 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
+import dagger.Lazy
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import androidx.compose.foundation.isSystemInDarkTheme
 import rs.budget.data.BudgetRepository
 import rs.budget.data.ThemeMode
@@ -101,16 +105,47 @@ class MainActivity : ComponentActivity() {
 }
 
 @HiltViewModel
-class RootViewModel @Inject constructor(repo: BudgetRepository, themeStore: ThemeStore) : ViewModel() {
-    val hasMember: StateFlow<Boolean?> = repo.members.map { it.isNotEmpty() }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+class RootViewModel @Inject constructor(private val repo: Lazy<BudgetRepository>, themeStore: ThemeStore) : ViewModel() {
+    private val member = MutableStateFlow<Boolean?>(null)
+    val hasMember: StateFlow<Boolean?> = member
+    private val failure = MutableStateFlow(false)
+    val failed: StateFlow<Boolean> = failure
+    private var loading = false
     val theme: StateFlow<ThemeMode> = themeStore.mode
+
+    init { load() }
+
+    fun load() {
+        if (loading || member.value != null) return
+        loading = true
+        failure.value = false
+        viewModelScope.launch {
+            try {
+                member.value = withContext(Dispatchers.IO) { repo.get().members.first().isNotEmpty() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                failure.value = true
+            } finally {
+                loading = false
+            }
+        }
+    }
 }
 
 @Composable
 fun BudgetRoot(root: RootViewModel) {
     val hasMember by root.hasMember.collectAsStateWithLifecycle()
-    if (hasMember == null) return
+    val failed by root.failed.collectAsStateWithLifecycle()
+    if (hasMember == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (failed) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(stringResource(R.string.startup_failed), color = LocalColors.current.text)
+                androidx.compose.material3.TextButton(onClick = root::load) { Text(stringResource(R.string.startup_retry)) }
+            } else androidx.compose.material3.CircularProgressIndicator()
+        }
+        return
+    }
     val c = LocalColors.current
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
@@ -207,7 +242,6 @@ fun BudgetRoot(root: RootViewModel) {
     }
 }
 
-/** Five equal columns, 84 high, top hairline; Scan is a raised primary circle like the mockup. */
 @Composable
 private fun BottomBar(route: String?, onSelect: (Tab) -> Unit) {
     val c = LocalColors.current

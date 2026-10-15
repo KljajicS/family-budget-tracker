@@ -22,7 +22,6 @@ fun formatAmount(m: Money, sign: Boolean = false, locale: Locale = Locale.getDef
 fun formatMoneyNumber(amount: BigDecimal, locale: Locale = Locale.getDefault()): String =
     DecimalFormat("#,##0.##", DecimalFormatSymbols(locale)).format(amount)
 
-/** "98.4k" from 98 400; below a thousand the plain number. */
 fun formatCompact(m: Money, locale: Locale = Locale.getDefault()): String {
     val abs = m.amount.abs()
     if (abs < BigDecimal(1000)) return formatAmount(m, locale = locale)
@@ -31,7 +30,6 @@ fun formatCompact(m: Money, locale: Locale = Locale.getDefault()): String {
     return if (m.isNegative) "-$body" else body
 }
 
-/** Serbian month names in Latin script, whatever script the system picked. */
 fun monthLocale(locale: Locale): Locale = if (locale.language == "sr") Locale.forLanguageTag("sr-Latn") else locale
 
 fun monthName(month: YearMonth, locale: Locale, style: TextStyle = TextStyle.FULL_STANDALONE): String =

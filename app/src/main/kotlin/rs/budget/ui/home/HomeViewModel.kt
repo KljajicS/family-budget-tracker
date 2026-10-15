@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
@@ -51,5 +53,6 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : 
             pace = statuses.firstOrNull()?.pace?.toFloat() ?: 0f,
         )
     }.combine(repo.goalStatuses) { state, goals -> state.copy(goals = goals.take(3)) }
+        .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

@@ -6,12 +6,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
 import rs.budget.domain.Account
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Currency
 import rs.budget.domain.newId
+import rs.budget.ui.WriteOperation
 import javax.inject.Inject
 
 data class SetupAccount(val name: String, val currency: Currency, val kind: AccountKind, val enabled: Boolean)
@@ -30,6 +30,7 @@ data class SetupState(
 
 @HiltViewModel
 class SetupViewModel @Inject constructor(private val repo: BudgetRepository) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(SetupState())
     val state: StateFlow<SetupState> = _state
 
@@ -48,7 +49,7 @@ class SetupViewModel @Inject constructor(private val repo: BudgetRepository) : V
     fun finish() {
         val s = _state.value
         if (!s.canFinish) return
-        viewModelScope.launch {
+        writes.run {
             repo.setUp(
                 s.name.trim(),
                 s.accounts.filter { it.enabled }.map { Account(newId(), it.name, it.currency, it.kind) },

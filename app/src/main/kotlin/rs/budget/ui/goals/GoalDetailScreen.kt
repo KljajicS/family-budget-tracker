@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.ui.add.DateBox
 import rs.budget.ui.formatAmount
@@ -70,7 +71,8 @@ fun GoalDetailScreen(onClose: () -> Unit, onEdit: (String) -> Unit, vm: GoalDeta
                 Text(stringResource(R.string.goal_add_title), style = sans(16, FontWeight.SemiBold), color = c.text)
                 AmountField(stringResource(R.string.goal_add_amount), s.amountText, status.goal.target.currency, vm::setAmount)
                 DateBox(s.date, vm::setDate, Modifier.fillMaxWidth(), label = stringResource(R.string.goal_add_date))
-                PrimaryButton(stringResource(R.string.goal_add), enabled = s.canAdd, onClick = vm::add)
+                WriteFeedback(vm.writes)
+                PrimaryButton(stringResource(R.string.goal_add), enabled = s.canAdd && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::add)
             }
         }
         item { Text(stringResource(R.string.goal_entries), style = LabelStyle, color = c.muted) }

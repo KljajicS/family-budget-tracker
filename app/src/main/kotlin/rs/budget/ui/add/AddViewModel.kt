@@ -50,12 +50,12 @@ data class AddState(
     @StringRes val saveError: Int? = null,
     val receipt: Receipt? = null,
     val paidByName: String = "",
-    /** Set when the sheet pays one occurrence of a recurring rule: the type is locked and the id is derived. */
     val bill: Bill? = null,
 ) {
     val canSave: Boolean get() = !saving && !saved && amount.value != null && accountId != null && error == null &&
-        (receipt == null || (accounts.any { it.id == accountId && it.currency == Currency.RSD } &&
-            (categoryId == null || categories.any { it.id == categoryId }))) &&
+        accounts.any { it.id == accountId && it.currency == currency } &&
+        (receipt == null || currency == Currency.RSD) &&
+        (type != TransactionType.EXPENSE || categoryId == null || categories.any { it.id == categoryId }) &&
         (type != TransactionType.TRANSFER || toAccountId != null)
 }
 
@@ -81,7 +81,7 @@ class AddViewModel @Inject constructor(
                         amount = AmountInput(rule.money.amount.stripTrailingZeros().toPlainString()),
                         categoryId = rule.categoryId,
                         accountId = rule.accountId,
-                        date = due,
+                        date = clock.today(),
                         merchant = rule.name,
                         bill = Bill(rule, due, period, billTxId(rule.id, period), overdue = due < clock.today()),
                     )
@@ -89,9 +89,11 @@ class AddViewModel @Inject constructor(
             }
             combine(repo.accounts, repo.categories) { a, c -> a to c }.collect { (accounts, categories) ->
                 val memberName = repo.currentMember()?.displayName.orEmpty()
+                val sortedCategories = categories.sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } }
                 _state.update { s ->
                     val account = s.accountId ?: accounts.firstOrNull { s.receipt == null || it.currency == Currency.RSD }?.id
-                    s.copy(paidByName = memberName, accounts = accounts, categories = categories.sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } }, accountId = account,
+                    s.copy(categoryId = if (s.receipt == null && s.bill == null && s.categoryId != null && categories.none { it.id == s.categoryId }) sortedCategories.firstOrNull()?.id else s.categoryId,
+                        paidByName = memberName, accounts = accounts, categories = sortedCategories, accountId = account,
                         currency = accounts.firstOrNull { it.id == account }?.currency ?: s.currency)
                 }
             }
@@ -115,15 +117,24 @@ class AddViewModel @Inject constructor(
     }
 
     fun skip() {
+        if (_state.value.saving || _state.value.saved) return
         val bill = _state.value.bill ?: return
+        _state.update { it.copy(saving = true, saveError = null) }
         viewModelScope.launch {
-            repo.skipBill(bill.rule.id, bill.period)
-            _state.update { it.copy(saved = true) }
+            try {
+                repo.skipBill(bill.rule.id, bill.period)
+                _state.update { it.copy(saved = true, saving = false) }
+            } catch (e: CancellationException) {
+                _state.update { it.copy(saving = false) }
+                throw e
+            } catch (_: Exception) {
+                _state.update { it.copy(saving = false, saveError = R.string.add_save_failed) }
+            }
         }
     }
     fun press(key: Char) = _state.update { it.copy(amount = it.amount.press(key)) }
     fun setCategory(id: String?) = _state.update { it.copy(categoryId = id) }
-    fun setDate(date: LocalDate) = _state.update { it.copy(date = date) }
+    fun setDate(date: LocalDate) = _state.update { if (it.bill != null) it else it.copy(date = date) }
     fun setMerchant(text: String) = _state.update { it.copy(merchant = text) }
 
     fun setAccount(id: String) = _state.update { s ->
@@ -147,7 +158,7 @@ class AddViewModel @Inject constructor(
                     accountId = s.accountId!!,
                     toAccountId = if (s.type == TransactionType.TRANSFER) s.toAccountId else null,
                     categoryId = if (s.type == TransactionType.EXPENSE) s.categoryId else null,
-                    date = s.date,
+                    date = if (s.bill != null) clock.today() else s.date,
                     note = "",
                     merchant = s.merchant.trim(),
                     paidBy = member.id,
@@ -160,6 +171,7 @@ class AddViewModel @Inject constructor(
             if (s.receipt != null) repo.addReceipt(transaction, s.receipt) else repo.add(transaction)
             _state.update { it.copy(saved = true, saving = false) }
             } catch (e: CancellationException) {
+                _state.update { it.copy(saving = false) }
                 throw e
             } catch (e: Exception) {
                 val message = when (e) {
