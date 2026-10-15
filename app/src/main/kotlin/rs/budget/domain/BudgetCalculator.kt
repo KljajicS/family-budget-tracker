@@ -21,6 +21,18 @@ data class BudgetStatus(
 object BudgetCalculator {
 
     /**
+     * Budgets in force for [month]: per category, the latest row dated at or before the month.
+     * A zero amount is a removal and ends the carry-forward. Rows are returned dated [month].
+     */
+    fun effective(budgets: List<Budget>, month: YearMonth): List<Budget> = budgets
+        .filter { it.month <= month }
+        .groupBy { it.categoryId }
+        .values.map { rows -> rows.maxBy { it.month } }
+        .filter { it.money.amount.signum() > 0 }
+        .map { it.copy(month = month) }
+        .sortedBy { it.categoryId }
+
+    /**
      * One status per budget with a positive amount, sorted by spent ÷ budget descending.
      * Spending is converted into the budget's currency; amounts with no rate are skipped.
      */

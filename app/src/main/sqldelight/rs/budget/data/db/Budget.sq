@@ -12,8 +12,5 @@ INSERT OR REPLACE INTO budget(category_id, month, amount, currency) VALUES (?, ?
 all:
 SELECT * FROM budget ORDER BY month, category_id;
 
-delete:
-DELETE FROM budget WHERE category_id = ? AND month = ?;
-
 deleteAll:
 DELETE FROM budget;

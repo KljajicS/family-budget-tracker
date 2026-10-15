@@ -55,7 +55,8 @@ class Projector(private val db: BudgetDb) {
             is BudgetSet -> db.budgetQueries.upsert(
                 e.budget.categoryId, e.budget.month.toString(), e.budget.money.amount.toPlainString(), e.budget.money.currency.name,
             )
-            is BudgetRemoved -> db.budgetQueries.delete(e.categoryId, e.month.toString())
+            // A zero row is the tombstone: it stops carry-forward from an earlier month (see BudgetCalculator.effective).
+            is BudgetRemoved -> db.budgetQueries.upsert(e.categoryId, e.month.toString(), "0.00", "RSD")
         }
     }
 

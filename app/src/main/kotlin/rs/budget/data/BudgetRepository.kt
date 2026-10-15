@@ -3,9 +3,11 @@ package rs.budget.data
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import rs.budget.data.db.Account as AccountRow
@@ -78,39 +80,28 @@ class BudgetRepository(
     val budgets: Flow<List<Budget>> =
         db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
 
-    /** Stored budgets for the month, else the latest earlier month's amounts carried forward. */
-    fun effectiveBudgets(month: YearMonth): Flow<List<Budget>> = budgets.map { all ->
-        val own = all.filter { it.month == month }
-        if (own.isNotEmpty()) return@map own
-        val previous = all.map { it.month }.filter { it < month }.maxOrNull() ?: return@map emptyList()
-        all.filter { it.month == previous }.map { it.copy(month = month) }
-    }
+    fun effectiveBudgets(month: YearMonth): Flow<List<Budget>> = budgets.map { BudgetCalculator.effective(it, month) }
+
+    /** Re-reads the date once a minute so a screen left open over midnight on the 1st moves to the new month. */
+    private val today: Flow<LocalDate> = flow {
+        while (true) {
+            emit(clock.today())
+            delay(60_000)
+        }
+    }.distinctUntilChanged()
 
     val budgetStatuses: Flow<List<BudgetStatus>> =
-        combine(effectiveBudgets(YearMonth.from(clock.today())), transactions) { b, txs ->
-            BudgetCalculator.statuses(clock.today(), b, txs, rsdRates)
+        combine(today, budgets, transactions) { day, all, txs ->
+            BudgetCalculator.statuses(day, BudgetCalculator.effective(all, YearMonth.from(day)), txs, rsdRates)
         }
 
-    val home: Flow<HomeSummary> = combine(accounts, transactions, budgetStatuses) { accs, txs, statuses ->
-        HomeCalculator.summarize(clock.today(), accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses, rsdRates))
+    val home: Flow<HomeSummary> = combine(today, accounts, transactions, budgetStatuses) { day, accs, txs, statuses ->
+        HomeCalculator.summarize(day, accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses, rsdRates))
     }
 
-    suspend fun setBudget(budget: Budget) {
-        materialize(budget.month)
-        store.append(BudgetSet(budget))
-    }
+    suspend fun setBudget(budget: Budget) { store.append(BudgetSet(budget)) }
 
-    suspend fun removeBudget(categoryId: String, month: YearMonth) {
-        materialize(month)
-        store.append(BudgetRemoved(categoryId, month))
-    }
-
-    /** First edit in a month pins the carried-forward set as real rows, so a delete cannot resurrect it through carry-forward. */
-    private suspend fun materialize(month: YearMonth) {
-        val all = budgets.first()
-        if (all.any { it.month == month }) return
-        effectiveBudgets(month).first().forEach { store.append(BudgetSet(it)) }
-    }
+    suspend fun removeBudget(categoryId: String, month: YearMonth) { store.append(BudgetRemoved(categoryId, month)) }
 
     suspend fun currentMember(): Member? = withContext(Dispatchers.IO) {
         db.memberQueries.byDevice(deviceId).executeAsOneOrNull()?.toDomain()

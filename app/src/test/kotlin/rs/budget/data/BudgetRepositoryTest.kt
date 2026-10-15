@@ -59,15 +59,26 @@ class BudgetRepositoryTest {
     }
 
     @Test
-    fun `deleting a carried-forward budget pins the month first so it stays gone`() = runTest {
+    fun `removing a carried-forward budget ends it from that month on, earlier months keep it`() = runTest {
         repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
         val sep = YearMonth.of(2026, 9)
         val oct = YearMonth.of(2026, 10)
+        val nov = YearMonth.of(2026, 11)
         repo.setBudget(Budget("cat-groceries", sep, Money.of("50000", Currency.RSD)))
         repo.setBudget(Budget("cat-fun", sep, Money.of("5000", Currency.EUR)))
         repo.removeBudget("cat-groceries", oct)
         assertEquals(listOf(Budget("cat-fun", oct, Money.of("5000", Currency.EUR))), repo.effectiveBudgets(oct).first())
+        assertEquals(listOf("cat-fun"), repo.effectiveBudgets(nov).first().map { it.categoryId })
         assertEquals(2, repo.effectiveBudgets(sep).first().size)
+    }
+
+    @Test
+    fun `removing the last budget of a month does not bring the previous month back`() = runTest {
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
+        repo.setBudget(Budget("cat-groceries", YearMonth.of(2026, 9), Money.of("50000", Currency.RSD)))
+        repo.removeBudget("cat-groceries", YearMonth.of(2026, 10))
+        assertEquals(emptyList<Budget>(), repo.effectiveBudgets(YearMonth.of(2026, 10)).first())
+        assertEquals(emptyList<BudgetStatus>(), repo.budgetStatuses.first())
     }
 
     @Test
