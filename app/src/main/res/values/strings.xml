@@ -148,8 +148,8 @@
     <string name="insights_savings_trend">Savings trend</string>
     <string name="insights_since">%1$s since %2$s</string>
     <string name="insights_tip_budget_title">%1$s is at %2$d%% with %3$d days left</string>
-    <string name="insights_tip_budget_body">One more purchase in this category goes over budget.</string>
-    <string name="insights_tip_budget_body_avg">You are already past your 3-month average of %1$s RSD. One more purchase goes over budget.</string>
+    <string name="insights_tip_budget_body">Only %1$s RSD left in this budget.</string>
+    <string name="insights_tip_budget_body_avg">Already past your 3-month average of %1$s RSD. Only %2$s RSD left in this budget.</string>
     <string name="insights_tip_average_title">%1$s is above its usual level</string>
     <string name="insights_tip_average_body">%1$s RSD so far this month, against a 3-month average of %2$s RSD.</string>
     <string name="insights_tip_saved_title">Saved %1$s RSD so far this month</string>

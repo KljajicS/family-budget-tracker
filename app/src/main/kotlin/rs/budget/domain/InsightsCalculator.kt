@@ -11,7 +11,8 @@ data class Slice(val categoryId: String?, val amount: Money, val share: Int)
 data class MonthTotals(val month: YearMonth, val income: Money, val expenses: Money, val inProgress: Boolean)
 
 sealed interface Tip {
-    data class BudgetNearLimit(val categoryId: String, val percent: Int, val daysLeft: Int, val average: Money?) : Tip
+    /** `average` is set only when this month's spending is already above the three-month average. */
+    data class BudgetNearLimit(val categoryId: String, val percent: Int, val daysLeft: Int, val left: Money, val average: Money?) : Tip
     data class AboveAverage(val categoryId: String, val spent: Money, val average: Money) : Tip
     data class Saved(val saved: Money, val average: Money) : Tip
 }
@@ -97,16 +98,17 @@ object InsightsCalculator {
         rsd: (Money) -> Money,
     ): Tip {
         val daysLeft = month.lengthOfMonth() - today.dayOfMonth + 1
+        /** Mean over the previous three months, empty months counting as zero; null when none of them had spending. */
         fun averageOf(categoryId: String?): Money? {
             val previous = (1..3).map { month.minusMonths(it.toLong()) }
             val sums = previous.map { m -> expenses.filter { it.categoryId == categoryId && YearMonth.from(it.date) == m }.fold(Money.zero(Currency.RSD)) { a, t -> a + rsd(t.money) } }
-                .filter { !it.isZero }
-            if (sums.isEmpty()) return null
+            if (sums.all { it.isZero }) return null
             return Money.of(sums.fold(BigDecimal.ZERO) { a, m -> a + m.amount }.divide(BigDecimal(sums.size), 2, RoundingMode.HALF_UP), Currency.RSD)
         }
 
         statuses.filter { it.ratio >= 0.9 }.maxByOrNull { it.ratio }?.let { s ->
-            return Tip.BudgetNearLimit(s.categoryId, (s.ratio * 100).toInt(), daysLeft, averageOf(s.categoryId))
+            val average = averageOf(s.categoryId)?.takeIf { rsd(s.spent).amount > it.amount }
+            return Tip.BudgetNearLimit(s.categoryId, (s.ratio * 100).toInt(), daysLeft, rsd(s.left), average)
         }
         expenses.filter { YearMonth.from(it.date) == month && it.categoryId != null }
             .groupBy { it.categoryId!! }

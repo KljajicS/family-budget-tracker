@@ -192,7 +192,7 @@ private fun TipCard(tip: Tip, categories: Map<String, Category>) {
     val (title, body, tone) = when (tip) {
         is Tip.BudgetNearLimit -> Triple(
             stringResource(R.string.insights_tip_budget_title, categoryName(tip.categoryId, categories), tip.percent, tip.daysLeft),
-            tip.average?.let { stringResource(R.string.insights_tip_budget_body_avg, amt(it)) } ?: stringResource(R.string.insights_tip_budget_body),
+            tip.average?.let { stringResource(R.string.insights_tip_budget_body_avg, amt(it), amt(tip.left)) } ?: stringResource(R.string.insights_tip_budget_body, amt(tip.left)),
             c.orange,
         )
         is Tip.AboveAverage -> Triple(

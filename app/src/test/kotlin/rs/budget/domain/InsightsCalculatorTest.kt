@@ -100,12 +100,18 @@ class InsightsCalculatorTest {
         assertEquals("g", budget.categoryId)
         assertEquals(95, budget.percent)
         assertEquals(18, budget.daysLeft)
+        assertEquals(rsd("500"), budget.left)
         assertNull(budget.average)
 
+        // Average over three months with July empty: (0 + 5000 + 7000) / 3.
         val above = InsightsCalculator.summarize(today, oct, txs, accounts, emptyList(), rates).tip as Tip.AboveAverage
         assertEquals("e", above.categoryId)
         assertEquals(rsd("9000"), above.spent)
-        assertEquals(rsd("6000"), above.average)
+        assertEquals(rsd("4000"), above.average)
+
+        // Spending in a category with no history is not "above average": the saved tip wins.
+        val fresh = listOf(tx("5", "9000", today, "n"), txs.last())
+        assertTrue(InsightsCalculator.summarize(today, oct, fresh, accounts, emptyList(), rates).tip is Tip.Saved)
 
         val saved = InsightsCalculator.summarize(today, oct, txs.take(1) + txs.last(), accounts, emptyList(), rates).tip as Tip.Saved
         assertEquals(rsd("50000"), saved.saved)
