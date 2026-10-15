@@ -9,6 +9,14 @@ import java.time.YearMonth
 @Serializable
 sealed interface Event
 
+@Serializable @SerialName("ExchangeRateOverrideSet")
+data class ExchangeRateOverrideSet(val currency: Currency, val rate: String?) : Event {
+    init {
+        require(currency != Currency.RSD)
+        require(rate == null || parseRate(rate) != null)
+    }
+}
+
 @Serializable @SerialName("MemberCreated")
 data class MemberCreated(val member: Member) : Event
 
