@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,8 +40,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.data.RecentTx
 import rs.budget.data.StarterCategories
+import androidx.compose.ui.graphics.Color
 import rs.budget.domain.Currency
+import rs.budget.domain.GoalStatus
 import rs.budget.domain.Money
+import rs.budget.ui.goals.goalColor
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.ui.budgets.BudgetRow
@@ -64,7 +69,7 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onSettings: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onGoals: () -> Unit, onSettings: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
@@ -107,6 +112,18 @@ fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onSettings: () -> Unit,
                 s.budgets.forEach { BudgetRow(it, emptyList(), compact = true) }
             }
         }
+        if (s.goals.isNotEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.home_goals), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
+                    Text(
+                        stringResource(R.string.home_see_all), style = sans(14), color = c.primary,
+                        modifier = Modifier.clickable(role = Role.Button, onClick = onGoals).padding(vertical = 10.dp),
+                    )
+                }
+                s.goals.forEachIndexed { i, g -> GoalMiniRow(g, goalColor(i)) }
+            }
+        }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.home_recent), style = SectionStyle, color = c.text, modifier = Modifier.padding(bottom = 6.dp))
@@ -114,6 +131,24 @@ fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onSettings: () -> Unit,
             }
         }
         items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.currentMemberId, s.today) }
+    }
+}
+
+@Composable
+private fun GoalMiniRow(st: GoalStatus, color: Color) {
+    val c = LocalColors.current
+    val percent = (st.ratio * 100).toInt().coerceIn(0, 100)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(st.goal.name, style = sans(15, FontWeight.Medium), color = c.text, modifier = Modifier.weight(1f))
+            Text(
+                "${formatAmount(st.allocated)} / ${formatAmount(st.goal.target)} ${st.goal.target.currency} · $percent%",
+                style = mono(13), color = if (st.reached) c.green else c.muted,
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(6.dp).background(c.track, RoundedCornerShape(3.dp))) {
+            Box(Modifier.fillMaxWidth(st.ratio.toFloat().coerceIn(0f, 1f)).fillMaxHeight().background(color, RoundedCornerShape(3.dp)))
+        }
     }
 }
 

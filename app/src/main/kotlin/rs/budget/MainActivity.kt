@@ -130,6 +130,7 @@ fun BudgetRoot(root: RootViewModel) {
                 HomeScreen(
                     onAdd = { nav.navigate(Routes.add()) },
                     onBudgets = { nav.navigate(Tab.BUDGETS.route) { launchSingleTop = true } },
+                    onGoals = { nav.navigate(Tab.GOALS.route) { launchSingleTop = true } },
                     onSettings = { nav.navigate(Routes.SETTINGS) },
                 )
             }

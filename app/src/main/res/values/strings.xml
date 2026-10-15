@@ -77,6 +77,7 @@
     <string name="budgets_over">Over by %1$s</string>
     <string name="home_budgets">Budgets</string>
     <string name="home_see_all">See all</string>
+    <string name="home_goals">Goals</string>
     <string name="home_spent_of">%1$s spent of %2$s</string>
 
     <string name="settings_title">Settings</string>

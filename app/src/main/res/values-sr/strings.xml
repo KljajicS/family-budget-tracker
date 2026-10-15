@@ -77,6 +77,7 @@
     <string name="budgets_over">Prekoračeno za %1$s</string>
     <string name="home_budgets">Budžeti</string>
     <string name="home_see_all">Vidi sve</string>
+    <string name="home_goals">Ciljevi</string>
     <string name="home_spent_of">%1$s potrošeno od %2$s</string>
 
     <string name="settings_title">Podešavanja</string>

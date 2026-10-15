@@ -13,6 +13,7 @@ import rs.budget.data.Clock
 import rs.budget.data.RecentTx
 import rs.budget.domain.BudgetCalculator
 import rs.budget.domain.BudgetStatus
+import rs.budget.domain.GoalStatus
 import rs.budget.domain.HomeSummary
 import rs.budget.domain.Money
 import java.time.LocalDate
@@ -28,6 +29,7 @@ data class HomeState(
     val budgetSpent: Money? = null,
     val budgetTotal: Money? = null,
     val pace: Float = 0f,
+    val goals: List<GoalStatus> = emptyList(),
 )
 
 @HiltViewModel
@@ -48,5 +50,6 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : 
             budgetTotal = total.takeIf { statuses.isNotEmpty() },
             pace = statuses.firstOrNull()?.pace?.toFloat() ?: 0f,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.combine(repo.goalStatuses) { state, goals -> state.copy(goals = goals.take(3)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
