@@ -15,6 +15,7 @@ data class BudgetStatus(
     val ratio: Double,
     val pace: Double,
     val state: PaceState,
+    val missingCurrencies: Set<Currency> = emptySet(),
 )
 
 object BudgetCalculator {
@@ -44,9 +45,14 @@ object BudgetCalculator {
             .filter { it.month == month && it.money.amount.signum() > 0 }
             .map { b ->
                 val budget = b.money
+                val missing = mutableSetOf<Currency>()
                 val spent = expenses
                     .filter { it.categoryId == b.categoryId }
-                    .fold(Money.zero(budget.currency)) { acc, t -> acc + (rates.convert(t.money, budget.currency) ?: Money.zero(budget.currency)) }
+                    .fold(Money.zero(budget.currency)) { acc, t ->
+                        val converted = rates.convert(t.money, budget.currency)
+                        if (converted == null) missing += listOf(t.money.currency, budget.currency).filter { rates.rate(it) == null }
+                        acc + (converted ?: Money.zero(budget.currency))
+                    }
                 val left = budget - spent
                 val ratio = spent.amount.divide(budget.amount, 4, RoundingMode.HALF_UP).toDouble()
                 val state = when {
@@ -56,7 +62,7 @@ object BudgetCalculator {
                     ratio <= pace + 0.10 -> PaceState.ON_TRACK
                     else -> PaceState.OVER_PACE
                 }
-                BudgetStatus(b.categoryId, budget, spent, left, ratio, pace, state)
+                BudgetStatus(b.categoryId, budget, spent, left, ratio, pace, state, missing)
             }
             .sortedByDescending { it.ratio }
     }
@@ -69,4 +75,7 @@ object BudgetCalculator {
         fun sum(pick: (BudgetStatus) -> Money) = statuses.fold(Money.zero(Currency.RSD)) { a, s -> a + (rates.convert(pick(s)) ?: Money.zero(Currency.RSD)) }
         return sum { it.spent } to sum { it.budget }
     }
+
+    fun missingCurrencies(statuses: List<BudgetStatus>, rates: Rates): Set<Currency> =
+        statuses.flatMap { it.missingCurrencies + listOf(it.budget.currency).filter { c -> rates.rate(c) == null } }.toSet()
 }
