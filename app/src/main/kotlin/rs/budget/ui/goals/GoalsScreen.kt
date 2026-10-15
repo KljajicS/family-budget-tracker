@@ -66,6 +66,7 @@ fun GoalsScreen(onNew: () -> Unit, onOpen: (String) -> Unit, vm: GoalsViewModel 
                 ) { Text(stringResource(R.string.goals_new), style = sans(14, FontWeight.Medium), color = c.text) }
             }
         }
+        item { rs.budget.ui.RateNotice(s.rateStatus) }
         item { TotalCard(s) }
         if (s.statuses.isEmpty()) {
             item { Text(stringResource(R.string.goals_empty), style = BodyStyle, color = c.muted) }
@@ -120,10 +121,10 @@ private fun TotalCard(s: GoalsState) {
 }
 
 private fun rsdShare(m: Money, s: GoalsState): Float =
-    if (m.currency == Currency.RSD) (m.amount.toFloat() / s.savingsTotal.amount.toFloat()).coerceAtLeast(0f) else 0f
+    s.rateStatus.snapshot.rates.convert(m)?.let { (it.amount.toFloat() / s.savingsTotal.amount.toFloat()).coerceAtLeast(0f) } ?: 0f
 
 @Composable
-private fun approxRsd(m: Money, s: GoalsState): String = if (m.currency == Currency.RSD) formatAmount(m) else stringResource(R.string.goals_no_rate)
+private fun approxRsd(m: Money, s: GoalsState): String = s.rateStatus.snapshot.rates.convert(m)?.let { formatAmount(it) } ?: stringResource(R.string.goals_no_rate)
 
 @Composable
 private fun NeedsCard(s: GoalsState) {

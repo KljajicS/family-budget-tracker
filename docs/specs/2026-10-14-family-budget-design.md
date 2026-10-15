@@ -49,7 +49,8 @@ All amounts are `Money(amount: BigDecimal, currency: Currency)`. No floats anywh
 | GoalAllocation | id, goalId, money, date | Explicit "put X toward goal" entries. |
 | Member | id, displayName, deviceId | Two for now. |
 | Receipt | id, transactionId, fiscalUrl, items JSON | Fetched from suf.purs.gov.rs. |
-| ExchangeRate | currency, rate to RSD, date, source (nbs, manual) | Cached; manual override allowed. |
+| ExchangeRate | currency, rate to RSD, effective date, fetched timestamp | Device-local public NBS cache, outside the event log. |
+| ExchangeRateOverride | currency, nullable rate to RSD, changed timestamp | Rebuilt from family setting events; null restores automatic rates. |
 
 Everything is a family-wide shared record. There is no per-member private data.
 
@@ -122,7 +123,9 @@ Why Drive: both users already have accounts, Android sign-in is native, free, no
 
 ### 6.6 Exchange rates
 
-National Bank of Serbia publishes a daily middle rate. Fetch once a day when online, cache in `exchange_rate`. Manual override per currency in settings.
+Fetch the public National Bank of Serbia middle-rate HTML list in the foreground after local startup. Refresh is due after the latest 08:00 Europe/Belgrade boundary, with a one-hour automatic failure cooldown and explicit retry in Settings. Cache validated EUR and USD rates atomically in `exchange_rate`; preserve the last cache on failure. Manual overrides are separate family setting events and can be reset to automatic.
+
+All RSD summaries, including historical months, use the latest effective snapshot and are labelled estimates. Original transactions never change. Missing currencies produce partial totals with an exclusion notice; automatic rates at least seven days old produce an age warning. See ADR 11 for precision, replay and rollback behavior.
 
 ### 6.7 UI
 

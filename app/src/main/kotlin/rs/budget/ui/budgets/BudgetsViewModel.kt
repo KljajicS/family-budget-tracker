@@ -39,16 +39,20 @@ data class BudgetsState(
     val upcoming: List<Bill> = emptyList(),
     val upcomingTotal: Money = Money.zero(Currency.RSD),
     val accountNames: Map<String, String> = emptyMap(),
+    val rateStatus: rs.budget.ui.RateStatus = rs.budget.ui.RateStatus(),
 )
 
 @HiltViewModel
 class BudgetsViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : ViewModel() {
-    val state: StateFlow<BudgetsState?> = combine(repo.budgetStatuses, repo.categories, repo.upcomingBills, repo.accounts) { statuses, categories, bills, accounts ->
-        val today = clock.today()
+    val state: StateFlow<BudgetsState?> = combine(repo.financial, repo.categories) { financial, categories ->
+        val today = financial.day
+        val statuses = financial.budgets
+        val bills = financial.bills
+        val rates = financial.exchange.rates
         val month = YearMonth.from(today)
-        val (spent, total) = BudgetCalculator.total(statuses, repo.rates)
-        val upcomingTotal = bills.fold(Money.zero(Currency.RSD)) { acc, b -> acc + (repo.rates.convert(b.rule.money) ?: Money.zero(Currency.RSD)) }
-        BudgetsState(month, month.lengthOfMonth() - today.dayOfMonth + 1, statuses, spent, total, categories, bills, upcomingTotal, accounts.associate { it.id to it.name })
+        val (spent, total) = BudgetCalculator.total(statuses, rates)
+        val upcomingTotal = bills.fold(Money.zero(Currency.RSD)) { acc, b -> acc + (rates.convert(b.rule.money) ?: Money.zero(Currency.RSD)) }
+        BudgetsState(month, month.lengthOfMonth() - today.dayOfMonth + 1, statuses, spent, total, categories, bills, upcomingTotal, financial.accounts.associate { it.id to it.name }, rs.budget.ui.RateStatus.from(financial))
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 

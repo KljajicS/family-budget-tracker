@@ -74,6 +74,7 @@ fun BudgetsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, onPay: (String, L
                 ) { Text(stringResource(R.string.budgets_new), style = sans(14, FontWeight.Medium), color = c.text) }
             }
         }
+        item { rs.budget.ui.RateNotice(s.rateStatus) }
         if (s.statuses.isEmpty()) {
             item { Text(stringResource(R.string.budgets_empty), style = BodyStyle, color = c.muted) }
         } else {

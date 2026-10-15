@@ -45,7 +45,7 @@ import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.sans
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () -> Unit, onRecurring: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () -> Unit, onRecurring: () -> Unit, onRates: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
 
@@ -67,6 +67,7 @@ fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () 
         SettingsRow(stringResource(R.string.settings_categories), onCategories)
         SettingsRow(stringResource(R.string.settings_accounts), onAccounts)
         SettingsRow(stringResource(R.string.settings_recurring), onRecurring)
+        SettingsRow(stringResource(R.string.rates_title), onRates)
     }
 }
 

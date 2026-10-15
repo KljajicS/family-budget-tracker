@@ -86,13 +86,14 @@ fun PaceBar(ratio: Float, pace: Float, color: Color, height: Dp, modifier: Modif
 }
 
 @Composable
-fun FieldBox(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+fun FieldBox(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier, keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default) {
     val c = LocalColors.current
     OutlinedBox(modifier.fillMaxWidth(), radius = 14, padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
         Text(label, style = CaptionStyle, color = c.muted)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
+            keyboardOptions = keyboardOptions,
             singleLine = true,
             textStyle = sans(14, FontWeight.Medium).copy(color = c.text),
             cursorBrush = SolidColor(c.primary),

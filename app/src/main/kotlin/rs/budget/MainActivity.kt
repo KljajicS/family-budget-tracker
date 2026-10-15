@@ -39,6 +39,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
+import rs.budget.data.rates.RateRefresh
+import rs.budget.ui.settings.ExchangeRatesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -105,7 +111,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @HiltViewModel
-class RootViewModel @Inject constructor(private val repo: Lazy<BudgetRepository>, themeStore: ThemeStore) : ViewModel() {
+class RootViewModel @Inject constructor(private val repo: Lazy<BudgetRepository>, themeStore: ThemeStore, private val rateRefresh: Lazy<RateRefresh>) : ViewModel() {
     private val member = MutableStateFlow<Boolean?>(null)
     val hasMember: StateFlow<Boolean?> = member
     private val failure = MutableStateFlow(false)
@@ -114,6 +120,10 @@ class RootViewModel @Inject constructor(private val repo: Lazy<BudgetRepository>
     val theme: StateFlow<ThemeMode> = themeStore.mode
 
     init { load() }
+
+    suspend fun refreshRates() {
+        if (member.value != null) withContext(Dispatchers.IO) { rateRefresh.get().refresh() }
+    }
 
     fun load() {
         if (loading || member.value != null) return
@@ -148,6 +158,15 @@ fun BudgetRoot(root: RootViewModel) {
     }
     val c = LocalColors.current
     val nav = rememberNavController()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle, root) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                root.refreshRates()
+                delay(60_000)
+            }
+        }
+    }
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
     var scanEditing by remember { mutableStateOf(false) }
@@ -185,11 +204,13 @@ fun BudgetRoot(root: RootViewModel) {
                     onCategories = { nav.navigate(Routes.CATEGORIES) },
                     onAccounts = { nav.navigate(Routes.ACCOUNTS) },
                     onRecurring = { nav.navigate(Routes.RECURRING) },
+                    onRates = { nav.navigate(Routes.EXCHANGE_RATES) },
                 )
             }
             composable(Routes.RECURRING) {
                 RecurringScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_RECURRING) }, onEdit = { nav.navigate(Routes.editRecurring(it)) })
             }
+            composable(Routes.EXCHANGE_RATES) { ExchangeRatesScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.NEW_RECURRING) { EditRecurringScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_RECURRING) { EditRecurringScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.CATEGORIES) {

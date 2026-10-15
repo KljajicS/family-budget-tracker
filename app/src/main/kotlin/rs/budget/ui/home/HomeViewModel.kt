@@ -32,27 +32,30 @@ data class HomeState(
     val budgetTotal: Money? = null,
     val pace: Float = 0f,
     val goals: List<GoalStatus> = emptyList(),
+    val rateStatus: rs.budget.ui.RateStatus = rs.budget.ui.RateStatus(),
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : ViewModel() {
     val state: StateFlow<HomeState?> = combine(
-        repo.home,
+        repo.financial,
         repo.recent(20),
         flow { emit(repo.currentMember()?.id) },
-        repo.budgetStatuses,
         repo.members,
-    ) { summary, recent, member, statuses, members ->
-        val (spent, total) = BudgetCalculator.total(statuses, repo.rates)
+    ) { financial, recent, member, members ->
+        val statuses = financial.budgets
+        val (spent, total) = BudgetCalculator.total(statuses, financial.exchange.rates)
         HomeState(
-            summary, recent, member, clock.today(),
+            financial.home, recent, member, financial.day,
             memberName = members.firstOrNull { it.id == member }?.displayName ?: "",
             budgets = statuses.take(3),
             budgetSpent = spent.takeIf { statuses.isNotEmpty() },
             budgetTotal = total.takeIf { statuses.isNotEmpty() },
             pace = statuses.firstOrNull()?.pace?.toFloat() ?: 0f,
+            goals = financial.goals.take(3),
+            rateStatus = rs.budget.ui.RateStatus.from(financial),
         )
-    }.combine(repo.goalStatuses) { state, goals -> state.copy(goals = goals.take(3)) }
+    }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }

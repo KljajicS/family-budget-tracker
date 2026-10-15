@@ -81,7 +81,7 @@ class HardeningViewModelTest {
             worker.set(Thread.currentThread())
             if (fail) error("Cannot open database")
             repo
-        }, ThemeStore({ null }, {}))
+        }, ThemeStore({ null }, {}), dagger.Lazy { error("Refresh must not block startup") })
         assertNull(vm.hasMember.value)
         vm.failed.first { it }
         assertNotEquals(caller, worker.get())

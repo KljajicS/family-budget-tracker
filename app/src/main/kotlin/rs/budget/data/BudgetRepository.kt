@@ -60,7 +60,8 @@ import rs.budget.domain.HomeSummary
 import rs.budget.domain.Member
 import rs.budget.domain.MemberCreated
 import rs.budget.domain.Money
-import rs.budget.domain.Rates
+import rs.budget.domain.ExchangeRateSnapshot
+import rs.budget.data.rates.RateRepository
 import rs.budget.domain.Receipt
 import rs.budget.domain.Transaction
 import rs.budget.domain.TransactionAdded
@@ -69,7 +70,6 @@ import rs.budget.domain.TransactionEdited
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.domain.newId
-import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -84,6 +84,7 @@ class BudgetRepository(
     private val clock: Clock,
     private val deviceId: String = "",
     sharingScope: CoroutineScope? = null,
+    val exchangeRates: RateRepository = RateRepository(db, store, clock),
 ) {
     val accounts: Flow<List<Account>> =
         db.accountQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
@@ -108,10 +109,6 @@ class BudgetRepository(
     fun recent(limit: Int): Flow<List<RecentTx>> =
         db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }.flowOn(Dispatchers.Default)
 
-    // ponytail: rates are RSD-only until the sync milestone adds the NBS fetch; EUR/USD accounts show as partial.
-    val rates: Rates = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
-    private val rsdRates get() = rates
-
     val budgets: Flow<List<Budget>> =
         db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
@@ -125,21 +122,11 @@ class BudgetRepository(
         }
     }.distinctUntilChanged()
 
-    val budgetStatuses: Flow<List<BudgetStatus>> =
-        combine(today, budgets, transactions) { day, all, txs ->
-            BudgetCalculator.statuses(day, BudgetCalculator.effective(all, YearMonth.from(day)), txs, rsdRates)
-        }.flowOn(Dispatchers.Default)
-
     val rules: Flow<List<RecurringRule>> =
         db.recurringRuleQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     private val skips: Flow<Set<Pair<String, String>>> =
         db.billSkipQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.rule_id to it.due_period }.toSet() }
-
-    val upcomingBills: Flow<List<Bill>> =
-        combine(today, rules, accounts, transactions, skips) { day, rules, accs, txs, skipped ->
-            BillCalculator.upcoming(day, rules, accs.map { it.id }.toSet(), txs, skipped)
-        }.flowOn(Dispatchers.Default)
 
     val goals: Flow<List<Goal>> =
         db.goalQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
@@ -147,23 +134,37 @@ class BudgetRepository(
     val allocations: Flow<List<GoalAllocation>> =
         db.goalAllocationQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
-    val goalStatuses: Flow<List<GoalStatus>> =
-        combine(today, goals, allocations) { day, gs, alloc -> GoalCalculator.statuses(day, gs, alloc) }.flowOn(Dispatchers.Default)
+    private val financialInputs = combine(today, allAccounts, transactions, budgets, exchangeRates.snapshots) { day, accs, txs, bs, rates ->
+        FinancialInputs(day, accs, txs, bs, rates)
+    }
+    private val commitments = combine(rules, skips, goals, allocations) { rs, ss, gs, alloc -> Commitments(rs, ss, gs, alloc) }
 
-    private val goalHold: Flow<Pair<Money, Boolean>> =
-        combine(today, goalStatuses, allocations) { day, statuses, alloc -> GoalCalculator.hold(day, statuses, alloc, rsdRates) }.flowOn(Dispatchers.Default)
+    val financial: Flow<FinancialSnapshot> = financialInputs.combine(commitments) { input, commitments ->
+        val (day, allAccs, txs, bs, exchange) = input
+        val rates = exchange.rates
+        val active = allAccs.filterNot { it.archived }
+        val statuses = BudgetCalculator.statuses(day, BudgetCalculator.effective(bs, YearMonth.from(day)), txs, rates)
+        val bills = BillCalculator.upcoming(day, commitments.rules, active.map { it.id }.toSet(), txs, commitments.skips)
+        val goals = GoalCalculator.statuses(day, commitments.goals, commitments.allocations)
+        val (billHold, billsPartial) = BillCalculator.reserve(day, bills, statuses, rates)
+        val (goalHold, goalsPartial) = GoalCalculator.hold(day, goals, commitments.allocations, rates)
+        val missing = (allAccs.map { it.currency } + txs.map { it.money.currency } + statuses.map { it.budget.currency } +
+            bills.map { it.rule.money.currency } + goals.map { it.goal.target.currency }).filter { rates.rate(it) == null }.toSet()
+        val home = HomeCalculator.summarize(day, active, txs, rates,
+            committed = BudgetCalculator.reserve(statuses, rates), bills = billHold, goals = goalHold,
+            partialInputs = billsPartial || goalsPartial || BudgetCalculator.missingCurrencies(statuses, rates).isNotEmpty())
+        FinancialSnapshot(day, allAccs, txs, statuses, bills, goals, home, exchange, missing)
+    }.flowOn(Dispatchers.Default).let { source ->
+        if (sharingScope == null) source else source.shareIn(sharingScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+    }
 
-    val home: Flow<HomeSummary> =
-        combine(today, accounts, transactions, budgetStatuses, upcomingBills) { day, accs, txs, statuses, bills ->
-            val (held, partial) = BillCalculator.reserve(day, bills, statuses, rsdRates)
-            HomeInputs(day, accs, txs, BudgetCalculator.reserve(statuses, rsdRates), held, partial || BudgetCalculator.missingCurrencies(statuses, rsdRates).isNotEmpty())
-        }.combine(goalHold) { h, (goalsHeld, goalsPartial) ->
-            HomeCalculator.summarize(h.day, h.accounts, h.transactions, rsdRates, committed = h.committed, bills = h.bills, goals = goalsHeld, partialInputs = h.partial || goalsPartial)
-        }.flowOn(Dispatchers.Default)
+    val home: Flow<HomeSummary> = financial.map { it.home }
+    val budgetStatuses: Flow<List<BudgetStatus>> = financial.map { it.budgets }
+    val upcomingBills: Flow<List<Bill>> = financial.map { it.bills }
+    val goalStatuses: Flow<List<GoalStatus>> = financial.map { it.goals }
 
-    private data class HomeInputs(
-        val day: LocalDate, val accounts: List<Account>, val transactions: List<Transaction>, val committed: Money, val bills: Money, val partial: Boolean,
-    )
+    private data class FinancialInputs(val day: LocalDate, val accounts: List<Account>, val transactions: List<Transaction>, val budgets: List<Budget>, val rates: ExchangeRateSnapshot)
+    private data class Commitments(val rules: List<RecurringRule>, val skips: Set<Pair<String, String>>, val goals: List<Goal>, val allocations: List<GoalAllocation>)
 
     suspend fun goal(id: String): Goal? = withContext(Dispatchers.IO) { db.goalQueries.byId(id).executeAsOneOrNull()?.toDomain() }
     suspend fun setGoal(goal: Goal) { store.append(GoalSet(goal)) }

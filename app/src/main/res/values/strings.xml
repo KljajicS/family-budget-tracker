@@ -235,4 +235,19 @@
     <string name="startup_retry">Try again</string>
     <string name="recurring_schedule_locked">To change this schedule, archive it and create a new one. Previous payments stay recorded.</string>
     <string name="add_account_unavailable">Choose an available account to save this transaction.</string>
+    <string name="rates_title">Exchange rates</string>
+    <string name="rates_description">RSD estimates use the latest available rates, including older months. Original transaction amounts stay unchanged. Automatic rates come from the National Bank of Serbia.</string>
+    <string name="rates_estimate">RSD totals are estimates using latest available rates.</string>
+    <string name="rates_excluded">Partial totals. Excluded currencies: %1$s.</string>
+    <string name="rates_stale">Automatic rates are at least seven days old.</string>
+    <string name="rates_refresh">Refresh rates</string>
+    <string name="rates_refreshing">Refreshing…</string>
+    <string name="rates_refresh_failed">Could not refresh. Saved rates remain available. Try again or enter a manual rate.</string>
+    <string name="rates_nbs">Source: National Bank of Serbia</string>
+    <string name="rates_manual">Source: manual override</string>
+    <string name="rates_effective">Cached NBS list date: %1$s</string>
+    <string name="rates_fetched">NBS last checked: %1$s</string>
+    <string name="rates_input">RSD per 1 %1$s (up to 8 decimal places)</string>
+    <string name="rates_save">Save manual rate</string>
+    <string name="rates_reset">Use automatic rate</string>
 </resources>

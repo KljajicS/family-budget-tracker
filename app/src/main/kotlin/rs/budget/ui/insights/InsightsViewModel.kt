@@ -23,6 +23,7 @@ data class InsightsState(
     val summary: InsightsSummary,
     val categories: Map<String, Category>,
     val hasData: Boolean,
+    val rateStatus: rs.budget.ui.RateStatus = rs.budget.ui.RateStatus(),
 ) {
     val canGoBack: Boolean get() = summary.month > summary.range.start
     val canGoForward: Boolean get() = summary.month < summary.range.endInclusive
@@ -33,12 +34,13 @@ class InsightsViewModel @Inject constructor(repo: BudgetRepository, private val 
     private val month = MutableStateFlow(YearMonth.from(clock.today()))
 
     val state: StateFlow<InsightsState?> = combine(
-        month, repo.transactions, repo.allAccounts, repo.allCategories, repo.budgetStatuses,
-    ) { m, txs, accounts, categories, statuses ->
+        month, repo.financial, repo.allCategories,
+    ) { m, financial, categories ->
         InsightsState(
-            InsightsCalculator.summarize(clock.today(), m, txs, accounts, statuses, repo.rates),
+            InsightsCalculator.summarize(financial.day, m, financial.transactions, financial.accounts, financial.budgets, financial.exchange.rates),
             categories.associateBy { it.id },
-            hasData = txs.isNotEmpty(),
+            hasData = financial.transactions.isNotEmpty(),
+            rateStatus = rs.budget.ui.RateStatus.from(financial),
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

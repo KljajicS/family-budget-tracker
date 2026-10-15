@@ -2,6 +2,7 @@ package rs.budget.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Test
 import rs.budget.data.db.BudgetDb
@@ -78,7 +79,7 @@ class HardeningTest {
         val allocations = listOf(GoalAllocation("allocation", goal.id, amount, rule.firstDue))
         val statuses = GoalCalculator.statuses(clock.today(), listOf(goal), allocations)
         assertFalse(statuses.single().reached)
-        assertEquals(amount, GoalCalculator.hold(clock.today(), statuses, allocations, repo.rates).first)
+        assertEquals(amount, GoalCalculator.hold(clock.today(), statuses, allocations, repo.exchangeRates.snapshots.first().rates).first)
         assertTrue(GoalCalculator.statuses(rule.firstDue, listOf(goal), allocations).single().reached)
     }
 }

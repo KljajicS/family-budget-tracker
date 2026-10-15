@@ -92,6 +92,7 @@ fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onGoals: () -> Unit, on
                 RoundIconButton(Icons.Default.Add, stringResource(R.string.home_add), onAdd)
             }
         }
+        item { rs.budget.ui.RateNotice(s.rateStatus) }
         item { SafeToSpendCard(s) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

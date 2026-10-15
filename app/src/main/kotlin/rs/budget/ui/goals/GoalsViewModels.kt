@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
 import rs.budget.data.Clock
@@ -38,16 +39,20 @@ data class GoalsState(
     val needs: Money,
     val averageSaved: Money,
     val partial: Boolean,
+    val rateStatus: rs.budget.ui.RateStatus = rs.budget.ui.RateStatus(),
 )
 
 @HiltViewModel
 class GoalsViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : ViewModel() {
-    val state: StateFlow<GoalsState?> = combine(repo.goalStatuses, repo.home, repo.transactions, repo.allAccounts, repo.budgetStatuses) { statuses, home, txs, accounts, budgets ->
-        val today = clock.today()
-        val (unassigned, p1) = GoalCalculator.unassigned(home.savingsTotal, statuses, repo.rates)
-        val (needs, p2) = GoalCalculator.needs(statuses, repo.rates)
-        val insights = InsightsCalculator.summarize(today, YearMonth.from(today), txs, accounts, budgets, repo.rates)
-        GoalsState(statuses, home.savingsTotal, home.savingsByCurrency, unassigned, needs, insights.averageSaved, home.partial || p1 || p2 || insights.partial)
+    val state: StateFlow<GoalsState?> = repo.financial.map { financial ->
+        val today = financial.day
+        val statuses = financial.goals
+        val home = financial.home
+        val rates = financial.exchange.rates
+        val (unassigned, p1) = GoalCalculator.unassigned(home.savingsTotal, statuses, rates)
+        val (needs, p2) = GoalCalculator.needs(statuses, rates)
+        val insights = InsightsCalculator.summarize(today, YearMonth.from(today), financial.transactions, financial.accounts, financial.budgets, rates)
+        GoalsState(statuses, home.savingsTotal, home.savingsByCurrency, unassigned, needs, insights.averageSaved, home.partial || p1 || p2 || insights.partial, rs.budget.ui.RateStatus.from(financial))
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 

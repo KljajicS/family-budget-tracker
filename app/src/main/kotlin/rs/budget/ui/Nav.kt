@@ -24,6 +24,7 @@ object Routes {
     fun add() = "add"
     fun addBill(ruleId: String, due: java.time.LocalDate) = "add?rule=$ruleId&due=$due"
     const val SETTINGS = "settings"
+    const val EXCHANGE_RATES = "settings/exchange-rates"
     const val CATEGORIES = "settings/categories"
     const val NEW_CATEGORY = "settings/categories/new"
     const val EDIT_CATEGORY = "settings/categories/edit/{id}"

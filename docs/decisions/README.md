@@ -13,3 +13,5 @@ One file per decision, numbered, never edited after acceptance. A reversed decis
 | [0007](0007-safe-to-spend-formula.md) | Safe-to-spend formula |
 | [0008](0008-deterministic-replay.md) | Deterministic replay, logical clock, delete wins |
 | [0009](0009-bills-and-budget-reserve.md) | Unpaid bills and the budget reserve are not subtracted twice |
+| [0010](0010-receipt-scanning.md) | Serbian receipt scanning with local QR decoding |
+| [0011](0011-exchange-rates.md) | Cached NBS rates and event-backed manual overrides |

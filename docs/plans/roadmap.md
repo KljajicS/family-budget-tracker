@@ -14,6 +14,6 @@ One milestone per screen, in the order the spec's build order dictates. Each mil
 | 6b | Reliability audit | Done 2026-10-15. Atomic setup, guarded writes with retry feedback, bounded money inputs, current-date accounting, recurring schedule protection, active account/category validation, duplicate-safe event imports, background initialization/calculations and shared transaction reads. 134 JVM tests pass; lint, debug and release builds pass. Physical-device performance remains unverified. | |
 | 7 | Sync | Google sign-in, Drive appDataFolder client, family key setup and QR share, recovery phrase, encrypted per-device event logs, WorkManager sync, "synced X ago" on Home. Moved last on 2026-10-14: the family tests on one phone until the screens exist. | |
 
-Exchange rates remain pending: NBS fetching, a local cache and manual overrides. Current combined totals use RSD only; foreign-currency balances cannot yet be fully included.
+Exchange rates implemented: public NBS middle-rate list, persistent EUR/USD cache, manual overrides under Settings, and reactive RSD estimates across all financial tabs. Missing currencies remain explicitly excluded; rates seven days old trigger a warning. See [ADR 11](../decisions/0011-exchange-rates.md).
 
 Cross-cutting, done inside milestone 1 and kept green after: Serbian and English strings, light and AMOLED themes, JVM tests, `make check`, `make run`, GitHub Actions debug APK.
