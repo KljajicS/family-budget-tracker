@@ -107,7 +107,24 @@
     <string name="account_save">Sačuvaj račun</string>
     <string name="account_delete">Obriši račun</string>
     <string name="account_delete_hint">Stare transakcije ostaju. Račun i njegovo stanje nestaju sa početne i iz izbora.</string>
-    <string name="account_currency_locked">Nepromenljivo kad račun ima transakcije.</string>
+    <string name="account_currency_locked">Nepromenljivo kad račun ima transakcije ili račune za plaćanje.</string>
+
+    <string name="settings_recurring">Redovni računi</string>
+    <string name="recurring_title">Redovni računi</string>
+    <string name="recurring_empty">Nema redovnih računa. Dodirni Novi da jednom uneseš kiriju, internet ili osiguranje.</string>
+    <string name="recurring_new_title">Novi redovni račun</string>
+    <string name="recurring_edit_title">Izmena redovnog računa</string>
+    <string name="recurring_name">Naziv</string>
+    <string name="recurring_amount">Iznos</string>
+    <string name="recurring_cadence">Ponavlja se</string>
+    <string name="recurring_monthly">Mesečno</string>
+    <string name="recurring_yearly">Godišnje</string>
+    <string name="recurring_first_due">Prvi rok</string>
+    <string name="recurring_first_due_hint">Svaki rok od ovog datuma stoji pod Predstoji dok se ne plati ili preskoči.</string>
+    <string name="recurring_save">Sačuvaj račun</string>
+    <string name="recurring_delete">Obriši račun</string>
+    <string name="recurring_delete_hint">Plaćene transakcije ostaju. Račun više ne stoji pod Predstoji.</string>
+    <string name="recurring_account_gone">Račun uklonjen</string>
     <string name="list_new">+ Novi</string>
 
     <string name="source_manual">Ručno</string>

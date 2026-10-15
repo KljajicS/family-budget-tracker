@@ -145,7 +145,7 @@ private fun CategoryGrid(categories: List<rs.budget.domain.Category>, selectedId
 }
 
 @Composable
-private fun AccountBox(label: String, accounts: List<Account>, selectedId: String?, onSelect: (String) -> Unit, modifier: Modifier) {
+fun AccountBox(label: String, accounts: List<Account>, selectedId: String?, onSelect: (String) -> Unit, modifier: Modifier) {
     val c = LocalColors.current
     var open by remember { mutableStateOf(false) }
     val selected = accounts.firstOrNull { it.id == selectedId }
@@ -168,7 +168,7 @@ private fun AccountBox(label: String, accounts: List<Account>, selectedId: Strin
 
 /** Tap opens the Material date picker; the box itself is a button whose label reads "Date, Today, 14 Oct" to screen readers. */
 @Composable
-private fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier) {
+fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier, label: String = stringResource(R.string.add_date)) {
     val c = LocalColors.current
     val locale = LocalLocale.current.platformLocale
     val today = LocalDate.now()
@@ -178,7 +178,6 @@ private fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modi
         today.minusDays(1) -> stringResource(R.string.home_yesterday) + ", " + formatted
         else -> date.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale))
     }
-    val label = stringResource(R.string.add_date)
     var open by remember { mutableStateOf(false) }
 
     OutlinedBox(

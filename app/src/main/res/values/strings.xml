@@ -107,7 +107,24 @@
     <string name="account_save">Save account</string>
     <string name="account_delete">Delete account</string>
     <string name="account_delete_hint">Past transactions stay. The account and its balance disappear from Home and pickers.</string>
-    <string name="account_currency_locked">Fixed once the account has transactions.</string>
+    <string name="account_currency_locked">Fixed once the account has transactions or bills.</string>
+
+    <string name="settings_recurring">Recurring bills</string>
+    <string name="recurring_title">Recurring bills</string>
+    <string name="recurring_empty">No recurring bills. Tap New to add rent, internet or insurance once.</string>
+    <string name="recurring_new_title">New recurring bill</string>
+    <string name="recurring_edit_title">Edit recurring bill</string>
+    <string name="recurring_name">Name</string>
+    <string name="recurring_amount">Amount</string>
+    <string name="recurring_cadence">Repeats</string>
+    <string name="recurring_monthly">Monthly</string>
+    <string name="recurring_yearly">Yearly</string>
+    <string name="recurring_first_due">First due</string>
+    <string name="recurring_first_due_hint">Every occurrence from this date shows under Upcoming until paid or skipped.</string>
+    <string name="recurring_save">Save bill</string>
+    <string name="recurring_delete">Delete bill</string>
+    <string name="recurring_delete_hint">Paid transactions stay. The bill stops showing under Upcoming.</string>
+    <string name="recurring_account_gone">Account removed</string>
     <string name="list_new">+ New</string>
 
     <string name="source_manual">Manual</string>

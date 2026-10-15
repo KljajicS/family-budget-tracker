@@ -56,6 +56,8 @@ import rs.budget.ui.settings.AccountsScreen
 import rs.budget.ui.settings.CategoriesScreen
 import rs.budget.ui.settings.EditAccountScreen
 import rs.budget.ui.settings.EditCategoryScreen
+import rs.budget.ui.settings.EditRecurringScreen
+import rs.budget.ui.settings.RecurringScreen
 import rs.budget.ui.settings.SettingsScreen
 import rs.budget.ui.setup.SetupScreen
 import rs.budget.ui.theme.BodyStyle
@@ -111,8 +113,18 @@ fun BudgetRoot() {
                 )
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(onBack = { nav.popBackStack() }, onCategories = { nav.navigate(Routes.CATEGORIES) }, onAccounts = { nav.navigate(Routes.ACCOUNTS) })
+                SettingsScreen(
+                    onBack = { nav.popBackStack() },
+                    onCategories = { nav.navigate(Routes.CATEGORIES) },
+                    onAccounts = { nav.navigate(Routes.ACCOUNTS) },
+                    onRecurring = { nav.navigate(Routes.RECURRING) },
+                )
             }
+            composable(Routes.RECURRING) {
+                RecurringScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_RECURRING) }, onEdit = { nav.navigate(Routes.editRecurring(it)) })
+            }
+            composable(Routes.NEW_RECURRING) { EditRecurringScreen(onClose = { nav.popBackStack() }) }
+            composable(Routes.EDIT_RECURRING) { EditRecurringScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.CATEGORIES) {
                 CategoriesScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_CATEGORY) }, onEdit = { nav.navigate(Routes.editCategory(it)) })
             }
