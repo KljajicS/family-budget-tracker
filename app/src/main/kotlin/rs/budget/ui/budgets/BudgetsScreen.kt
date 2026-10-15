@@ -50,8 +50,6 @@ import rs.budget.ui.theme.sans
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun BudgetsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, onPay: (String, LocalDate) -> Unit, vm: BudgetsViewModel = hiltViewModel()) {
@@ -170,7 +168,4 @@ fun BudgetRow(st: BudgetStatus, categories: List<Category>, compact: Boolean = f
 }
 
 @Composable
-private fun monthName(month: YearMonth): String {
-    val locale = LocalLocale.current.platformLocale.let { if (it.language == "sr") Locale.forLanguageTag("sr-Latn") else it }
-    return month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale).replaceFirstChar { it.titlecase() }
-}
+private fun monthName(month: YearMonth): String = rs.budget.ui.monthName(month, LocalLocale.current.platformLocale)

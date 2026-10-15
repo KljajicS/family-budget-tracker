@@ -131,6 +131,32 @@
     <string name="bills_overdue">Kasni · %1$s</string>
     <string name="add_bill_title">Redovni račun</string>
     <string name="add_skip_bill">Preskoči ovaj put</string>
+
+    <string name="insights_title">Uvidi</string>
+    <string name="insights_prev">Prethodni mesec</string>
+    <string name="insights_next">Sledeći mesec</string>
+    <string name="insights_empty">Dodaj nekoliko transakcija i ova strana se popunjava.</string>
+    <string name="insights_where">Gde je otišao novac</string>
+    <string name="insights_spent_unit">RSD potrošeno</string>
+    <string name="insights_other">Ostalo</string>
+    <string name="insights_no_spending">Nema troškova ovog meseca.</string>
+    <string name="insights_income_vs">Prihodi i troškovi</string>
+    <string name="insights_income">Prihodi</string>
+    <string name="insights_expenses">Troškovi</string>
+    <string name="insights_in_progress">%1$s u toku. Prosečna ušteda: %2$s RSD mesečno.</string>
+    <string name="insights_average_saved">Prosečna ušteda: %1$s RSD mesečno.</string>
+    <string name="insights_savings_trend">Kretanje štednje</string>
+    <string name="insights_since">%1$s od %2$s</string>
+    <string name="insights_tip_budget_title">%1$s je na %2$d%% uz još %3$d dana</string>
+    <string name="insights_tip_budget_body">Još jedna kupovina u ovoj kategoriji prelazi budžet.</string>
+    <string name="insights_tip_budget_body_avg">Već si iznad tromesečnog proseka od %1$s RSD. Još jedna kupovina prelazi budžet.</string>
+    <string name="insights_tip_average_title">%1$s je iznad uobičajenog</string>
+    <string name="insights_tip_average_body">%1$s RSD do sada ovog meseca, naspram tromesečnog proseka od %2$s RSD.</string>
+    <string name="insights_tip_saved_title">Ušteđeno %1$s RSD do sada ovog meseca</string>
+    <string name="insights_tip_saved_body">Prosek prethodnih meseci je %1$s RSD.</string>
+    <string name="insights_chart_spending">Troškovi po kategoriji: %1$s</string>
+    <string name="insights_chart_months">Prihodi i troškovi po mesecu: %1$s</string>
+    <string name="insights_chart_savings">Štednja po mesecu: %1$s</string>
     <string name="list_new">+ Novi</string>
 
     <string name="source_manual">Ručno</string>

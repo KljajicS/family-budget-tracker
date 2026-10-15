@@ -53,6 +53,7 @@ import rs.budget.ui.add.AddScreen
 import rs.budget.ui.budgets.BudgetsScreen
 import rs.budget.ui.budgets.EditBudgetScreen
 import rs.budget.ui.home.HomeScreen
+import rs.budget.ui.insights.InsightsScreen
 import rs.budget.ui.settings.AccountsScreen
 import rs.budget.ui.settings.CategoriesScreen
 import rs.budget.ui.settings.EditAccountScreen
@@ -136,7 +137,7 @@ fun BudgetRoot() {
             }
             composable(Routes.NEW_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
-            composable(Tab.INSIGHTS.route) { Stub(stringResource(R.string.coming_soon)) }
+            composable(Tab.INSIGHTS.route) { InsightsScreen() }
             composable(Tab.SCAN.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.BUDGETS.route) {
                 BudgetsScreen(

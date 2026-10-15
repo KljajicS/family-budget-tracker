@@ -131,6 +131,32 @@
     <string name="bills_overdue">Overdue · %1$s</string>
     <string name="add_bill_title">Recurring bill</string>
     <string name="add_skip_bill">Skip this one</string>
+
+    <string name="insights_title">Insights</string>
+    <string name="insights_prev">Previous month</string>
+    <string name="insights_next">Next month</string>
+    <string name="insights_empty">Add a few transactions and this page fills in.</string>
+    <string name="insights_where">Where the money went</string>
+    <string name="insights_spent_unit">RSD spent</string>
+    <string name="insights_other">Other</string>
+    <string name="insights_no_spending">No spending this month.</string>
+    <string name="insights_income_vs">Income vs expenses</string>
+    <string name="insights_income">Income</string>
+    <string name="insights_expenses">Expenses</string>
+    <string name="insights_in_progress">%1$s in progress. Average saved: %2$s RSD / month.</string>
+    <string name="insights_average_saved">Average saved: %1$s RSD / month.</string>
+    <string name="insights_savings_trend">Savings trend</string>
+    <string name="insights_since">%1$s since %2$s</string>
+    <string name="insights_tip_budget_title">%1$s is at %2$d%% with %3$d days left</string>
+    <string name="insights_tip_budget_body">One more purchase in this category goes over budget.</string>
+    <string name="insights_tip_budget_body_avg">You are already past your 3-month average of %1$s RSD. One more purchase goes over budget.</string>
+    <string name="insights_tip_average_title">%1$s is above its usual level</string>
+    <string name="insights_tip_average_body">%1$s RSD so far this month, against a 3-month average of %2$s RSD.</string>
+    <string name="insights_tip_saved_title">Saved %1$s RSD so far this month</string>
+    <string name="insights_tip_saved_body">Your average over the last months is %1$s RSD.</string>
+    <string name="insights_chart_spending">Spending by category: %1$s</string>
+    <string name="insights_chart_months">Income and expenses by month: %1$s</string>
+    <string name="insights_chart_savings">Savings by month: %1$s</string>
     <string name="list_new">+ New</string>
 
     <string name="source_manual">Manual</string>
