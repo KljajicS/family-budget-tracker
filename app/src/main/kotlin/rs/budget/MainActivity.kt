@@ -23,7 +23,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -46,7 +48,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import androidx.compose.foundation.isSystemInDarkTheme
 import rs.budget.data.BudgetRepository
+import rs.budget.data.ThemeMode
+import rs.budget.data.ThemeStore
 import rs.budget.ui.Routes
 import rs.budget.ui.Tab
 import rs.budget.ui.add.AddScreen
@@ -73,19 +78,30 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { BudgetTheme { BudgetRoot() } }
+        setContent {
+            val root: RootViewModel = hiltViewModel()
+            val mode by root.theme.collectAsStateWithLifecycle()
+            val dark = when (mode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            // The system only knows its own dark setting; the app's choice must set the status bar icon color too.
+            LaunchedEffect(dark) { WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !dark }
+            BudgetTheme(dark) { BudgetRoot(root) }
+        }
     }
 }
 
 @HiltViewModel
-class RootViewModel @Inject constructor(repo: BudgetRepository) : ViewModel() {
+class RootViewModel @Inject constructor(repo: BudgetRepository, themeStore: ThemeStore) : ViewModel() {
     val hasMember: StateFlow<Boolean?> = repo.members.map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val theme: StateFlow<ThemeMode> = themeStore.mode
 }
 
 @Composable
-fun BudgetRoot() {
-    val root: RootViewModel = hiltViewModel()
+fun BudgetRoot(root: RootViewModel) {
     val hasMember by root.hasMember.collectAsStateWithLifecycle()
     if (hasMember == null) return
     val c = LocalColors.current

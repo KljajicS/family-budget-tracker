@@ -84,6 +84,10 @@
     <string name="settings_categories">Kategorije</string>
     <string name="settings_accounts">Računi</string>
     <string name="settings_save_name">Sačuvaj ime</string>
+    <string name="settings_theme">Izgled</string>
+    <string name="theme_system">Kao sistem</string>
+    <string name="theme_light">Svetla</string>
+    <string name="theme_dark">Tamna</string>
 
     <string name="categories_title">Kategorije</string>
     <string name="categories_empty">Nema kategorija. Dodirni Novi da dodaš.</string>

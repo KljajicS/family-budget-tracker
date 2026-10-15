@@ -15,6 +15,8 @@ import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
 import rs.budget.data.Clock
 import rs.budget.data.StarterCategories
+import rs.budget.data.ThemeMode
+import rs.budget.data.ThemeStore
 import rs.budget.domain.Account
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Cadence
@@ -27,11 +29,11 @@ import java.time.LocalDate
 import rs.budget.ui.CategoryPalette
 import javax.inject.Inject
 
-data class SettingsState(val memberId: String? = null, val name: String = "", val saved: Boolean = false)
+data class SettingsState(val memberId: String? = null, val name: String = "", val saved: Boolean = false, val theme: ThemeMode = ThemeMode.SYSTEM)
 
 @HiltViewModel
-class SettingsViewModel @Inject constructor(private val repo: BudgetRepository) : ViewModel() {
-    private val _state = MutableStateFlow(SettingsState())
+class SettingsViewModel @Inject constructor(private val repo: BudgetRepository, private val themeStore: ThemeStore) : ViewModel() {
+    private val _state = MutableStateFlow(SettingsState(theme = themeStore.mode.value))
     val state: StateFlow<SettingsState> = _state
 
     init {
@@ -42,6 +44,11 @@ class SettingsViewModel @Inject constructor(private val repo: BudgetRepository) 
     }
 
     fun setName(name: String) = _state.update { it.copy(name = name, saved = false) }
+
+    fun setTheme(mode: ThemeMode) {
+        themeStore.set(mode)
+        _state.update { it.copy(theme = mode) }
+    }
 
     fun saveName() {
         val s = _state.value

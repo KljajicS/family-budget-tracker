@@ -84,6 +84,10 @@
     <string name="settings_categories">Categories</string>
     <string name="settings_accounts">Accounts</string>
     <string name="settings_save_name">Save name</string>
+    <string name="settings_theme">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
 
     <string name="categories_title">Categories</string>
     <string name="categories_empty">No categories. Tap New to add one.</string>
