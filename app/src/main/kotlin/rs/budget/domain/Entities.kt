@@ -58,6 +58,25 @@ object LocalDateSerializer : KSerializer<LocalDate> {
     override fun deserialize(decoder: Decoder): LocalDate = LocalDate.parse(decoder.decodeString())
 }
 
+enum class Cadence { MONTHLY, YEARLY }
+
+/** A bill that repeats. Occurrences are derived from [firstDue] and [cadence], never stored. */
+@Serializable
+data class RecurringRule(
+    val id: String,
+    val name: String,
+    val money: Money,
+    val accountId: String,
+    val categoryId: String,
+    val cadence: Cadence,
+    @Serializable(with = LocalDateSerializer::class) val firstDue: LocalDate,
+    val archived: Boolean = false,
+) {
+    init {
+        require(!money.isNegative && !money.isZero) { "Bill amount must be positive" }
+    }
+}
+
 @Serializable
 data class Budget(
     val categoryId: String,

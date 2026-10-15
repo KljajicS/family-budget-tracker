@@ -4,6 +4,7 @@ import rs.budget.data.db.BudgetDb
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountUpdated
+import rs.budget.domain.BillSkipped
 import rs.budget.domain.BudgetRemoved
 import rs.budget.domain.BudgetSet
 import rs.budget.domain.CategoryArchived
@@ -12,6 +13,8 @@ import rs.budget.domain.CategoryUpdated
 import rs.budget.domain.MemberRenamed
 import rs.budget.domain.EventRecord
 import rs.budget.domain.MemberCreated
+import rs.budget.domain.RecurringRuleArchived
+import rs.budget.domain.RecurringRuleSet
 import rs.budget.domain.TransactionAdded
 import rs.budget.domain.TransactionDeleted
 import rs.budget.domain.TransactionEdited
@@ -57,10 +60,19 @@ class Projector(private val db: BudgetDb) {
             )
             // A zero row is the tombstone: it stops carry-forward from an earlier month (see BudgetCalculator.effective).
             is BudgetRemoved -> db.budgetQueries.upsert(e.categoryId, e.month.toString(), "0.00", "RSD")
+            is RecurringRuleSet -> with(e.rule) {
+                db.recurringRuleQueries.upsert(
+                    id, name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString(), if (archived) 1 else 0,
+                )
+            }
+            is RecurringRuleArchived -> db.recurringRuleQueries.archive(e.ruleId)
+            is BillSkipped -> db.billSkipQueries.insertIgnore(e.ruleId, e.period)
         }
     }
 
     fun clear() {
+        db.billSkipQueries.deleteAll()
+        db.recurringRuleQueries.deleteAll()
         db.budgetQueries.deleteAll()
         db.txQueries.deleteAll()
         db.accountQueries.deleteAll()

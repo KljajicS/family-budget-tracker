@@ -1,0 +1,14 @@
+CREATE TABLE bill_skip (
+    rule_id TEXT NOT NULL,
+    due_period TEXT NOT NULL,
+    PRIMARY KEY (rule_id, due_period)
+);
+
+insertIgnore:
+INSERT OR IGNORE INTO bill_skip(rule_id, due_period) VALUES (?, ?);
+
+all:
+SELECT * FROM bill_skip;
+
+deleteAll:
+DELETE FROM bill_skip;

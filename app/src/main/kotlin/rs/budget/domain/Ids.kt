@@ -14,3 +14,7 @@ fun newId(now: Long = System.currentTimeMillis()): String {
     lsb = (lsb and 0x3FFFFFFFFFFFFFFFL) or Long.MIN_VALUE
     return UUID(msb, lsb).toString()
 }
+
+/** Same bill paid on two phones gets the same transaction id, so the log converges to one row. */
+fun billTxId(ruleId: String, period: String): String =
+    UUID.nameUUIDFromBytes("$ruleId:$period".toByteArray()).toString()

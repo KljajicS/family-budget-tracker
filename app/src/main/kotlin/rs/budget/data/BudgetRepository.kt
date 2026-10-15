@@ -16,12 +16,20 @@ import rs.budget.data.db.BudgetDb
 import rs.budget.data.db.Category as CategoryRow
 import rs.budget.data.db.Member as MemberRow
 import rs.budget.data.db.Recent
+import rs.budget.data.db.Recurring_rule as RuleRow
 import rs.budget.data.db.Tx as TxRow
 import rs.budget.domain.Account
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
 import rs.budget.domain.AccountUpdated
+import rs.budget.domain.Bill
+import rs.budget.domain.BillCalculator
+import rs.budget.domain.BillSkipped
+import rs.budget.domain.Cadence
+import rs.budget.domain.RecurringRule
+import rs.budget.domain.RecurringRuleArchived
+import rs.budget.domain.RecurringRuleSet
 import rs.budget.domain.CategoryArchived
 import rs.budget.domain.CategoryUpdated
 import rs.budget.domain.MemberRenamed
@@ -95,9 +103,27 @@ class BudgetRepository(
             BudgetCalculator.statuses(day, BudgetCalculator.effective(all, YearMonth.from(day)), txs, rsdRates)
         }
 
-    val home: Flow<HomeSummary> = combine(today, accounts, transactions, budgetStatuses) { day, accs, txs, statuses ->
-        HomeCalculator.summarize(day, accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses, rsdRates))
-    }
+    val rules: Flow<List<RecurringRule>> =
+        db.recurringRuleQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+
+    private val skips: Flow<Set<Pair<String, String>>> =
+        db.billSkipQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.rule_id to it.due_period }.toSet() }
+
+    val upcomingBills: Flow<List<Bill>> =
+        combine(today, rules, accounts, transactions, skips) { day, rules, accs, txs, skipped ->
+            BillCalculator.upcoming(day, rules, accs.map { it.id }.toSet(), txs, skipped)
+        }
+
+    val home: Flow<HomeSummary> =
+        combine(today, accounts, transactions, budgetStatuses, upcomingBills) { day, accs, txs, statuses, bills ->
+            val (held, partial) = BillCalculator.reserve(day, bills, statuses, rsdRates)
+            HomeCalculator.summarize(day, accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses, rsdRates), bills = held, billsPartial = partial)
+        }
+
+    suspend fun rule(id: String): RecurringRule? = withContext(Dispatchers.IO) { db.recurringRuleQueries.byId(id).executeAsOneOrNull()?.toDomain() }
+    suspend fun setRule(rule: RecurringRule) { store.append(RecurringRuleSet(rule)) }
+    suspend fun archiveRule(id: String) { store.append(RecurringRuleArchived(id)) }
+    suspend fun skipBill(ruleId: String, period: String) { store.append(BillSkipped(ruleId, period)) }
 
     suspend fun setBudget(budget: Budget) { store.append(BudgetSet(budget)) }
 
@@ -129,6 +155,9 @@ class BudgetRepository(
     suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
 
     private fun BudgetRow.toDomain() = Budget(category_id, YearMonth.parse(month), Money.of(amount, Currency.valueOf(currency)))
+    private fun RuleRow.toDomain() = RecurringRule(
+        id, name, Money.of(amount, Currency.valueOf(currency)), account_id, category_id, Cadence.valueOf(cadence), LocalDate.parse(first_due), archived == 1L,
+    )
     private fun AccountRow.toDomain() = Account(id, name, Currency.valueOf(currency), AccountKind.valueOf(kind), archived == 1L)
     private fun CategoryRow.toDomain() = Category(id, name, color, archived == 1L)
     private fun MemberRow.toDomain() = Member(id, display_name, device_id)

@@ -14,4 +14,11 @@ class IdsTest {
         assertEquals('7', first[14])
         assertTrue(first < second)
     }
+
+    @Test
+    fun `bill transaction id is stable per rule and period`() {
+        assertEquals(billTxId("r1", "2026-10"), billTxId("r1", "2026-10"))
+        assertTrue(billTxId("r1", "2026-10") != billTxId("r1", "2026-11"))
+        assertEquals(36, billTxId("r1", "2026").length)
+    }
 }

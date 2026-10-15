@@ -51,6 +51,16 @@ data class BudgetRemoved(
     @Serializable(with = YearMonthSerializer::class) val month: YearMonth,
 ) : Event
 
+@Serializable @SerialName("RecurringRuleSet")
+data class RecurringRuleSet(val rule: RecurringRule) : Event
+
+@Serializable @SerialName("RecurringRuleArchived")
+data class RecurringRuleArchived(val ruleId: String) : Event
+
+/** One occurrence of a rule the family chose not to pay. `period` is `yyyy-MM` for monthly rules and `yyyy` for yearly. */
+@Serializable @SerialName("BillSkipped")
+data class BillSkipped(val ruleId: String, val period: String) : Event
+
 /** One row of the append-only log. `seq` is per device and strictly increasing. */
 data class EventRecord(
     val id: String,

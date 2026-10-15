@@ -7,6 +7,11 @@ import org.junit.Test
 import rs.budget.domain.Account
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
+import rs.budget.domain.BillSkipped
+import rs.budget.domain.Cadence
+import rs.budget.domain.RecurringRule
+import rs.budget.domain.RecurringRuleSet
+import rs.budget.domain.billTxId
 import rs.budget.domain.Category
 import rs.budget.domain.CategoryCreated
 import rs.budget.domain.CategoryUpdated
@@ -101,6 +106,8 @@ class EventStoreTest {
 
     @Test
     fun `two devices converge whatever the delivery order`() = runTest {
+        val rule = RecurringRule("r1", "Rent", Money.of("40000", Currency.RSD), "a1", "c1", Cadence.MONTHLY, LocalDate.of(2026, 10, 20))
+        val billId = billTxId("r1", "2026-10")
         val events: List<Pair<String, Event>> = listOf(
             "dev-a" to CategoryCreated(Category("c1", "Fun", "#111111")),
             "dev-b" to TransactionAdded(tx("t1", "100")),
@@ -109,13 +116,22 @@ class EventStoreTest {
             "dev-a" to TransactionAdded(tx("t2", "70")),
             "dev-b" to TransactionDeleted("t1"),
             "dev-a" to TransactionEdited(tx("t1", "999")),
+            "dev-a" to RecurringRuleSet(rule),
+            "dev-b" to RecurringRuleSet(rule.copy(name = "Kirija")),
+            "dev-a" to TransactionAdded(tx(billId, "40000")),
+            "dev-b" to TransactionAdded(tx(billId, "40500")),
+            "dev-b" to BillSkipped("r1", "2026-11"),
         )
         val seqs = mutableMapOf<String, Long>()
         val records = events.mapIndexed { i, (device, e) ->
             EventRecord("e$i", device, seqs.merge(device, 1L, Long::plus)!!, at(i + 1), e)
         }
-        fun tables(db: rs.budget.data.db.BudgetDb) =
-            db.txQueries.all().executeAsList().map { it.id to it.amount } to db.categoryQueries.active().executeAsList().map { it.name }
+        fun tables(db: rs.budget.data.db.BudgetDb) = listOf(
+            db.txQueries.all().executeAsList().map { it.id to it.amount },
+            db.categoryQueries.active().executeAsList().map { it.name },
+            db.recurringRuleQueries.active().executeAsList().map { it.id to it.name },
+            db.billSkipQueries.all().executeAsList().map { it.rule_id to it.due_period },
+        )
 
         val a = testDb().also { EventStore(it, "x", clock, Projector(it)).applyRemote(records) }
         val b = testDb().also { d ->
@@ -123,7 +139,15 @@ class EventStoreTest {
             records.shuffled(java.util.Random(7)).chunked(3).forEach(s::applyRemote)
         }
         assertEquals(tables(a), tables(b))
-        assertEquals(listOf("t2" to "70.00") to listOf("Zabava"), tables(a))
+        assertEquals(
+            listOf(
+                listOf("t2" to "70.00", billId to "40000.00"),
+                listOf("Zabava"),
+                listOf("r1" to "Kirija"),
+                listOf("r1" to "2026-11"),
+            ),
+            tables(a),
+        )
     }
 
     @Test
