@@ -23,9 +23,12 @@ import rs.budget.data.testDb
 import rs.budget.domain.Account
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Budget
+import rs.budget.domain.Cadence
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
+import rs.budget.domain.RecurringRule
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 
@@ -68,5 +71,18 @@ class BudgetsViewModelTest {
         edit.state.first { it.done }
         assertEquals(listOf("cat-groceries"), repo.effectiveBudgets(YearMonth.of(2026, 10)).first().map { it.categoryId })
         assertEquals(1, repo.effectiveBudgets(YearMonth.of(2026, 9)).first().size)
+    }
+
+    @Test
+    fun `upcoming lists overdue first with an RSD total`() = runTest(dispatcher) {
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
+        repo.setRule(RecurringRule("net", "Internet", Money.of("3490", Currency.RSD), "cash", "cat-bills", Cadence.MONTHLY, LocalDate.of(2026, 10, 25)))
+        repo.setRule(RecurringRule("rent", "Rent", Money.of("40000", Currency.RSD), "cash", "cat-bills", Cadence.MONTHLY, LocalDate.of(2026, 9, 5)))
+        val s = BudgetsViewModel(repo, clock).state.filterNotNull().first { it.upcoming.size == 3 }
+        assertEquals(listOf("Rent", "Rent", "Internet"), s.upcoming.map { it.rule.name })
+        // Today is 14 Oct: the September rent and the 5 Oct rent are both past due.
+        assertEquals(listOf(true, true, false), s.upcoming.map { it.overdue })
+        assertEquals(Money.of("83490", Currency.RSD), s.upcomingTotal)
+        assertEquals("Cash", s.accountNames["cash"])
     }
 }

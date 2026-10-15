@@ -20,7 +20,9 @@ enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVect
 
 object Routes {
     const val SETUP = "setup"
-    const val ADD = "add"
+    const val ADD = "add?rule={rule}&due={due}"
+    fun add() = "add"
+    fun addBill(ruleId: String, due: java.time.LocalDate) = "add?rule=$ruleId&due=$due"
     const val SETTINGS = "settings"
     const val CATEGORIES = "settings/categories"
     const val NEW_CATEGORY = "settings/categories/new"

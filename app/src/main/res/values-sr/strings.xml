@@ -125,6 +125,12 @@
     <string name="recurring_delete">Obriši račun</string>
     <string name="recurring_delete_hint">Plaćene transakcije ostaju. Račun više ne stoji pod Predstoji.</string>
     <string name="recurring_account_gone">Račun uklonjen</string>
+    <string name="bills_upcoming">Predstoji</string>
+    <string name="bills_total">≈ %1$s RSD</string>
+    <string name="bills_from">Redovno · %1$s</string>
+    <string name="bills_overdue">Kasni · %1$s</string>
+    <string name="add_bill_title">Redovni račun</string>
+    <string name="add_skip_bill">Preskoči ovaj put</string>
     <string name="list_new">+ Novi</string>
 
     <string name="source_manual">Ručno</string>

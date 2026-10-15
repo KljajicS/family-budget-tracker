@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
 import rs.budget.data.Clock
 import rs.budget.data.StarterCategories
+import rs.budget.domain.Bill
 import rs.budget.domain.Budget
 import rs.budget.domain.BudgetCalculator
 import rs.budget.domain.BudgetStatus
@@ -31,15 +32,19 @@ data class BudgetsState(
     val spent: Money,
     val total: Money,
     val categories: List<Category>,
+    val upcoming: List<Bill> = emptyList(),
+    val upcomingTotal: Money = Money.zero(Currency.RSD),
+    val accountNames: Map<String, String> = emptyMap(),
 )
 
 @HiltViewModel
 class BudgetsViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : ViewModel() {
-    val state: StateFlow<BudgetsState?> = combine(repo.budgetStatuses, repo.categories) { statuses, categories ->
+    val state: StateFlow<BudgetsState?> = combine(repo.budgetStatuses, repo.categories, repo.upcomingBills, repo.accounts) { statuses, categories, bills, accounts ->
         val today = clock.today()
         val month = YearMonth.from(today)
         val (spent, total) = BudgetCalculator.total(statuses, repo.rates)
-        BudgetsState(month, month.lengthOfMonth() - today.dayOfMonth + 1, statuses, spent, total, categories)
+        val upcomingTotal = bills.fold(Money.zero(Currency.RSD)) { acc, b -> acc + (repo.rates.convert(b.rule.money) ?: Money.zero(Currency.RSD)) }
+        BudgetsState(month, month.lengthOfMonth() - today.dayOfMonth + 1, statuses, spent, total, categories, bills, upcomingTotal, accounts.associate { it.id to it.name })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 

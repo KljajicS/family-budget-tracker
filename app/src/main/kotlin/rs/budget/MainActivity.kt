@@ -39,6 +39,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -107,7 +108,7 @@ fun BudgetRoot() {
         NavHost(nav, startDestination = if (hasMember == true) Tab.HOME.route else Routes.SETUP, modifier = Modifier.padding(padding)) {
             composable(Tab.HOME.route) {
                 HomeScreen(
-                    onAdd = { nav.navigate(Routes.ADD) },
+                    onAdd = { nav.navigate(Routes.add()) },
                     onBudgets = { nav.navigate(Tab.BUDGETS.route) { launchSingleTop = true } },
                     onSettings = { nav.navigate(Routes.SETTINGS) },
                 )
@@ -138,7 +139,11 @@ fun BudgetRoot() {
             composable(Tab.INSIGHTS.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.SCAN.route) { Stub(stringResource(R.string.coming_soon)) }
             composable(Tab.BUDGETS.route) {
-                BudgetsScreen(onNew = { nav.navigate(Routes.NEW_BUDGET) }, onEdit = { nav.navigate(Routes.editBudget(it)) })
+                BudgetsScreen(
+                    onNew = { nav.navigate(Routes.NEW_BUDGET) },
+                    onEdit = { nav.navigate(Routes.editBudget(it)) },
+                    onPay = { ruleId, due -> nav.navigate(Routes.addBill(ruleId, due)) },
+                )
             }
             composable(Routes.NEW_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
@@ -146,7 +151,13 @@ fun BudgetRoot() {
             composable(Routes.SETUP) {
                 SetupScreen(onDone = { nav.navigate(Tab.HOME.route) { popUpTo(Routes.SETUP) { inclusive = true } } })
             }
-            composable(Routes.ADD) { AddScreen(onClose = { nav.popBackStack() }) }
+            composable(
+                Routes.ADD,
+                arguments = listOf(
+                    navArgument("rule") { nullable = true; defaultValue = null },
+                    navArgument("due") { nullable = true; defaultValue = null },
+                ),
+            ) { AddScreen(onClose = { nav.popBackStack() }) }
         }
     }
 }

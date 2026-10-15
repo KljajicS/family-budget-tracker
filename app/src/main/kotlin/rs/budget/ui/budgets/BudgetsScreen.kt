@@ -27,10 +27,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.data.StarterCategories
+import rs.budget.domain.Bill
 import rs.budget.domain.BudgetStatus
 import rs.budget.domain.Category
 import rs.budget.domain.PaceState
@@ -45,12 +47,14 @@ import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.colorOf
 import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
+import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun BudgetsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: BudgetsViewModel = hiltViewModel()) {
+fun BudgetsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, onPay: (String, LocalDate) -> Unit, vm: BudgetsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
@@ -79,6 +83,43 @@ fun BudgetsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: BudgetsViewMo
             items(s.statuses, key = { it.categoryId }) { st ->
                 Box(Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onEdit(st.categoryId) }) { BudgetRow(st, s.categories) }
             }
+        }
+        if (s.upcoming.isNotEmpty()) {
+            item {
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Bottom) {
+                    Text(stringResource(R.string.bills_upcoming), style = TitleStyle.copy(fontSize = 18.sp), color = c.text, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.bills_total, formatAmount(s.upcomingTotal)), style = mono(13), color = c.muted)
+                }
+            }
+            items(s.upcoming, key = { it.txId }) { bill ->
+                Box(Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onPay(bill.rule.id, bill.dueDate) }) {
+                    BillRow(bill, s.accountNames[bill.rule.accountId] ?: "")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BillRow(bill: Bill, accountName: String) {
+    val c = LocalColors.current
+    val locale = LocalLocale.current.platformLocale
+    val tone = if (bill.overdue) c.orange else c.text
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier.size(44.dp).background(c.surface2, RoundedCornerShape(12.dp)),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        ) {
+            Text(bill.dueDate.dayOfMonth.toString(), style = mono(15, FontWeight.SemiBold), color = tone)
+            Text(bill.dueDate.format(DateTimeFormatter.ofPattern("MMM", locale)).uppercase(locale).trimEnd('.'), style = CaptionStyle, color = c.muted)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(bill.rule.name, style = sans(15, FontWeight.Medium), color = c.text)
+            Text(stringResource(if (bill.overdue) R.string.bills_overdue else R.string.bills_from, accountName), style = CaptionStyle, color = if (bill.overdue) c.orange else c.muted)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(formatAmount(bill.rule.money), style = mono(15, FontWeight.Medium), color = tone)
+            if (bill.rule.money.currency != rs.budget.domain.Currency.RSD) Text(bill.rule.money.currency.name, style = CaptionStyle, color = c.muted)
         }
     }
 }

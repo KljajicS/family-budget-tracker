@@ -73,7 +73,8 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             RoundIconButton(Icons.Default.Close, stringResource(R.string.add_close), onClose)
-            TypeSwitch(s.type, vm::setType)
+            if (s.bill == null) TypeSwitch(s.type, vm::setType)
+            else Text(stringResource(R.string.add_bill_title), style = sans(15, FontWeight.Medium), color = c.text)
         }
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -97,6 +98,13 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
         s.error?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
 
         FieldBox(stringResource(R.string.add_merchant), s.merchant, vm::setMerchant)
+        if (s.bill != null) {
+            Text(
+                stringResource(R.string.add_skip_bill),
+                style = sans(14, FontWeight.Medium), color = c.orange,
+                modifier = Modifier.clickable(role = Role.Button, onClick = vm::skip).padding(vertical = 6.dp),
+            )
+        }
         }
 
         Keypad(onKey = vm::press)

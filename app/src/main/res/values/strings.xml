@@ -125,6 +125,12 @@
     <string name="recurring_delete">Delete bill</string>
     <string name="recurring_delete_hint">Paid transactions stay. The bill stops showing under Upcoming.</string>
     <string name="recurring_account_gone">Account removed</string>
+    <string name="bills_upcoming">Upcoming</string>
+    <string name="bills_total">≈ %1$s RSD</string>
+    <string name="bills_from">Recurring · %1$s</string>
+    <string name="bills_overdue">Overdue · %1$s</string>
+    <string name="add_bill_title">Recurring bill</string>
+    <string name="add_skip_bill">Skip this one</string>
     <string name="list_new">+ New</string>
 
     <string name="source_manual">Manual</string>

@@ -1,6 +1,7 @@
 package rs.budget.ui.add
 
 import androidx.annotation.StringRes
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +15,9 @@ import rs.budget.data.BudgetRepository
 import rs.budget.data.Clock
 import rs.budget.data.StarterCategories
 import rs.budget.domain.Account
+import rs.budget.domain.Bill
+import rs.budget.domain.BillCalculator
+import rs.budget.domain.billTxId
 import rs.budget.domain.Category
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
@@ -37,6 +41,8 @@ data class AddState(
     val categories: List<Category> = emptyList(),
     @StringRes val error: Int? = null,
     val saved: Boolean = false,
+    /** Set when the sheet pays one occurrence of a recurring rule: the type is locked and the id is derived. */
+    val bill: Bill? = null,
 ) {
     val canSave: Boolean get() = amount.value != null && accountId != null && error == null &&
         (type != TransactionType.TRANSFER || toAccountId != null)
@@ -46,12 +52,30 @@ data class AddState(
 class AddViewModel @Inject constructor(
     private val repo: BudgetRepository,
     private val clock: Clock,
+    savedState: SavedStateHandle,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AddState(date = clock.today()))
     val state: StateFlow<AddState> = _state
 
     init {
         viewModelScope.launch {
+            val ruleId = savedState.get<String>("rule")
+            val due = savedState.get<String>("due")?.let(LocalDate::parse)
+            val rule = ruleId?.let { repo.rule(it) }
+            if (rule != null && due != null) {
+                val period = BillCalculator.period(rule.cadence, due)
+                _state.update {
+                    it.copy(
+                        type = TransactionType.EXPENSE,
+                        amount = AmountInput(rule.money.amount.stripTrailingZeros().toPlainString()),
+                        categoryId = rule.categoryId,
+                        accountId = rule.accountId,
+                        date = due,
+                        merchant = rule.name,
+                        bill = Bill(rule, due, period, billTxId(rule.id, period), overdue = due < clock.today()),
+                    )
+                }
+            }
             combine(repo.accounts, repo.categories) { a, c -> a to c }.collect { (accounts, categories) ->
                 _state.update { s ->
                     val account = s.accountId ?: accounts.firstOrNull()?.id
@@ -62,7 +86,15 @@ class AddViewModel @Inject constructor(
         }
     }
 
-    fun setType(type: TransactionType) = _state.update { validate(it.copy(type = type, toAccountId = null)) }
+    fun setType(type: TransactionType) = _state.update { if (it.bill != null) it else validate(it.copy(type = type, toAccountId = null)) }
+
+    fun skip() {
+        val bill = _state.value.bill ?: return
+        viewModelScope.launch {
+            repo.skipBill(bill.rule.id, bill.period)
+            _state.update { it.copy(saved = true) }
+        }
+    }
     fun press(key: Char) = _state.update { it.copy(amount = it.amount.press(key)) }
     fun setCategory(id: String?) = _state.update { it.copy(categoryId = id) }
     fun setDate(date: LocalDate) = _state.update { it.copy(date = date) }
@@ -82,7 +114,7 @@ class AddViewModel @Inject constructor(
             val member = repo.currentMember() ?: return@launch
             repo.add(
                 Transaction(
-                    id = newId(),
+                    id = s.bill?.txId ?: newId(),
                     type = s.type,
                     money = Money.of(amount, s.currency),
                     accountId = s.accountId!!,
@@ -92,7 +124,7 @@ class AddViewModel @Inject constructor(
                     note = "",
                     merchant = s.merchant.trim(),
                     paidBy = member.id,
-                    source = TransactionSource.MANUAL,
+                    source = if (s.bill != null) TransactionSource.RECURRING else TransactionSource.MANUAL,
                 )
             )
             _state.update { it.copy(saved = true) }
