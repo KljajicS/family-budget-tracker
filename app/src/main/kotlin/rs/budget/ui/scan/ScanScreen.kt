@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +47,7 @@ fun ScanScreen(onSaved: () -> Unit, onManual: () -> Unit, vm: ScanViewModel = hi
     val s by vm.state.collectAsStateWithLifecycle()
     val draft by add.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val activity = LocalActivity.current
     val owner = LocalLifecycleOwner.current
     fun cameraGranted() = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     var granted by remember { mutableStateOf(cameraGranted()) }
@@ -56,7 +58,10 @@ fun ScanScreen(onSaved: () -> Unit, onManual: () -> Unit, vm: ScanViewModel = hi
     DisposableEffect(owner) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) granted = cameraGranted() }
         owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer); vm.leave() }
+        onDispose {
+            owner.lifecycle.removeObserver(observer)
+            if (activity?.isChangingConfigurations != true) vm.leave()
+        }
     }
     LaunchedEffect(s.receipt?.id) { s.receipt?.let { add.prefillReceipt(it, s.categoryId) } }
     LaunchedEffect(draft.saved) {

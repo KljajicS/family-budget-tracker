@@ -91,14 +91,12 @@ class ReceiptRepositoryTest {
     }
 
     @Test fun `schema upgrade retains existing transaction and event data`() = runTest {
-        seed()
-        repo.add(tx().copy(id = "manual", source = TransactionSource.MANUAL))
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
-        BudgetDb.Schema.create(driver)
+        javaClass.getResource("/schema-v4.sql")!!.readText().split(';').filter { it.isNotBlank() }
+            .forEach { driver.execute(null, it, 0) }
         val old = BudgetDb(driver)
         val oldStore = EventStore(old, "old", clock, Projector(old))
-        oldStore.append(TransactionAdded(tx().copy(id = "old")))
-        driver.execute(null, "DROP TABLE receipt", 0)
+        oldStore.append(TransactionAdded(tx().copy(id = "old", source = TransactionSource.MANUAL)))
         BudgetDb.Schema.migrate(driver, 4, 5)
         assertEquals("120.00", old.txQueries.all().executeAsList().single().amount)
         assertEquals(1L, old.eventQueries.count().executeAsOne())
