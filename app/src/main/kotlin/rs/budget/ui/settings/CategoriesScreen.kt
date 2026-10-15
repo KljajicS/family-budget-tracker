@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.ui.CategoryPalette
 import rs.budget.ui.categoryDisplayName
@@ -120,6 +121,7 @@ fun EditCategoryScreen(onClose: () -> Unit, vm: EditCategoryViewModel = hiltView
             )
         }
         Spacer(Modifier.weight(1f))
-        PrimaryButton(stringResource(R.string.category_save), enabled = s.canSave, onClick = vm::save)
+        WriteFeedback(vm.writes)
+        PrimaryButton(stringResource(R.string.category_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
     }
 }

@@ -60,7 +60,6 @@ object LocalDateSerializer : KSerializer<LocalDate> {
 
 enum class Cadence { MONTHLY, YEARLY }
 
-/** A bill that repeats. Occurrences are derived from [firstDue] and [cadence], never stored. */
 @Serializable
 data class RecurringRule(
     val id: String,
@@ -77,7 +76,6 @@ data class RecurringRule(
     }
 }
 
-/** A savings target. [monthly] is what the family plans to assign each month; both share one currency. */
 @Serializable
 data class Goal(
     val id: String,

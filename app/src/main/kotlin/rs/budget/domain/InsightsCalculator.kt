@@ -5,13 +5,11 @@ import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** One donut slice. `categoryId` null is "Other": everything past the top four plus uncategorized spending. */
 data class Slice(val categoryId: String?, val amount: Money, val share: Int)
 
 data class MonthTotals(val month: YearMonth, val income: Money, val expenses: Money, val inProgress: Boolean)
 
 sealed interface Tip {
-    /** `average` is set only when this month's spending is already above the three-month average. */
     data class BudgetNearLimit(val categoryId: String, val percent: Int, val daysLeft: Int, val left: Money, val average: Money?) : Tip
     data class AboveAverage(val categoryId: String, val spent: Money, val average: Money) : Tip
     data class Saved(val saved: Money, val average: Money) : Tip
@@ -42,22 +40,23 @@ object InsightsCalculator {
         statuses: List<BudgetStatus>,
         rates: Rates,
     ): InsightsSummary {
+        val posted = transactions.filter { it.date <= today }
         var partial = false
         fun rsd(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
         fun sum(list: List<Transaction>) = list.fold(Money.zero(Currency.RSD)) { acc, t -> acc + rsd(t.money) }
 
         val current = YearMonth.from(today)
-        val first = transactions.minOfOrNull { YearMonth.from(it.date) }?.coerceAtMost(current) ?: current
+        val first = posted.minOfOrNull { YearMonth.from(it.date) }?.coerceAtMost(current) ?: current
         val range = first..current
 
-        val expenses = transactions.filter { it.type == TransactionType.EXPENSE }
+        val expenses = posted.filter { it.type == TransactionType.EXPENSE }
         val thisMonth = expenses.filter { YearMonth.from(it.date) == month }
         val spent = sum(thisMonth)
         val slices = slices(thisMonth.groupBy { it.categoryId }.mapValues { (_, list) -> sum(list) }, spent)
 
         val window = (WINDOW - 1 downTo 0).map { month.minusMonths(it.toLong()) }
         val months = window.map { m ->
-            val inMonth = transactions.filter { YearMonth.from(it.date) == m }
+            val inMonth = posted.filter { YearMonth.from(it.date) == m }
             MonthTotals(m, sum(inMonth.filter { it.type == TransactionType.INCOME }), sum(inMonth.filter { it.type == TransactionType.EXPENSE }), inProgress = m == current)
         }
         val completed = months.filter { !it.inProgress }
@@ -67,7 +66,7 @@ object InsightsCalculator {
         val savingsIds = accounts.filter { it.kind == AccountKind.SAVINGS }.map { it.id }.toSet()
         val savings = window.map { m ->
             val end = m.atEndOfMonth()
-            val balances = HomeCalculator.balances(accounts, transactions.filter { it.date <= end })
+            val balances = HomeCalculator.balances(accounts, posted.filter { it.date <= end })
             m to balances.filterKeys { it in savingsIds }.values.fold(Money.zero(Currency.RSD)) { acc, b -> acc + rsd(b) }
         }
         val savingsDelta = savings.last().second - savings.first().second
@@ -98,7 +97,6 @@ object InsightsCalculator {
         rsd: (Money) -> Money,
     ): Tip {
         val daysLeft = month.lengthOfMonth() - today.dayOfMonth + 1
-        /** Mean over the previous three months, empty months counting as zero; null when none of them had spending. */
         fun averageOf(categoryId: String?): Money? {
             val previous = (1..3).map { month.minusMonths(it.toLong()) }
             val sums = previous.map { m -> expenses.filter { it.categoryId == categoryId && YearMonth.from(it.date) == m }.fold(Money.zero(Currency.RSD)) { a, t -> a + rsd(t.money) } }

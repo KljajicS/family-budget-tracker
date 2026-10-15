@@ -20,25 +20,32 @@ class EventStore(
 ) {
     private val writeLock = Any()
 
-    suspend fun append(event: Event, validate: () -> Unit = {}): EventRecord = withContext(Dispatchers.IO) {
+    suspend fun append(event: Event, validate: () -> Unit = {}): EventRecord = appendAll(listOf(event), validate).single()
+
+    suspend fun appendAll(events: List<Event>, validate: () -> Unit = {}): List<EventRecord> = withContext(Dispatchers.IO) {
         synchronized(writeLock) {
-        db.transactionWithResult {
-            validate()
-            val seq = (db.eventQueries.lastSeq(deviceId).executeAsOne().max_seq ?: 0L) + 1
-            // Logical clock: never earlier than anything already in the log, so causality survives a skewed phone clock.
-            val last = db.eventQueries.lastOccurredAt().executeAsOne().max_at ?: 0L
-            val at = Instant.ofEpochMilli(maxOf(clock.now().toEpochMilli(), last + 1))
-            val record = EventRecord(newId(), deviceId, seq, at, event)
-            insert(record)
-            projector.apply(record)
-            record
-        }
+            db.transactionWithResult {
+                validate()
+                events.map { event ->
+                    val seq = (db.eventQueries.lastSeq(deviceId).executeAsOne().max_seq ?: 0L) + 1
+                    // Logical clock preserves causality when a device clock moves backwards.
+                    val last = db.eventQueries.lastOccurredAt().executeAsOne().max_at ?: 0L
+                    val at = Instant.ofEpochMilli(maxOf(clock.now().toEpochMilli(), last + 1))
+                    val record = EventRecord(newId(), deviceId, seq, at, event)
+                    insert(record)
+                    projector.apply(record)
+                    record
+                }
+            }
         }
     }
 
-    /** Records from other devices. Unknown `(deviceId, seq)` pairs are stored, then read tables are rebuilt in log order. */
     fun applyRemote(records: List<EventRecord>) = synchronized(writeLock) { db.transaction {
-        val fresh = records.filter { db.eventQueries.countFor(it.deviceId, it.seq).executeAsOne() == 0L }
+        val unique = records.groupBy { it.deviceId to it.seq }.values.map { duplicates ->
+            require(duplicates.all { it == duplicates.first() }) { "Conflicting event sequence" }
+            duplicates.first()
+        }
+        val fresh = unique.filter { db.eventQueries.countFor(it.deviceId, it.seq).executeAsOne() == 0L }
         if (fresh.isEmpty()) return@transaction
         fresh.forEach(::insert)
         rebuildInTransaction()

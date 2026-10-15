@@ -7,7 +7,6 @@ import java.time.YearMonth
 
 enum class PaceState { AHEAD, ON_TRACK, OVER_PACE, LOW, OVER }
 
-/** Amounts are in the budget's own currency. */
 data class BudgetStatus(
     val categoryId: String,
     val budget: Money,
@@ -39,7 +38,7 @@ object BudgetCalculator {
     fun statuses(today: LocalDate, budgets: List<Budget>, transactions: List<Transaction>, rates: Rates): List<BudgetStatus> {
         val month = YearMonth.from(today)
         val pace = today.dayOfMonth.toDouble() / month.lengthOfMonth()
-        val expenses = transactions.filter { it.type == TransactionType.EXPENSE && it.categoryId != null && YearMonth.from(it.date) == month }
+        val expenses = transactions.filter { it.date <= today && it.type == TransactionType.EXPENSE && it.categoryId != null && YearMonth.from(it.date) == month }
 
         return budgets
             .filter { it.month == month && it.money.amount.signum() > 0 }
@@ -66,7 +65,6 @@ object BudgetCalculator {
     fun reserve(statuses: List<BudgetStatus>, rates: Rates): Money =
         statuses.fold(Money.zero(Currency.RSD)) { acc, s -> if (s.left.isNegative) acc else acc + (rates.convert(s.left) ?: Money.zero(Currency.RSD)) }
 
-    /** Total spent and total budgeted in RSD; unconvertible currencies are skipped. */
     fun total(statuses: List<BudgetStatus>, rates: Rates): Pair<Money, Money> {
         fun sum(pick: (BudgetStatus) -> Money) = statuses.fold(Money.zero(Currency.RSD)) { a, s -> a + (rates.convert(pick(s)) ?: Money.zero(Currency.RSD)) }
         return sum { it.spent } to sum { it.budget }

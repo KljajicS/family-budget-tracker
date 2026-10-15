@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.domain.Category
 import rs.budget.domain.Currency
@@ -106,7 +107,9 @@ fun EditBudgetScreen(onClose: () -> Unit, vm: EditBudgetViewModel = hiltViewMode
             }
         }
 
-        PrimaryButton(stringResource(R.string.budget_save), enabled = s.canSave, onClick = vm::save)
+        WriteFeedback(vm.writes)
+
+        PrimaryButton(stringResource(R.string.budget_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
     }
 }
 

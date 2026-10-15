@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Currency
@@ -118,6 +119,7 @@ fun SetupScreen(onDone: () -> Unit, vm: SetupViewModel = hiltViewModel()) {
         }
 
         Spacer(Modifier.size(10.dp))
-        PrimaryButton(stringResource(R.string.setup_done), enabled = state.canFinish, onClick = vm::finish)
+        WriteFeedback(vm.writes)
+        PrimaryButton(stringResource(R.string.setup_done), enabled = state.canFinish && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::finish)
     }
 }

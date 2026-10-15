@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.domain.Cadence
 import rs.budget.ui.add.AccountBox
@@ -135,13 +136,18 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
             }
 
             Text(stringResource(R.string.recurring_cadence), style = LabelStyle, color = c.muted)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Pill(stringResource(R.string.recurring_monthly), s.cadence == Cadence.MONTHLY) { vm.setCadence(Cadence.MONTHLY) }
-                Pill(stringResource(R.string.recurring_yearly), s.cadence == Cadence.YEARLY) { vm.setCadence(Cadence.YEARLY) }
+            if (s.editing) {
+                Text(stringResource(if (s.cadence == Cadence.MONTHLY) R.string.recurring_monthly else R.string.recurring_yearly), color = c.text)
+                DateBox(s.firstDue, vm::setFirstDue, Modifier.fillMaxWidth(), label = stringResource(R.string.recurring_first_due), enabled = false)
+                Text(stringResource(R.string.recurring_schedule_locked), style = LabelStyle, color = c.muted)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Pill(stringResource(R.string.recurring_monthly), s.cadence == Cadence.MONTHLY) { vm.setCadence(Cadence.MONTHLY) }
+                    Pill(stringResource(R.string.recurring_yearly), s.cadence == Cadence.YEARLY) { vm.setCadence(Cadence.YEARLY) }
+                }
+                DateBox(s.firstDue, vm::setFirstDue, Modifier.fillMaxWidth(), label = stringResource(R.string.recurring_first_due))
+                Text(stringResource(R.string.recurring_first_due_hint), style = LabelStyle, color = c.muted)
             }
-
-            DateBox(s.firstDue, vm::setFirstDue, Modifier.fillMaxWidth(), label = stringResource(R.string.recurring_first_due))
-            Text(stringResource(R.string.recurring_first_due_hint), style = LabelStyle, color = c.muted)
 
             if (s.editing) {
                 Spacer(Modifier.size(6.dp))
@@ -154,7 +160,9 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
             }
         }
 
-        PrimaryButton(stringResource(R.string.recurring_save), enabled = s.canSave, onClick = vm::save)
+        WriteFeedback(vm.writes)
+
+        PrimaryButton(stringResource(R.string.recurring_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
     }
 }
 

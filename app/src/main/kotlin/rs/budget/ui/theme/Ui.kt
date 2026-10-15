@@ -29,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Small building blocks that mirror the mockup components. Material widgets are used only where they look identical. */
 
 @Composable
 fun RoundIconButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
@@ -73,7 +72,6 @@ fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     ) { Text(text, style = sans(16, FontWeight.SemiBold), color = if (enabled) c.onPrimary else c.muted) }
 }
 
-/** Filled bar with a thin vertical marker at today's pace, as in the mockups. */
 @Composable
 fun PaceBar(ratio: Float, pace: Float, color: Color, height: Dp, modifier: Modifier = Modifier) {
     val c = LocalColors.current
@@ -87,7 +85,6 @@ fun PaceBar(ratio: Float, pace: Float, color: Color, height: Dp, modifier: Modif
     }
 }
 
-/** Bordered single-line input that matches the field boxes in the mockups. */
 @Composable
 fun FieldBox(label: String, value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
     val c = LocalColors.current

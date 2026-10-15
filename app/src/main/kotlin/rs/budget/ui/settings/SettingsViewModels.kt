@@ -27,12 +27,15 @@ import rs.budget.domain.RecurringRule
 import rs.budget.domain.newId
 import java.time.LocalDate
 import rs.budget.ui.CategoryPalette
+import rs.budget.ui.WriteOperation
+import rs.budget.ui.parseMoneyInput
 import javax.inject.Inject
 
 data class SettingsState(val memberId: String? = null, val name: String = "", val saved: Boolean = false, val theme: ThemeMode = ThemeMode.SYSTEM)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(private val repo: BudgetRepository, private val themeStore: ThemeStore) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(SettingsState(theme = themeStore.mode.value))
     val state: StateFlow<SettingsState> = _state
 
@@ -54,7 +57,7 @@ class SettingsViewModel @Inject constructor(private val repo: BudgetRepository, 
         val s = _state.value
         val id = s.memberId ?: return
         if (s.name.isBlank()) return
-        viewModelScope.launch {
+        writes.run(finish = false) {
             repo.renameMember(id, s.name)
             _state.update { it.copy(saved = true) }
         }
@@ -80,6 +83,7 @@ data class EditCategoryState(
 
 @HiltViewModel
 class EditCategoryViewModel @Inject constructor(private val repo: BudgetRepository, savedState: SavedStateHandle) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(EditCategoryState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id")))
     val state: StateFlow<EditCategoryState> = _state
 
@@ -96,7 +100,7 @@ class EditCategoryViewModel @Inject constructor(private val repo: BudgetReposito
     fun save() {
         val s = _state.value
         if (!s.canSave) return
-        viewModelScope.launch {
+        writes.run {
             if (s.id == null) repo.addCategory(s.name, s.color) else repo.updateCategory(Category(s.id, s.name.trim(), s.color))
             _state.update { it.copy(done = true) }
         }
@@ -104,7 +108,7 @@ class EditCategoryViewModel @Inject constructor(private val repo: BudgetReposito
 
     fun delete() {
         val id = _state.value.id ?: return
-        viewModelScope.launch {
+        writes.run {
             repo.archiveCategory(id)
             _state.update { it.copy(done = true) }
         }
@@ -130,14 +134,14 @@ data class EditAccountState(
 
 @HiltViewModel
 class EditAccountViewModel @Inject constructor(private val repo: BudgetRepository, savedState: SavedStateHandle) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(EditAccountState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id")))
     val state: StateFlow<EditAccountState> = _state
 
     init {
         val id = _state.value.id
         if (id != null) viewModelScope.launch {
-            val used = repo.transactions.first().any { it.accountId == id || it.toAccountId == id } ||
-                repo.rules.first().any { it.accountId == id }
+            val used = repo.accountInUse(id)
             repo.accounts.first().firstOrNull { it.id == id }?.let { a -> _state.update { it.copy(name = a.name, currency = a.currency, kind = a.kind, currencyLocked = used) } }
         }
     }
@@ -149,7 +153,7 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
     fun save() {
         val s = _state.value
         if (!s.canSave) return
-        viewModelScope.launch {
+        writes.run {
             val account = Account(s.id ?: newId(), s.name.trim(), s.currency, s.kind)
             if (s.id == null) repo.addAccount(account) else repo.updateAccount(account)
             _state.update { it.copy(done = true) }
@@ -158,7 +162,7 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
 
     fun delete() {
         val id = _state.value.id ?: return
-        viewModelScope.launch {
+        writes.run {
             repo.archiveAccount(id)
             _state.update { it.copy(done = true) }
         }
@@ -185,12 +189,13 @@ data class EditRecurringState(
     val done: Boolean = false,
 ) {
     val currency: Currency? get() = accounts.firstOrNull { it.id == accountId }?.currency
-    val amount: Money? get() = currency?.let { c -> amountText.toBigDecimalOrNull()?.let { Money.of(it, c) } }?.takeIf { !it.isZero && !it.isNegative }
+    val amount: Money? get() = currency?.let { c -> parseMoneyInput(amountText, c) }?.takeIf { !it.isZero && !it.isNegative }
     val canSave: Boolean get() = name.isNotBlank() && amount != null && categoryId != null
 }
 
 @HiltViewModel
 class EditRecurringViewModel @Inject constructor(private val repo: BudgetRepository, clock: Clock, savedState: SavedStateHandle) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(EditRecurringState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id"), firstDue = clock.today()))
     val state: StateFlow<EditRecurringState> = _state
 
@@ -217,18 +222,18 @@ class EditRecurringViewModel @Inject constructor(private val repo: BudgetReposit
     fun setName(name: String) = _state.update { it.copy(name = name) }
     fun setAccount(id: String) = _state.update { it.copy(accountId = id) }
     fun setCategory(id: String) = _state.update { it.copy(categoryId = id) }
-    fun setCadence(cadence: Cadence) = _state.update { it.copy(cadence = cadence) }
-    fun setFirstDue(date: LocalDate) = _state.update { it.copy(firstDue = date) }
+    fun setCadence(cadence: Cadence) = _state.update { if (it.editing) it else it.copy(cadence = cadence) }
+    fun setFirstDue(date: LocalDate) = _state.update { if (it.editing) it else it.copy(firstDue = date) }
 
     fun setAmount(text: String) {
-        if (text.isNotEmpty() && text.toBigDecimalOrNull() == null) return
+        if (text.length > 64) return
         _state.update { it.copy(amountText = text) }
     }
 
     fun save() {
         val s = _state.value
         if (!s.canSave) return
-        viewModelScope.launch {
+        writes.run {
             repo.setRule(RecurringRule(s.id ?: newId(), s.name.trim(), s.amount!!, s.accountId!!, s.categoryId!!, s.cadence, s.firstDue))
             _state.update { it.copy(done = true) }
         }
@@ -236,7 +241,7 @@ class EditRecurringViewModel @Inject constructor(private val repo: BudgetReposit
 
     fun delete() {
         val id = _state.value.id ?: return
-        viewModelScope.launch {
+        writes.run {
             repo.archiveRule(id)
             _state.update { it.copy(done = true) }
         }

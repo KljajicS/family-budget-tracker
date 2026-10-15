@@ -119,7 +119,6 @@ private fun TotalCard(s: GoalsState) {
     }
 }
 
-/** Share of the RSD total this currency holds; unconvertible balances draw nothing. */
 private fun rsdShare(m: Money, s: GoalsState): Float =
     if (m.currency == Currency.RSD) (m.amount.toFloat() / s.savingsTotal.amount.toFloat()).coerceAtLeast(0f) else 0f
 

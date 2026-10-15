@@ -59,12 +59,10 @@ class GoalsViewModelTest {
         assertEquals(rsd("40000"), s.savingsByCurrency[Currency.RSD])
         assertEquals(rsd("15000"), s.unassigned)
         assertEquals(rsd("25000"), s.needs)
-        // Completed months in the window: Aug +50000, Sep 0, others 0, so 10000 on average: short by 15000.
         assertEquals(rsd("10000"), s.averageSaved)
         assertTrue((s.needs - s.averageSaved).amount.signum() > 0)
         assertEquals(listOf("trip", "fund"), s.statuses.map { it.goal.id })
 
-        // Archive the big goal: needs drop to 5000, below the 10000 average, so the line reads as covered.
         repo.archiveGoal("fund")
         val covered = GoalsViewModel(repo, clock).state.filterNotNull().first { it.statuses.size == 1 }
         assertEquals(rsd("5000"), covered.needs)

@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.domain.Currency
 import rs.budget.ui.settings.ScreenHeader
@@ -87,7 +88,9 @@ fun EditGoalScreen(onClose: () -> Unit, vm: EditGoalViewModel = hiltViewModel())
             }
         }
 
-        PrimaryButton(stringResource(R.string.goal_save), enabled = s.canSave, onClick = vm::save)
+        WriteFeedback(vm.writes)
+
+        PrimaryButton(stringResource(R.string.goal_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
     }
 }
 

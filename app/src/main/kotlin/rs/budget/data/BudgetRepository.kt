@@ -2,6 +2,10 @@ package rs.budget.data
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -79,37 +83,39 @@ class BudgetRepository(
     private val store: EventStore,
     private val clock: Clock,
     private val deviceId: String = "",
+    sharingScope: CoroutineScope? = null,
 ) {
     val accounts: Flow<List<Account>> =
-        db.accountQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.accountQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     val categories: Flow<List<Category>> =
-        db.categoryQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.categoryQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     /** Archived rows included: history screens need the names and balances of things that no longer exist. */
     val allAccounts: Flow<List<Account>> =
-        db.accountQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.accountQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     val allCategories: Flow<List<Category>> =
-        db.categoryQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.categoryQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     val members: Flow<List<Member>> =
-        db.memberQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.memberQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     val transactions: Flow<List<Transaction>> =
-        db.txQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.txQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
+            .let { source -> if (sharingScope == null) source else source.shareIn(sharingScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1) }
 
     fun recent(limit: Int): Flow<List<RecentTx>> =
-        db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }
+        db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }.flowOn(Dispatchers.Default)
 
     // ponytail: rates are RSD-only until the sync milestone adds the NBS fetch; EUR/USD accounts show as partial.
     val rates: Rates = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
     private val rsdRates get() = rates
 
     val budgets: Flow<List<Budget>> =
-        db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
-    fun effectiveBudgets(month: YearMonth): Flow<List<Budget>> = budgets.map { BudgetCalculator.effective(it, month) }
+    fun effectiveBudgets(month: YearMonth): Flow<List<Budget>> = budgets.map { BudgetCalculator.effective(it, month) }.flowOn(Dispatchers.Default)
 
     /** Re-reads the date once a minute so a screen left open over midnight on the 1st moves to the new month. */
     private val today: Flow<LocalDate> = flow {
@@ -122,10 +128,10 @@ class BudgetRepository(
     val budgetStatuses: Flow<List<BudgetStatus>> =
         combine(today, budgets, transactions) { day, all, txs ->
             BudgetCalculator.statuses(day, BudgetCalculator.effective(all, YearMonth.from(day)), txs, rsdRates)
-        }
+        }.flowOn(Dispatchers.Default)
 
     val rules: Flow<List<RecurringRule>> =
-        db.recurringRuleQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.recurringRuleQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     private val skips: Flow<Set<Pair<String, String>>> =
         db.billSkipQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.rule_id to it.due_period }.toSet() }
@@ -133,19 +139,19 @@ class BudgetRepository(
     val upcomingBills: Flow<List<Bill>> =
         combine(today, rules, accounts, transactions, skips) { day, rules, accs, txs, skipped ->
             BillCalculator.upcoming(day, rules, accs.map { it.id }.toSet(), txs, skipped)
-        }
+        }.flowOn(Dispatchers.Default)
 
     val goals: Flow<List<Goal>> =
-        db.goalQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.goalQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     val allocations: Flow<List<GoalAllocation>> =
-        db.goalAllocationQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+        db.goalAllocationQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
     val goalStatuses: Flow<List<GoalStatus>> =
-        combine(today, goals, allocations) { day, gs, alloc -> GoalCalculator.statuses(day, gs, alloc) }
+        combine(today, goals, allocations) { day, gs, alloc -> GoalCalculator.statuses(day, gs, alloc) }.flowOn(Dispatchers.Default)
 
     private val goalHold: Flow<Pair<Money, Boolean>> =
-        combine(today, goalStatuses, allocations) { day, statuses, alloc -> GoalCalculator.hold(day, statuses, alloc, rsdRates) }
+        combine(today, goalStatuses, allocations) { day, statuses, alloc -> GoalCalculator.hold(day, statuses, alloc, rsdRates) }.flowOn(Dispatchers.Default)
 
     val home: Flow<HomeSummary> =
         combine(today, accounts, transactions, budgetStatuses, upcomingBills) { day, accs, txs, statuses, bills ->
@@ -153,7 +159,7 @@ class BudgetRepository(
             HomeInputs(day, accs, txs, BudgetCalculator.reserve(statuses, rsdRates), held, partial)
         }.combine(goalHold) { h, (goalsHeld, goalsPartial) ->
             HomeCalculator.summarize(h.day, h.accounts, h.transactions, rsdRates, committed = h.committed, bills = h.bills, goals = goalsHeld, partialInputs = h.partial || goalsPartial)
-        }
+        }.flowOn(Dispatchers.Default)
 
     private data class HomeInputs(
         val day: LocalDate, val accounts: List<Account>, val transactions: List<Transaction>, val committed: Money, val bills: Money, val partial: Boolean,
@@ -166,7 +172,14 @@ class BudgetRepository(
     suspend fun deleteAllocation(id: String) { store.append(GoalAllocationDeleted(id)) }
 
     suspend fun rule(id: String): RecurringRule? = withContext(Dispatchers.IO) { db.recurringRuleQueries.byId(id).executeAsOneOrNull()?.toDomain() }
-    suspend fun setRule(rule: RecurringRule) { store.append(RecurringRuleSet(rule)) }
+    suspend fun setRule(rule: RecurringRule) {
+        store.append(RecurringRuleSet(rule)) {
+            val previous = db.recurringRuleQueries.byId(rule.id).executeAsOneOrNull()
+            require(previous == null || (previous.cadence == rule.cadence.name && previous.first_due == rule.firstDue.toString())) {
+                "Existing recurring schedules cannot change"
+            }
+        }
+    }
     suspend fun archiveRule(id: String) { store.append(RecurringRuleArchived(id)) }
     suspend fun skipBill(ruleId: String, period: String) { store.append(BillSkipped(ruleId, period)) }
 
@@ -180,9 +193,10 @@ class BudgetRepository(
     }
 
     suspend fun setUp(displayName: String, accounts: List<Account>) {
-        store.append(MemberCreated(Member(newId(), displayName, deviceId)))
-        StarterCategories.all.forEach { store.append(CategoryCreated(it)) }
-        accounts.forEach { store.append(AccountCreated(it)) }
+        store.appendAll(
+            listOf(MemberCreated(Member(newId(), displayName, deviceId))) +
+                StarterCategories.all.map { CategoryCreated(it) } + accounts.map { AccountCreated(it) },
+        ) { check(db.memberQueries.all().executeAsList().isEmpty()) { "Setup already completed" } }
     }
 
     suspend fun addCategory(name: String, color: String) { store.append(CategoryCreated(Category(newId(), name.trim(), color))) }
@@ -190,12 +204,25 @@ class BudgetRepository(
     suspend fun archiveCategory(id: String) { store.append(CategoryArchived(id)) }
 
     suspend fun addAccount(account: Account) { store.append(AccountCreated(account)) }
-    suspend fun updateAccount(account: Account) { store.append(AccountUpdated(account)) }
+    suspend fun accountInUse(id: String): Boolean = withContext(Dispatchers.IO) { hasAccountReferences(id) }
+
+    private fun hasAccountReferences(id: String): Boolean =
+        db.txQueries.all().executeAsList().any { it.account_id == id || it.to_account_id == id } ||
+            db.recurringRuleQueries.active().executeAsList().any { it.account_id == id }
+
+    suspend fun updateAccount(account: Account) {
+        store.append(AccountUpdated(account)) {
+            val previous = db.accountQueries.byId(account.id).executeAsOneOrNull()
+            require(previous == null || previous.currency == account.currency.name || !hasAccountReferences(account.id)) {
+                "Used account currency cannot change"
+            }
+        }
+    }
     suspend fun archiveAccount(id: String) { store.append(AccountArchived(id)) }
 
     suspend fun renameMember(memberId: String, displayName: String) { store.append(MemberRenamed(memberId, displayName.trim())) }
 
-    suspend fun add(t: Transaction) { store.append(TransactionAdded(t)) }
+    suspend fun add(t: Transaction) { store.append(TransactionAdded(t)) { validateTransaction(t) } }
 
     suspend fun hasReceipt(id: String): Boolean = withContext(Dispatchers.IO) {
         db.receiptQueries.byId(id).executeAsOneOrNull() != null
@@ -217,7 +244,19 @@ class BudgetRepository(
             }
         }
     }
-    suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) }
+    suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) { validateTransaction(t) } }
+
+    private fun validateTransaction(t: Transaction) {
+        val account = db.accountQueries.byId(t.accountId).executeAsOneOrNull()
+        require(account != null && account.archived == 0L && account.currency == t.money.currency.name) { "Account no longer available" }
+        if (t.categoryId != null) require(db.categoryQueries.active().executeAsList().any { it.id == t.categoryId }) { "Category no longer available" }
+        if (t.type == TransactionType.TRANSFER) {
+            val destination = t.toAccountId?.let { db.accountQueries.byId(it).executeAsOneOrNull() }
+            require(destination != null && destination.archived == 0L && destination.id != account.id && destination.currency == account.currency) {
+                "Transfer account no longer available"
+            }
+        }
+    }
     suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
 
     private fun BudgetRow.toDomain() = Budget(category_id, YearMonth.parse(month), Money.of(amount, Currency.valueOf(currency)))

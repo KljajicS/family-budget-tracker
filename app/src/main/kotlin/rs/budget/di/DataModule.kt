@@ -3,6 +3,9 @@ package rs.budget.di
 import android.content.Context
 import androidx.core.content.edit
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,6 +48,6 @@ object DataModule {
             store.rebuild()
             prefs.edit { putInt("version", Projector.VERSION) }
         }
-        return BudgetRepository(db, store, clock, id)
+        return BudgetRepository(db, store, clock, id, CoroutineScope(SupervisorJob() + Dispatchers.Default))
     }
 }

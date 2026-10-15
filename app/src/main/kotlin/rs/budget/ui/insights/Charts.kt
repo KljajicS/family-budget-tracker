@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.LocalColors
 
-/** Ring of [slices] as color and share (0..1). Empty slices draw the track only. */
 @Composable
 fun Donut(slices: List<Pair<Color, Float>>, description: String, modifier: Modifier = Modifier) {
     val c = LocalColors.current
@@ -46,7 +45,6 @@ fun Donut(slices: List<Pair<Color, Float>>, description: String, modifier: Modif
 
 data class BarPair(val label: String, val income: Float, val expenses: Float, val faded: Boolean)
 
-/** Two bars per month, scaled to the tallest value. All zero draws nothing but the labels. */
 @Composable
 fun BarPairs(items: List<BarPair>, incomeColor: Color, expenseColor: Color, description: String, modifier: Modifier = Modifier) {
     val max = items.maxOfOrNull { maxOf(it.income, it.expenses) }?.takeIf { it > 0f } ?: 0f
@@ -72,7 +70,6 @@ fun BarPairs(items: List<BarPair>, incomeColor: Color, expenseColor: Color, desc
     }
 }
 
-/** Line with a soft area under it, last point marked. A flat line sits at the bottom. */
 @Composable
 fun TrendLine(points: List<Pair<String, Float>>, color: Color, description: String, modifier: Modifier = Modifier) {
     Column(modifier.semantics { contentDescription = description }) {

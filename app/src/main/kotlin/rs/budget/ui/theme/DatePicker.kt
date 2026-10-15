@@ -17,7 +17,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-/** Material date picker dressed in the app tokens. Every screen that needs a date uses this one. */
 @Composable
 fun BudgetDatePickerDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
     val c = LocalColors.current

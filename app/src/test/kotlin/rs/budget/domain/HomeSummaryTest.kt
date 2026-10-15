@@ -18,6 +18,32 @@ class HomeSummaryTest {
         Transaction(id, type, Money.of(amount, currency), account.id, to?.id, null, date, "", "", "m1", TransactionSource.MANUAL)
 
     @Test
+    fun `future transactions do not affect current balances budgets or insights`() {
+        val savings = Account("savings", "Savings", Currency.RSD, AccountKind.SAVINGS)
+        val txs = listOf(
+            tx("posted", TransactionType.INCOME, "1000", card),
+            tx("future-income", TransactionType.INCOME, "100000", card, today.plusDays(1)),
+            tx("future-spend", TransactionType.EXPENSE, "500", card, today.plusDays(1)).copy(categoryId = "food"),
+            tx("future-transfer", TransactionType.TRANSFER, "200", card, today.plusDays(1), to = savings),
+            tx("next-month", TransactionType.INCOME, "200000", card, today.plusMonths(1)),
+        )
+        val month = java.time.YearMonth.from(today)
+        val budget = BudgetCalculator.statuses(today, listOf(Budget("food", month, Money.of("100", Currency.RSD))), txs, rates)
+        val home = HomeCalculator.summarize(today, listOf(card, savings), txs, rates)
+        val insights = InsightsCalculator.summarize(today, month, txs, listOf(card, savings), budget, rates)
+        assertEquals(Money.of("1000", Currency.RSD), home.safeToSpend)
+        assertEquals(home.safeToSpend, home.income)
+        assertEquals(Money.zero(Currency.RSD), home.savingsTotal)
+        assertEquals(Money.zero(Currency.RSD), budget.single().spent)
+        assertEquals(Money.zero(Currency.RSD), insights.spent)
+        assertEquals(home.income, insights.months.last().income)
+        assertEquals(home.savingsTotal, insights.savings.last().second)
+        val tomorrow = HomeCalculator.summarize(today.plusDays(1), listOf(card, savings), txs, rates)
+        assertEquals(Money.of("100300", Currency.RSD), tomorrow.safeToSpend)
+        assertEquals(Money.of("200", Currency.RSD), tomorrow.savingsTotal)
+    }
+
+    @Test
     fun `income minus expenses this month, future and past months excluded`() {
         val txs = listOf(
             tx("1", TransactionType.INCOME, "245000", card),

@@ -30,7 +30,8 @@ object HomeCalculator {
         partialInputs: Boolean = false,
     ): HomeSummary {
         val byId = accounts.associateBy { it.id }
-        val balances = balances(accounts, transactions)
+        val posted = transactions.filter { it.date <= today }
+        val balances = balances(accounts, posted)
         var partial = partialInputs
 
         fun rsdOrSkip(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
@@ -46,7 +47,7 @@ object HomeCalculator {
         val savingsTotal = savingsByCurrency.values.fold(Money.zero(Currency.RSD)) { acc, m -> acc + rsdOrSkip(m) }
 
         val month = YearMonth.from(today)
-        val thisMonth = transactions.filter { YearMonth.from(it.date) == month }
+        val thisMonth = posted.filter { YearMonth.from(it.date) == month }
         val income = thisMonth.filter { it.type == TransactionType.INCOME }.sumRsd(::rsdOrSkip)
         val spent = thisMonth.filter { it.type == TransactionType.EXPENSE }.sumRsd(::rsdOrSkip)
 
