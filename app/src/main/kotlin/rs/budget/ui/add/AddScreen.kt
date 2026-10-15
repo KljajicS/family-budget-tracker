@@ -46,6 +46,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.domain.Account
+import rs.budget.domain.Currency
 import rs.budget.domain.TransactionType
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.theme.BudgetDatePickerDialog
@@ -64,16 +65,27 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
-    val c = LocalColors.current
     LaunchedEffect(s.saved) { if (s.saved) onClose() }
+    AddContent(s, onClose, vm::setType, vm::press, vm::setCategory, vm::setAccount,
+        vm::setToAccount, vm::setDate, vm::setMerchant, vm::skip, vm::save)
+}
+
+@Composable
+fun AddContent(
+    s: AddState, onClose: () -> Unit, onType: (TransactionType) -> Unit, onKey: (Char) -> Unit,
+    onCategory: (String?) -> Unit, onAccount: (String) -> Unit, onToAccount: (String) -> Unit,
+    onDate: (LocalDate) -> Unit, onMerchant: (String) -> Unit, onSkip: () -> Unit, onSave: () -> Unit,
+) {
+    val c = LocalColors.current
 
     Column(
         Modifier.fillMaxSize().background(c.bg).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            RoundIconButton(Icons.Default.Close, stringResource(R.string.add_close), onClose)
-            if (s.bill == null) TypeSwitch(s.type, vm::setType)
+            RoundIconButton(Icons.Default.Close, stringResource(R.string.add_close), { if (!s.saving) onClose() })
+            if (s.receipt != null) Text(stringResource(R.string.scan_review), style = sans(15, FontWeight.Medium), color = c.text)
+            else if (s.bill == null) TypeSwitch(s.type, onType)
             else Text(stringResource(R.string.add_bill_title), style = sans(15, FontWeight.Medium), color = c.text)
         }
 
@@ -85,30 +97,40 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
             }
         }
 
-        if (s.type == TransactionType.EXPENSE) CategoryGrid(s.categories, s.categoryId, vm::setCategory)
+        if (s.type == TransactionType.EXPENSE) CategoryGrid(s.categories, s.categoryId, onCategory)
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AccountBox(stringResource(R.string.add_account), s.accounts, s.accountId, vm::setAccount, Modifier.weight(1f))
+            AccountBox(stringResource(R.string.add_account), s.accounts.filter { s.receipt == null || it.currency == Currency.RSD }, s.accountId, onAccount, Modifier.weight(1f))
             if (s.type == TransactionType.TRANSFER) {
-                AccountBox(stringResource(R.string.add_to_account), s.accounts, s.toAccountId, vm::setToAccount, Modifier.weight(1f))
+                AccountBox(stringResource(R.string.add_to_account), s.accounts, s.toAccountId, onToAccount, Modifier.weight(1f))
             } else {
-                DateBox(s.date, vm::setDate, Modifier.weight(1f))
+                DateBox(s.date, onDate, Modifier.weight(1f))
             }
         }
         s.error?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
+        s.saveError?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
+        if (s.receipt != null && s.accounts.none { it.id == s.accountId && it.currency == Currency.RSD }) {
+            Text(stringResource(R.string.scan_rsd_account), style = sans(13), color = c.orange)
+        }
+        if (s.receipt != null && s.categoryId != null && s.categories.none { it.id == s.categoryId }) {
+            Text(stringResource(R.string.scan_category_changed), style = sans(13), color = c.orange)
+        }
 
-        FieldBox(stringResource(R.string.add_merchant), s.merchant, vm::setMerchant)
+        FieldBox(stringResource(R.string.add_merchant), s.merchant, onMerchant)
+        s.receipt?.let { receipt ->
+            Text(stringResource(R.string.scan_original, receipt.total.amount.toPlainString(), receipt.items.size), style = sans(12), color = c.muted)
+        }
         if (s.bill != null) {
             Text(
                 stringResource(R.string.add_skip_bill),
                 style = sans(14, FontWeight.Medium), color = c.orange,
-                modifier = Modifier.clickable(role = Role.Button, onClick = vm::skip).padding(vertical = 6.dp),
+                modifier = Modifier.clickable(role = Role.Button, onClick = onSkip).padding(vertical = 6.dp),
             )
         }
         }
 
-        Keypad(onKey = vm::press)
-        PrimaryButton(stringResource(s.type.saveLabel()), enabled = s.canSave, onClick = vm::save)
+        Keypad(onKey = onKey)
+        PrimaryButton(stringResource(s.type.saveLabel()), enabled = s.canSave, onClick = onSave)
     }
 }
 
