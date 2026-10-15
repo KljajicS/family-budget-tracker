@@ -37,4 +37,18 @@ class RatesTest {
         assertEquals(Money.of("1170", Currency.RSD), priced.single().spent)
         assertTrue(BudgetCalculator.missingCurrencies(priced, Rates.EMPTY.plus(Currency.EUR)).isEmpty())
     }
+
+    @Test fun `missing budget currency marks totals partial even without expenses`() {
+        val day = LocalDate.of(2026, 10, 15)
+        val budget = Budget("food", YearMonth.from(day), Money.of("100", Currency.EUR))
+        val tx = Transaction("t", TransactionType.EXPENSE, Money.of("117", Currency.RSD), "cash", null, "food", day, "", "", "m", TransactionSource.MANUAL)
+        for (transactions in listOf(emptyList(), listOf(tx))) {
+            val statuses = BudgetCalculator.statuses(day, listOf(budget), transactions, Rates.EMPTY)
+            assertEquals(setOf(Currency.EUR), BudgetCalculator.missingCurrencies(statuses, Rates.EMPTY))
+        }
+        val rates = Rates.EMPTY.plus(Currency.EUR, BigDecimal("117"))
+        val priced = BudgetCalculator.statuses(day, listOf(budget), listOf(tx), rates)
+        assertEquals(Money.of("1", Currency.EUR), priced.single().spent)
+        assertTrue(BudgetCalculator.missingCurrencies(priced, rates).isEmpty())
+    }
 }

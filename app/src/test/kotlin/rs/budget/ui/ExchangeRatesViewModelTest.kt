@@ -40,6 +40,18 @@ class ExchangeRatesViewModelTest {
     @Before fun setup() = Dispatchers.setMain(dispatcher)
     @After fun cleanup() = Dispatchers.resetMain()
 
+    @Test fun `stale warning starts at seven days and manual overrides exempt only their currency`() = runTest(dispatcher) {
+        rates.cache(mapOf(Currency.EUR to BigDecimal("117"), Currency.USD to BigDecimal("105")), clock.today())
+        val initial = repo.financial.first()
+        assertFalse(RateStatus.from(initial.copy(day = initial.day.plusDays(6))).stale)
+        val weekLater = initial.copy(day = initial.day.plusDays(7))
+        assertTrue(RateStatus.from(weekLater).stale)
+        val oneOverride = initial.exchange.copy(overrides = mapOf(Currency.EUR to BigDecimal("118")))
+        assertTrue(RateStatus.from(weekLater.copy(exchange = oneOverride)).stale)
+        val bothOverrides = oneOverride.copy(overrides = oneOverride.overrides + (Currency.USD to BigDecimal("106")))
+        assertFalse(RateStatus.from(weekLater.copy(exchange = bothOverrides)).stale)
+    }
+
     @Test fun `all four tabs react and every emission uses one rate including historical months`() = runTest(dispatcher) {
         repo.setUp("Family", listOf(Account("spend", "Spending", Currency.EUR, AccountKind.SPENDING), Account("save", "Savings", Currency.EUR, AccountKind.SAVINGS)))
         suspend fun add(id: String, type: TransactionType, amount: String, account: String, previous: Boolean = false) {
