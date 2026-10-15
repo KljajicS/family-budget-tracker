@@ -21,11 +21,30 @@ import rs.budget.data.db.BudgetDb
 import rs.budget.data.deviceId
 import rs.budget.data.receipt.FiscalReceiptClient
 import rs.budget.data.receipt.ReceiptLookup
+import rs.budget.data.rates.RateRepository
+import rs.budget.data.rates.RateRefresh
+import rs.budget.data.rates.RateAttempts
+import rs.budget.data.rates.NbsClient
+import java.time.Instant
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object DataModule {
+    @Provides @Singleton
+    fun rates(repo: BudgetRepository): RateRepository = repo.exchangeRates
+
+    @Provides @Singleton
+    fun rateRefresh(@ApplicationContext context: Context, rates: RateRepository, clock: Clock): RateRefresh {
+        val preferences = context.getSharedPreferences("exchange_rates", Context.MODE_PRIVATE)
+        val attempts = object : RateAttempts {
+            override var lastAttempt: Instant?
+                get() = preferences.getLong("last_attempt", 0).takeIf { it != 0L }?.let(Instant::ofEpochMilli)
+                set(value) { preferences.edit { putLong("last_attempt", value?.toEpochMilli() ?: 0) } }
+        }
+        return RateRefresh(rates, NbsClient(), attempts, clock)
+    }
+
     @Provides @Singleton
     fun receiptLookup(): ReceiptLookup = FiscalReceiptClient()
 

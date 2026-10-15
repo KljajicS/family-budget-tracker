@@ -75,6 +75,7 @@ fun InsightsScreen(vm: InsightsViewModel = hiltViewModel()) {
                 }
             }
         }
+        item { rs.budget.ui.RateNotice(s.rateStatus) }
         if (!s.hasData) {
             item { Text(stringResource(R.string.insights_empty), style = BodyStyle, color = c.muted) }
             return@LazyColumn

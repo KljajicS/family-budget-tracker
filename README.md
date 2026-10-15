@@ -8,7 +8,9 @@ Privacy-first, offline-first family budgeting for Android. Financial data curren
 
 Home, manual transactions, budgets, recurring bills, receipt scanning, insights and savings goals are implemented. The reliability audit fixes are complete, with 134 JVM tests passing.
 
-Remaining MVP work: encrypted family sync and recovery, exchange rates, and physical-phone acceptance testing for receipt scanning and performance. Bank statement imports are outside the MVP. See [the roadmap](docs/plans/roadmap.md).
+Exchange rates include cached NBS EUR/USD quotes and manual overrides under Settings. RSD summaries, including older months, are estimates using the latest available rates. Original transaction amounts remain unchanged.
+
+Remaining MVP work: encrypted family sync and recovery, and physical-phone acceptance testing for receipt scanning and performance. Bank statement imports are outside the MVP. See [the roadmap](docs/plans/roadmap.md).
 
 ## Build
 

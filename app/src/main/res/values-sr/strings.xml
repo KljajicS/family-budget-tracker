@@ -235,4 +235,19 @@
     <string name="startup_retry">Pokušaj ponovo</string>
     <string name="recurring_schedule_locked">Za promenu rasporeda arhivirajte ovu obavezu i napravite novu. Prethodne uplate ostaju zabeležene.</string>
     <string name="add_account_unavailable">Izaberite dostupan račun da biste sačuvali transakciju.</string>
+    <string name="rates_title">Kursevi valuta</string>
+    <string name="rates_description">RSD procene koriste poslednje dostupne kurseve, uključujući ranije mesece. Originalni iznosi transakcija ostaju nepromenjeni. Automatski kursevi su iz Narodne banke Srbije.</string>
+    <string name="rates_estimate">RSD iznosi su procene prema poslednjim dostupnim kursevima.</string>
+    <string name="rates_excluded">Delimični iznosi. Izostavljene valute: %1$s.</string>
+    <string name="rates_stale">Automatski kursevi su stari najmanje sedam dana.</string>
+    <string name="rates_refresh">Osveži kurseve</string>
+    <string name="rates_refreshing">Osvežavanje…</string>
+    <string name="rates_refresh_failed">Osvežavanje nije uspelo. Sačuvani kursevi ostaju dostupni. Pokušajte ponovo ili unesite ručni kurs.</string>
+    <string name="rates_nbs">Izvor: Narodna banka Srbije</string>
+    <string name="rates_manual">Izvor: ručno unet kurs</string>
+    <string name="rates_effective">Datum sačuvane NBS liste: %1$s</string>
+    <string name="rates_fetched">Poslednja NBS provera: %1$s</string>
+    <string name="rates_input">RSD za 1 %1$s (do 8 decimala)</string>
+    <string name="rates_save">Sačuvaj ručni kurs</string>
+    <string name="rates_reset">Koristi automatski kurs</string>
 </resources>
