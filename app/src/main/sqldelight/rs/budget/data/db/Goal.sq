@@ -1,0 +1,26 @@
+CREATE TABLE goal (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    target TEXT NOT NULL,
+    monthly TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0
+);
+
+insertIgnore:
+INSERT OR IGNORE INTO goal(id, name, target, monthly, currency) VALUES (?, ?, ?, ?, ?);
+
+update:
+UPDATE goal SET name = ?, target = ?, monthly = ?, currency = ? WHERE id = ?;
+
+archive:
+UPDATE goal SET archived = 1 WHERE id = ?;
+
+active:
+SELECT * FROM goal WHERE archived = 0 ORDER BY name;
+
+byId:
+SELECT * FROM goal WHERE id = ?;
+
+deleteAll:
+DELETE FROM goal;

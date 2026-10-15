@@ -45,6 +45,16 @@ class EventSerializationTest {
     }
 
     @Test
+    fun `goal events round trip`() {
+        val goal = Goal("g1", "Trip", Money.of("3000", Currency.EUR), Money.of("150", Currency.EUR))
+        val allocation = GoalAllocation("a1", "g1", Money.of("200", Currency.EUR), LocalDate.of(2026, 10, 14))
+        listOf<Event>(GoalSet(goal), GoalArchived("g1"), GoalAllocated(allocation), GoalAllocationDeleted("a1")).forEach { event ->
+            val json = EventJson.encodeToString(Event.serializer(), event)
+            assertEquals(event, EventJson.decodeFromString(Event.serializer(), json))
+        }
+    }
+
+    @Test
     fun `money serializes as plain string amount`() {
         val json = EventJson.encodeToString(Money.serializer(), Money.of("12.5", Currency.EUR))
         assertEquals("""{"amount":"12.50","currency":"EUR"}""", json)

@@ -26,11 +26,12 @@ object HomeCalculator {
         rates: Rates,
         committed: Money = Money.zero(Currency.RSD),
         bills: Money = Money.zero(Currency.RSD),
-        billsPartial: Boolean = false,
+        goals: Money = Money.zero(Currency.RSD),
+        partialInputs: Boolean = false,
     ): HomeSummary {
         val byId = accounts.associateBy { it.id }
         val balances = balances(accounts, transactions)
-        var partial = billsPartial
+        var partial = partialInputs
 
         fun rsdOrSkip(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
 
@@ -50,7 +51,7 @@ object HomeCalculator {
         val spent = thisMonth.filter { it.type == TransactionType.EXPENSE }.sumRsd(::rsdOrSkip)
 
         val daysLeft = month.lengthOfMonth() - today.dayOfMonth + 1
-        val safe = liquid - committed - bills
+        val safe = liquid - committed - bills - goals
         val perDay = Money.of(safe.amount.divide(BigDecimal(daysLeft), 2, RoundingMode.DOWN), Currency.RSD)
 
         return HomeSummary(safe, perDay, partial, daysLeft, income, spent, savingsTotal, savingsByCurrency, balances)

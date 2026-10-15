@@ -10,6 +10,10 @@ import rs.budget.domain.BudgetSet
 import rs.budget.domain.CategoryArchived
 import rs.budget.domain.CategoryCreated
 import rs.budget.domain.CategoryUpdated
+import rs.budget.domain.GoalAllocated
+import rs.budget.domain.GoalAllocationDeleted
+import rs.budget.domain.GoalArchived
+import rs.budget.domain.GoalSet
 import rs.budget.domain.MemberRenamed
 import rs.budget.domain.EventRecord
 import rs.budget.domain.MemberCreated
@@ -65,10 +69,21 @@ class Projector(private val db: BudgetDb) {
             }
             is RecurringRuleArchived -> db.recurringRuleQueries.archive(e.ruleId)
             is BillSkipped -> db.billSkipQueries.insertIgnore(e.ruleId, e.period)
+            is GoalSet -> with(e.goal) {
+                db.goalQueries.insertIgnore(id, name, target.amount.toPlainString(), monthly.amount.toPlainString(), target.currency.name)
+                db.goalQueries.update(name, target.amount.toPlainString(), monthly.amount.toPlainString(), target.currency.name, id)
+            }
+            is GoalArchived -> db.goalQueries.archive(e.goalId)
+            is GoalAllocated -> with(e.allocation) {
+                db.goalAllocationQueries.insertIgnore(id, goalId, money.amount.toPlainString(), money.currency.name, date.toString())
+            }
+            is GoalAllocationDeleted -> db.goalAllocationQueries.delete(e.allocationId)
         }
     }
 
     fun clear() {
+        db.goalAllocationQueries.deleteAll()
+        db.goalQueries.deleteAll()
         db.billSkipQueries.deleteAll()
         db.recurringRuleQueries.deleteAll()
         db.budgetQueries.deleteAll()

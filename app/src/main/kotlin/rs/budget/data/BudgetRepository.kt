@@ -15,6 +15,8 @@ import rs.budget.data.db.Budget as BudgetRow
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.db.Category as CategoryRow
 import rs.budget.data.db.Member as MemberRow
+import rs.budget.data.db.Goal as GoalRow
+import rs.budget.data.db.Goal_allocation as AllocationRow
 import rs.budget.data.db.Recent
 import rs.budget.data.db.Recurring_rule as RuleRow
 import rs.budget.data.db.Tx as TxRow
@@ -27,6 +29,14 @@ import rs.budget.domain.Bill
 import rs.budget.domain.BillCalculator
 import rs.budget.domain.BillSkipped
 import rs.budget.domain.Cadence
+import rs.budget.domain.Goal
+import rs.budget.domain.GoalAllocated
+import rs.budget.domain.GoalAllocation
+import rs.budget.domain.GoalAllocationDeleted
+import rs.budget.domain.GoalArchived
+import rs.budget.domain.GoalCalculator
+import rs.budget.domain.GoalSet
+import rs.budget.domain.GoalStatus
 import rs.budget.domain.RecurringRule
 import rs.budget.domain.RecurringRuleArchived
 import rs.budget.domain.RecurringRuleSet
@@ -121,11 +131,35 @@ class BudgetRepository(
             BillCalculator.upcoming(day, rules, accs.map { it.id }.toSet(), txs, skipped)
         }
 
+    val goals: Flow<List<Goal>> =
+        db.goalQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+
+    val allocations: Flow<List<GoalAllocation>> =
+        db.goalAllocationQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }
+
+    val goalStatuses: Flow<List<GoalStatus>> =
+        combine(today, goals, allocations) { day, gs, alloc -> GoalCalculator.statuses(day, gs, alloc) }
+
+    private val goalHold: Flow<Pair<Money, Boolean>> =
+        combine(today, goalStatuses, allocations) { day, statuses, alloc -> GoalCalculator.hold(day, statuses, alloc, rsdRates) }
+
     val home: Flow<HomeSummary> =
         combine(today, accounts, transactions, budgetStatuses, upcomingBills) { day, accs, txs, statuses, bills ->
             val (held, partial) = BillCalculator.reserve(day, bills, statuses, rsdRates)
-            HomeCalculator.summarize(day, accs, txs, rsdRates, committed = BudgetCalculator.reserve(statuses, rsdRates), bills = held, billsPartial = partial)
+            HomeInputs(day, accs, txs, BudgetCalculator.reserve(statuses, rsdRates), held, partial)
+        }.combine(goalHold) { h, (goalsHeld, goalsPartial) ->
+            HomeCalculator.summarize(h.day, h.accounts, h.transactions, rsdRates, committed = h.committed, bills = h.bills, goals = goalsHeld, partialInputs = h.partial || goalsPartial)
         }
+
+    private data class HomeInputs(
+        val day: LocalDate, val accounts: List<Account>, val transactions: List<Transaction>, val committed: Money, val bills: Money, val partial: Boolean,
+    )
+
+    suspend fun goal(id: String): Goal? = withContext(Dispatchers.IO) { db.goalQueries.byId(id).executeAsOneOrNull()?.toDomain() }
+    suspend fun setGoal(goal: Goal) { store.append(GoalSet(goal)) }
+    suspend fun archiveGoal(id: String) { store.append(GoalArchived(id)) }
+    suspend fun allocate(allocation: GoalAllocation) { store.append(GoalAllocated(allocation)) }
+    suspend fun deleteAllocation(id: String) { store.append(GoalAllocationDeleted(id)) }
 
     suspend fun rule(id: String): RecurringRule? = withContext(Dispatchers.IO) { db.recurringRuleQueries.byId(id).executeAsOneOrNull()?.toDomain() }
     suspend fun setRule(rule: RecurringRule) { store.append(RecurringRuleSet(rule)) }
@@ -162,6 +196,8 @@ class BudgetRepository(
     suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
 
     private fun BudgetRow.toDomain() = Budget(category_id, YearMonth.parse(month), Money.of(amount, Currency.valueOf(currency)))
+    private fun GoalRow.toDomain() = Goal(id, name, Money.of(target, Currency.valueOf(currency)), Money.of(monthly, Currency.valueOf(currency)), archived == 1L)
+    private fun AllocationRow.toDomain() = GoalAllocation(id, goal_id, Money.of(amount, Currency.valueOf(currency)), LocalDate.parse(date))
     private fun RuleRow.toDomain() = RecurringRule(
         id, name, Money.of(amount, Currency.valueOf(currency)), account_id, category_id, Cadence.valueOf(cadence), LocalDate.parse(first_due), archived == 1L,
     )

@@ -61,6 +61,18 @@ data class RecurringRuleArchived(val ruleId: String) : Event
 @Serializable @SerialName("BillSkipped")
 data class BillSkipped(val ruleId: String, val period: String) : Event
 
+@Serializable @SerialName("GoalSet")
+data class GoalSet(val goal: Goal) : Event
+
+@Serializable @SerialName("GoalArchived")
+data class GoalArchived(val goalId: String) : Event
+
+@Serializable @SerialName("GoalAllocated")
+data class GoalAllocated(val allocation: GoalAllocation) : Event
+
+@Serializable @SerialName("GoalAllocationDeleted")
+data class GoalAllocationDeleted(val allocationId: String) : Event
+
 /** One row of the append-only log. `seq` is per device and strictly increasing. */
 data class EventRecord(
     val id: String,

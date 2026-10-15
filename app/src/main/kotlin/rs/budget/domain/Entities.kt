@@ -77,6 +77,35 @@ data class RecurringRule(
     }
 }
 
+/** A savings target. [monthly] is what the family plans to assign each month; both share one currency. */
+@Serializable
+data class Goal(
+    val id: String,
+    val name: String,
+    val target: Money,
+    val monthly: Money,
+    val archived: Boolean = false,
+) {
+    init {
+        require(!target.isNegative && !target.isZero) { "Goal target must be positive" }
+        require(!monthly.isNegative) { "Goal contribution cannot be negative" }
+        require(target.currency == monthly.currency) { "Goal target and contribution must share a currency" }
+    }
+}
+
+/** Money the family explicitly assigned to a goal. The entry is the record; it moves no account balance. */
+@Serializable
+data class GoalAllocation(
+    val id: String,
+    val goalId: String,
+    val money: Money,
+    @Serializable(with = LocalDateSerializer::class) val date: LocalDate,
+) {
+    init {
+        require(!money.isNegative && !money.isZero) { "Allocation must be positive" }
+    }
+}
+
 @Serializable
 data class Budget(
     val categoryId: String,

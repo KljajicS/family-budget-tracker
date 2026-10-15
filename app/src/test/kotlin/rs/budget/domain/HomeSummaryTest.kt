@@ -33,8 +33,8 @@ class HomeSummaryTest {
     @Test
     fun `bills and budget reserve both come off safe to spend`() {
         val txs = listOf(tx("1", TransactionType.INCOME, "100000", card))
-        val s = HomeCalculator.summarize(today, listOf(card), txs, rates, committed = Money.of("10000", Currency.RSD), bills = Money.of("4300", Currency.RSD), billsPartial = true)
-        assertEquals(Money.of("85700", Currency.RSD), s.safeToSpend)
+        val s = HomeCalculator.summarize(today, listOf(card), txs, rates, committed = Money.of("10000", Currency.RSD), bills = Money.of("4300", Currency.RSD), goals = Money.of("5700", Currency.RSD), partialInputs = true)
+        assertEquals(Money.of("80000", Currency.RSD), s.safeToSpend)
         assertTrue(s.partial)
     }
 

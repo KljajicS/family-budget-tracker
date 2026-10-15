@@ -18,6 +18,11 @@ import rs.budget.domain.RecurringRuleSet
 import rs.budget.domain.billTxId
 import rs.budget.domain.Category
 import rs.budget.domain.CategoryCreated
+import rs.budget.domain.Goal
+import rs.budget.domain.GoalAllocated
+import rs.budget.domain.GoalAllocation
+import rs.budget.domain.GoalAllocationDeleted
+import rs.budget.domain.GoalSet
 import rs.budget.domain.CategoryUpdated
 import rs.budget.domain.Currency
 import rs.budget.domain.Event
@@ -152,6 +157,11 @@ class EventStoreTest {
             "dev-a" to TransactionAdded(tx(billId, "40000")),
             "dev-b" to TransactionAdded(tx(billId, "40500")),
             "dev-b" to BillSkipped("r1", "2026-11"),
+            "dev-a" to GoalSet(Goal("g1", "Trip", Money.of("3000", Currency.RSD), Money.of("100", Currency.RSD))),
+            "dev-a" to GoalAllocated(GoalAllocation("al1", "g1", Money.of("500", Currency.RSD), LocalDate.of(2026, 10, 2))),
+            "dev-b" to GoalAllocated(GoalAllocation("al2", "g1", Money.of("300", Currency.RSD), LocalDate.of(2026, 10, 3))),
+            "dev-b" to GoalSet(Goal("g1", "Trip 2027", Money.of("3000", Currency.RSD), Money.of("100", Currency.RSD))),
+            "dev-a" to GoalAllocationDeleted("al1"),
         )
         val seqs = mutableMapOf<String, Long>()
         val records = events.mapIndexed { i, (device, e) ->
@@ -162,6 +172,8 @@ class EventStoreTest {
             db.categoryQueries.active().executeAsList().map { it.name },
             db.recurringRuleQueries.active().executeAsList().map { it.id to it.name },
             db.billSkipQueries.all().executeAsList().map { it.rule_id to it.due_period },
+            db.goalQueries.active().executeAsList().map { it.id to it.name },
+            db.goalAllocationQueries.all().executeAsList().map { it.id to it.amount },
         )
 
         val a = testDb().also { EventStore(it, "x", clock, Projector(it)).applyRemote(records) }
@@ -176,6 +188,8 @@ class EventStoreTest {
                 listOf("Zabava"),
                 listOf("r1" to "Kirija"),
                 listOf("r1" to "2026-11"),
+                listOf("g1" to "Trip 2027"),
+                listOf("al2" to "300.00"),
             ),
             tables(a),
         )

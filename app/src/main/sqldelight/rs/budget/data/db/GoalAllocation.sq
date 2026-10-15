@@ -1,0 +1,19 @@
+CREATE TABLE goal_allocation (
+    id TEXT NOT NULL PRIMARY KEY,
+    goal_id TEXT NOT NULL,
+    amount TEXT NOT NULL,
+    currency TEXT NOT NULL,
+    date TEXT NOT NULL
+);
+
+insertIgnore:
+INSERT OR IGNORE INTO goal_allocation(id, goal_id, amount, currency, date) VALUES (?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM goal_allocation WHERE id = ?;
+
+all:
+SELECT * FROM goal_allocation ORDER BY date DESC, id DESC;
+
+deleteAll:
+DELETE FROM goal_allocation;
