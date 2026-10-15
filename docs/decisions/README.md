@@ -12,3 +12,4 @@ One file per decision, numbered, never edited after acceptance. A reversed decis
 | [0006](0006-sqldelight-storage.md) | SQLDelight for local storage |
 | [0007](0007-safe-to-spend-formula.md) | Safe-to-spend formula |
 | [0008](0008-deterministic-replay.md) | Deterministic replay, logical clock, delete wins |
+| [0009](0009-bills-and-budget-reserve.md) | Unpaid bills and the budget reserve are not subtracted twice |
