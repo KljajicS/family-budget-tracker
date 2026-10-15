@@ -42,8 +42,8 @@ class GoalsViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) :
         val today = clock.today()
         val (unassigned, p1) = GoalCalculator.unassigned(home.savingsTotal, statuses, repo.rates)
         val (needs, p2) = GoalCalculator.needs(statuses, repo.rates)
-        val averageSaved = InsightsCalculator.summarize(today, YearMonth.from(today), txs, accounts, budgets, repo.rates).averageSaved
-        GoalsState(statuses, home.savingsTotal, home.savingsByCurrency, unassigned, needs, averageSaved, home.partial || p1 || p2)
+        val insights = InsightsCalculator.summarize(today, YearMonth.from(today), txs, accounts, budgets, repo.rates)
+        GoalsState(statuses, home.savingsTotal, home.savingsByCurrency, unassigned, needs, insights.averageSaved, home.partial || p1 || p2 || insights.partial)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
@@ -142,11 +142,12 @@ class GoalDetailViewModel @Inject constructor(private val repo: BudgetRepository
 
     fun add() {
         val f = form.value
+        if (f.amountText.toBigDecimalOrNull()?.signum() != 1) return
+        // Cleared before the write so a second tap during the write cannot record the same entry twice.
+        form.update { it.copy(amountText = "") }
         viewModelScope.launch {
             val goal = repo.goal(goalId) ?: return@launch
-            val amount = f.amountText.toBigDecimalOrNull()?.let { Money.of(it, goal.target.currency) }?.takeIf { !it.isZero && !it.isNegative } ?: return@launch
-            repo.allocate(GoalAllocation(newId(), goalId, amount, f.date))
-            form.update { it.copy(amountText = "") }
+            repo.allocate(GoalAllocation(newId(), goalId, Money.of(f.amountText.toBigDecimal(), goal.target.currency), f.date))
         }
     }
 

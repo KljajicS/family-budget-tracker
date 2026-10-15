@@ -24,8 +24,8 @@ class GoalCalculatorTest {
 
     @Test
     fun `ratio, reached and arrival month`() {
-        val goals = listOf(goal("fund", "1500000", "40000"), goal("done", "1000", "100"), goal("idle", "1000", "0"))
-        val allocations = listOf(alloc("a", "fund", "1200000", LocalDate.of(2026, 9, 1)), alloc("b", "done", "1000"))
+        val goals = listOf(goal("fund", "1500000", "40000"), goal("done", "1000", "100"), goal("idle", "1000", "0"), goal("over", "1000", "100"), goal("slow", "1000000000", "0.01"))
+        val allocations = listOf(alloc("a", "fund", "1200000", LocalDate.of(2026, 9, 1)), alloc("b", "done", "1000"), alloc("c", "over", "1500"))
         val s = GoalCalculator.statuses(today, goals, allocations).associateBy { it.goal.id }
         assertEquals(0.8, s.getValue("fund").ratio, 1e-9)
         assertFalse(s.getValue("fund").reached)
@@ -34,7 +34,10 @@ class GoalCalculatorTest {
         assertTrue(s.getValue("done").reached)
         assertNull(s.getValue("done").arrival)
         assertNull(s.getValue("idle").arrival)
-        assertEquals(listOf("done", "fund", "idle"), GoalCalculator.statuses(today, goals, allocations).map { it.goal.id })
+        assertTrue(s.getValue("over").reached)
+        assertEquals(1.5, s.getValue("over").ratio, 1e-9)
+        assertNull(s.getValue("slow").arrival)
+        assertEquals(listOf("over", "done", "fund", "idle", "slow"), GoalCalculator.statuses(today, goals, allocations).map { it.goal.id })
     }
 
     @Test

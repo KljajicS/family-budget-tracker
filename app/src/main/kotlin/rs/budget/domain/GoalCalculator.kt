@@ -14,6 +14,7 @@ data class GoalStatus(
 )
 
 object GoalCalculator {
+    private const val MAX_MONTHS = 1200
 
     /** Allocations in another currency than the goal's can only come from a merge of two offline edits; they count for nothing. */
     fun statuses(today: LocalDate, goals: List<Goal>, allocations: List<GoalAllocation>): List<GoalStatus> =
@@ -24,8 +25,9 @@ object GoalCalculator {
             val ratio = allocated.amount.divide(goal.target.amount, 4, RoundingMode.HALF_UP).toDouble()
             val reached = allocated.amount >= goal.target.amount
             val arrival = if (reached || goal.monthly.isZero) null else {
-                val months = (goal.target - allocated).amount.divide(goal.monthly.amount, 0, RoundingMode.CEILING).toLong()
-                YearMonth.from(today).plusMonths(months)
+                val months = (goal.target - allocated).amount.divide(goal.monthly.amount, 0, RoundingMode.CEILING)
+                // Past a century the date means nothing and would overflow YearMonth; show no arrival instead.
+                if (months > java.math.BigDecimal(MAX_MONTHS)) null else YearMonth.from(today).plusMonths(months.toLong())
             }
             GoalStatus(goal, allocated, ratio, reached, arrival)
         }.sortedByDescending { it.ratio }

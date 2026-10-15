@@ -92,7 +92,7 @@ fun GoalDetailScreen(onClose: () -> Unit, onEdit: (String) -> Unit, vm: GoalDeta
             Text(
                 stringResource(R.string.goal_delete),
                 style = sans(14, FontWeight.Medium), color = c.orange,
-                modifier = Modifier.clickable(role = Role.Button) { vm.deleteGoal(); onClose() }.padding(vertical = 10.dp),
+                modifier = Modifier.clickable(role = Role.Button, onClick = vm::deleteGoal).padding(vertical = 10.dp),
             )
         }
     }
