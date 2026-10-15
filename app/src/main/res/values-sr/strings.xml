@@ -107,6 +107,7 @@
     <string name="account_save">Sačuvaj račun</string>
     <string name="account_delete">Obriši račun</string>
     <string name="account_delete_hint">Stare transakcije ostaju. Račun i njegovo stanje nestaju sa početne i iz izbora.</string>
+    <string name="account_currency_locked">Nepromenljivo kad račun ima transakcije.</string>
     <string name="list_new">+ Novi</string>
 
     <string name="source_manual">Ručno</string>

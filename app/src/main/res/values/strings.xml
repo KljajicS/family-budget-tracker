@@ -107,6 +107,7 @@
     <string name="account_save">Save account</string>
     <string name="account_delete">Delete account</string>
     <string name="account_delete_hint">Past transactions stay. The account and its balance disappear from Home and pickers.</string>
+    <string name="account_currency_locked">Fixed once the account has transactions.</string>
     <string name="list_new">+ New</string>
 
     <string name="source_manual">Manual</string>

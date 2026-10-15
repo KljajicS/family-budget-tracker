@@ -1,7 +1,6 @@
 package rs.budget.ui.add
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -48,7 +46,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.domain.Account
-import rs.budget.domain.Currency
 import rs.budget.domain.TransactionType
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.theme.BudgetDatePickerDialog
@@ -84,9 +81,6 @@ fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(s.amount.text.ifEmpty { "0" }, style = mono(48, FontWeight.SemiBold, (-0.03).em), color = c.text)
                 Text(s.currency.name, style = sans(18, FontWeight.Medium), color = c.muted, modifier = Modifier.padding(bottom = 8.dp))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Currency.entries.forEach { cur -> CurrencyPill(cur, s.currency == cur) { vm.setCurrency(cur) } }
             }
         }
 
@@ -124,20 +118,6 @@ private fun TypeSwitch(selected: TransactionType, onSelect: (TransactionType) ->
             ) { Text(stringResource(t.label()), style = sans(14, FontWeight.Medium), color = if (active) c.text else c.muted) }
         }
     }
-}
-
-@Composable
-private fun CurrencyPill(currency: Currency, selected: Boolean, onClick: () -> Unit) {
-    val c = LocalColors.current
-    val shape = RoundedCornerShape(17.dp)
-    Box(
-        Modifier.widthIn(min = 64.dp).height(34.dp)
-            .background(if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, shape)
-            .border(1.dp, if (selected) c.text else c.border, shape)
-            .clickable(onClick = onClick, role = Role.RadioButton)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(currency.name, style = mono(13), color = if (selected) c.bg else c.muted) }
 }
 
 @Composable

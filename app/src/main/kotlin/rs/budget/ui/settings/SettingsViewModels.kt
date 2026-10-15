@@ -110,6 +110,7 @@ data class EditAccountState(
     val name: String = "",
     val currency: Currency = Currency.RSD,
     val kind: AccountKind = AccountKind.SPENDING,
+    val currencyLocked: Boolean = false,
     val done: Boolean = false,
 ) {
     val canSave: Boolean get() = name.isNotBlank()
@@ -123,12 +124,13 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
     init {
         val id = _state.value.id
         if (id != null) viewModelScope.launch {
-            repo.accounts.first().firstOrNull { it.id == id }?.let { a -> _state.update { it.copy(name = a.name, currency = a.currency, kind = a.kind) } }
+            val used = repo.transactions.first().any { it.accountId == id || it.toAccountId == id }
+            repo.accounts.first().firstOrNull { it.id == id }?.let { a -> _state.update { it.copy(name = a.name, currency = a.currency, kind = a.kind, currencyLocked = used) } }
         }
     }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
-    fun setCurrency(currency: Currency) = _state.update { it.copy(currency = currency) }
+    fun setCurrency(currency: Currency) = _state.update { if (it.currencyLocked) it else it.copy(currency = currency) }
     fun setKind(kind: AccountKind) = _state.update { it.copy(kind = kind) }
 
     fun save() {

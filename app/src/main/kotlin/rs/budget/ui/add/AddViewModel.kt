@@ -64,7 +64,6 @@ class AddViewModel @Inject constructor(
 
     fun setType(type: TransactionType) = _state.update { validate(it.copy(type = type, toAccountId = null)) }
     fun press(key: Char) = _state.update { it.copy(amount = it.amount.press(key)) }
-    fun setCurrency(currency: Currency) = _state.update { it.copy(currency = currency) }
     fun setCategory(id: String?) = _state.update { it.copy(categoryId = id) }
     fun setDate(date: LocalDate) = _state.update { it.copy(date = date) }
     fun setMerchant(text: String) = _state.update { it.copy(merchant = text) }

@@ -60,6 +60,8 @@ object HomeCalculator {
         val result = accounts.associate { it.id to Money.zero(it.currency) }.toMutableMap()
         fun add(accountId: String, delta: Money) {
             val current = result[accountId] ?: return
+            // Old events may carry another currency; the account's currency is the truth, so those are skipped, not thrown.
+            if (delta.currency != current.currency) return
             result[accountId] = current + delta
         }
         for (t in transactions) {

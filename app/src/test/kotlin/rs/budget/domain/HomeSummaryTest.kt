@@ -31,6 +31,16 @@ class HomeSummaryTest {
     }
 
     @Test
+    fun `transaction in another currency than its account is skipped, not thrown`() {
+        val txs = listOf(
+            tx("1", TransactionType.INCOME, "1000", card),
+            tx("2", TransactionType.EXPENSE, "10", card, currency = Currency.EUR),
+        )
+        val s = HomeCalculator.summarize(today, listOf(card), txs, rates)
+        assertEquals(Money.of("1000", Currency.RSD), s.balances["card"])
+    }
+
+    @Test
     fun `balances include all history and transfers move money`() {
         val txs = listOf(
             tx("1", TransactionType.INCOME, "1000", card, date = LocalDate.of(2025, 1, 1)),

@@ -91,8 +91,13 @@ fun EditAccountScreen(onClose: () -> Unit, vm: EditAccountViewModel = hiltViewMo
         ScreenHeader(stringResource(if (s.editing) R.string.account_edit_title else R.string.account_new_title), onClose)
         FieldBox(stringResource(R.string.account_name), s.name, vm::setName)
         Text(stringResource(R.string.account_currency), style = LabelStyle, color = c.muted)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Currency.entries.forEach { cur -> Pill(cur.name, s.currency == cur, mono = true) { vm.setCurrency(cur) } }
+        if (s.currencyLocked) {
+            Text(s.currency.name, style = mono(15), color = c.text)
+            Text(stringResource(R.string.account_currency_locked), style = LabelStyle, color = c.muted)
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Currency.entries.forEach { cur -> Pill(cur.name, s.currency == cur, mono = true) { vm.setCurrency(cur) } }
+            }
         }
         Text(stringResource(R.string.account_kind), style = LabelStyle, color = c.muted)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
