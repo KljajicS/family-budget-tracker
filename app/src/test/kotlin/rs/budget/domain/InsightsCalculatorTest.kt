@@ -21,6 +21,12 @@ class InsightsCalculatorTest {
 
     private fun rsd(s: String) = Money.of(s, Currency.RSD)
 
+    @Test fun `current budget missing rate does not mark historical summary partial`() {
+        val budgets = BudgetCalculator.statuses(today, listOf(Budget("g", oct, Money.of("100", Currency.EUR))), emptyList(), rates)
+        assertTrue(InsightsCalculator.summarize(today, oct, emptyList(), accounts, budgets, rates).partial)
+        org.junit.Assert.assertFalse(InsightsCalculator.summarize(today, oct.minusMonths(1), emptyList(), accounts, budgets, rates).partial)
+    }
+
     @Test
     fun `slices are the top four plus other and shares add up to 100`() {
         val txs = listOf("a" to "300", "b" to "250", "c" to "200", "d" to "150", "e" to "50", "f" to "30").mapIndexed { i, (c, amt) -> tx("$i", amt, today, c) } +

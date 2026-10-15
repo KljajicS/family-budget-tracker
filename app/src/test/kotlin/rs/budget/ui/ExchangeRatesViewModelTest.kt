@@ -43,6 +43,10 @@ class ExchangeRatesViewModelTest {
     @Test fun `stale warning starts at seven days and manual overrides exempt only their currency`() = runTest(dispatcher) {
         rates.cache(mapOf(Currency.EUR to BigDecimal("117"), Currency.USD to BigDecimal("105")), clock.today())
         val initial = repo.financial.first()
+        assertFalse(RateStatus.from(initial).estimated)
+        val foreignAccount = Account("eur", "Euro", Currency.EUR, AccountKind.SPENDING)
+        assertTrue(RateStatus.from(initial.copy(accounts = listOf(foreignAccount))).estimated)
+        assertFalse(RateStatus.from(initial.copy(accounts = listOf(foreignAccount.copy(currency = Currency.RSD)))).estimated)
         assertFalse(RateStatus.from(initial.copy(day = initial.day.plusDays(6))).stale)
         val weekLater = initial.copy(day = initial.day.plusDays(7))
         assertTrue(RateStatus.from(weekLater).stale)

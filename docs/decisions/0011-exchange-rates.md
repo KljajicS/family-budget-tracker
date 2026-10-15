@@ -13,7 +13,7 @@ Store RSD per foreign unit as decimal text. Conversion computes amount times sou
 
 Schema 6 adds `exchange_rate` for the per-device public cache and `exchange_rate_override` for projected family settings. `ExchangeRateOverrideSet(currency, rate)` stores a decimal string or null to reset automatic selection. Last event in replay order wins; reset does not prevent a later override. This setting is not a permanently deleted entity under ADR 8. Projector version 5 rebuilds overrides but preserves the public cache.
 
-Foreground lifecycle checks run after local initialization and each minute while visible. A successful fetch after the latest 08:00 Europe/Belgrade boundary suppresses automatic retries until the next boundary. Failed attempts wait one hour; manual retry is available. Concurrent fetches are suppressed. Cached rates remain usable offline. No background scheduler.
+Foreground lifecycle checks run after local initialization and each minute while visible. A successful fetch after the latest 08:00 Europe/Belgrade boundary suppresses automatic retries until the next boundary. Failed attempts wait one hour before automatic retry, including after a failed manual attempt, to avoid an immediate duplicate request. Manual retry always bypasses that cooldown. Concurrent fetches are suppressed. Cached rates remain usable offline. No background scheduler.
 
 One financial snapshot calculates balances, budgets, bills and goals from the same rate snapshot. All four financial tabs react without restart. Missing rates retain ADR 7 partial-number semantics and identify excluded currencies. Rates at least seven days old produce a warning. Settings exposes source, effective date, fetch time, refresh, manual input and reset in English and Serbian.
 
