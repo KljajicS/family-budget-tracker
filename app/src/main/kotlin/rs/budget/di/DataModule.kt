@@ -16,11 +16,15 @@ import rs.budget.data.SystemClock
 import rs.budget.data.ThemeStore
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.deviceId
+import rs.budget.data.receipt.FiscalReceiptClient
+import rs.budget.data.receipt.ReceiptLookup
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object DataModule {
+    @Provides @Singleton
+    fun receiptLookup(): ReceiptLookup = FiscalReceiptClient()
 
     @Provides @Singleton
     fun db(@ApplicationContext context: Context): BudgetDb =

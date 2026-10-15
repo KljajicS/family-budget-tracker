@@ -206,4 +206,22 @@
     <string name="scan_category_changed">Izaberi dostupnu kategoriju.</string>
     <string name="scan_original">Originalni račun: %1$s RSD · %2$d stavki</string>
     <string name="add_save_failed">Čuvanje nije uspelo. Unos je sačuvan u obrascu; pokušaj ponovo.</string>
+    <string name="scan_title">Skeniraj račun</string>
+    <string name="scan_hint">Usmeri kameru ka QR kodu fiskalnog računa iz Srbije. Za preuzimanje računa potreban je internet.</string>
+    <string name="scan_permission">Za skeniranje računa potreban je pristup kameri.</string>
+    <string name="scan_allow_camera">Dozvoli kameru</string>
+    <string name="scan_open_settings">Otvori podešavanja aplikacije</string>
+    <string name="scan_loading">Preuzimanje računa…</string>
+    <string name="scan_cancel">Otkaži</string>
+    <string name="scan_retry">Pokušaj ponovo</string>
+    <string name="scan_again">Skeniraj drugi račun</string>
+    <string name="scan_manual">Unesi trošak ručno</string>
+    <string name="scan_invalid_qr">Ovo nije podržan QR kod fiskalnog računa iz Srbije.</string>
+    <string name="scan_network_error">Servis računa nije dostupan. Poveži se na internet i pokušaj ponovo.</string>
+    <string name="scan_parse_error">Podaci računa nisu dostupni ili potpuni. Pokušaj kasnije ili unesi trošak ručno.</string>
+    <string name="scan_unsupported">Podržani su samo računi Promet Prodaja. Refundacije, avansi, kopije i računi za obuku nisu podržani.</string>
+    <string name="scan_camera_error">Kamera nije mogla da se pokrene ili pročita kod. Pokušaj ponovo ili unesi trošak ručno.</string>
+    <string name="scan_retry_restored">Preuzimanje računa je prekinuto. Pokušaj ponovo i proveri račun pre čuvanja.</string>
+    <string name="scan_torch_on">Uključi lampu</string>
+    <string name="scan_torch_off">Isključi lampu</string>
 </resources>

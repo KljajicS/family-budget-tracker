@@ -15,8 +15,12 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class FiscalReceiptClient(private val client: OkHttpClient = defaultClient()) {
-    suspend fun fetch(raw: String): Receipt = withContext(Dispatchers.IO) {
+fun interface ReceiptLookup {
+    suspend fun fetch(raw: String): Receipt
+}
+
+class FiscalReceiptClient(private val client: OkHttpClient = defaultClient()) : ReceiptLookup {
+    override suspend fun fetch(raw: String): Receipt = withContext(Dispatchers.IO) {
         val url = FiscalUrl.parse(raw)
         val header = FiscalReceiptParser.header(read(Request.Builder().url(url).build()))
         val body = FormBody.Builder().add("invoiceNumber", header.invoiceNumber).add("token", header.token).build()

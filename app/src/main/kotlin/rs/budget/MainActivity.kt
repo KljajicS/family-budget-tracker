@@ -55,6 +55,7 @@ import rs.budget.data.ThemeStore
 import rs.budget.ui.Routes
 import rs.budget.ui.Tab
 import rs.budget.ui.add.AddScreen
+import rs.budget.ui.scan.ScanScreen
 import rs.budget.ui.budgets.BudgetsScreen
 import rs.budget.ui.budgets.EditBudgetScreen
 import rs.budget.ui.home.HomeScreen
@@ -158,7 +159,12 @@ fun BudgetRoot(root: RootViewModel) {
             composable(Routes.NEW_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
             composable(Tab.INSIGHTS.route) { InsightsScreen() }
-            composable(Tab.SCAN.route) { Stub(stringResource(R.string.coming_soon)) }
+            composable(Tab.SCAN.route) {
+                ScanScreen(
+                    onSaved = { nav.navigate(Tab.HOME.route) { popUpTo(Tab.HOME.route) { inclusive = false }; launchSingleTop = true } },
+                    onManual = { nav.navigate(Routes.add()) },
+                )
+            }
             composable(Tab.BUDGETS.route) {
                 BudgetsScreen(
                     onNew = { nav.navigate(Routes.NEW_BUDGET) },
