@@ -9,7 +9,7 @@ One milestone per screen, in the order the spec's build order dictates. Each mil
 | 2b | Hardening | Done 2026-10-15. Fixes from the architecture review: currency follows account, deterministic replay with a logical clock (ADR 8), budgets per category. | [2026-10-15-hardening.md](2026-10-15-hardening.md) |
 | 3 | Recurring bills | Done 2026-10-15. Recurring rules under Settings, Upcoming list on Budgets with overdue carry, pay through the pre-filled Add sheet or skip, unpaid bills held back in safe to spend (ADR 9). | [2026-10-15-m3-recurring.md](2026-10-15-m3-recurring.md) |
 | 4 | Scan receipt | CameraX + ML Kit QR, fiscal receipt fetch and parse, pre-filled Add sheet, merchant memory for category guess. | |
-| 5 | Insights | Category donut, income vs expenses bars, savings trend, one rule-based tip. | |
+| 5 | Insights | Done 2026-10-15. Month navigation, category donut, six-month income vs expenses, savings trend, one rule-based tip for the current month. Built before Scan because it needs no camera. | [2026-10-15-m5-insights.md](2026-10-15-m5-insights.md) |
 | 6 | Goals | Goals, allocations, ETA, unassigned savings, contributions in safe to spend. | |
 | 7 | Sync | Google sign-in, Drive appDataFolder client, family key setup and QR share, recovery phrase, encrypted per-device event logs, WorkManager sync, "synced X ago" on Home. Moved last on 2026-10-14: the family tests on one phone until the screens exist. | |
 
