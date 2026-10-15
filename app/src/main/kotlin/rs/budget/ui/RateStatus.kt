@@ -15,12 +15,18 @@ data class RateStatus(
     val snapshot: ExchangeRateSnapshot = ExchangeRateSnapshot(),
     val missing: Set<Currency> = emptySet(),
     val stale: Boolean = false,
+    val estimated: Boolean = false,
 ) {
     companion object {
-        fun from(financial: FinancialSnapshot): RateStatus = RateStatus(financial.exchange, financial.missingCurrencies,
+        fun from(financial: FinancialSnapshot): RateStatus {
+            val currencies = financial.accounts.map { it.currency } + financial.transactions.map { it.money.currency } +
+                financial.budgets.map { it.budget.currency } + financial.bills.map { it.rule.money.currency } +
+                financial.goals.map { it.goal.target.currency }
+            return RateStatus(financial.exchange, financial.missingCurrencies,
             financial.exchange.cached.any { (currency, quote) ->
                 currency !in financial.exchange.overrides && !quote.effectiveDate.isAfter(financial.day.minusDays(7))
-            })
+            }, estimated = currencies.any { it != Currency.RSD && financial.exchange.rates.rate(it) != null })
+        }
     }
 }
 
@@ -28,7 +34,7 @@ data class RateStatus(
 fun RateNotice(status: RateStatus) {
     val colors = LocalColors.current
     Column {
-        if (status.snapshot.cached.isNotEmpty() || status.snapshot.overrides.isNotEmpty()) {
+        if (status.estimated) {
             Text(stringResource(R.string.rates_estimate), style = CaptionStyle, color = colors.muted)
         }
         if (status.missing.isNotEmpty()) Text(stringResource(R.string.rates_excluded, status.missing.sortedBy { it.ordinal }.joinToString()), style = CaptionStyle, color = colors.orange)

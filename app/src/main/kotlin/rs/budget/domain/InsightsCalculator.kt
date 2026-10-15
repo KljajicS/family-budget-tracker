@@ -41,7 +41,7 @@ object InsightsCalculator {
         rates: Rates,
     ): InsightsSummary {
         val posted = transactions.filter { it.date <= today }
-        var partial = BudgetCalculator.missingCurrencies(statuses, rates).isNotEmpty()
+        var partial = month == YearMonth.from(today) && BudgetCalculator.missingCurrencies(statuses, rates).isNotEmpty()
         fun rsd(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
         fun sum(list: List<Transaction>) = list.fold(Money.zero(Currency.RSD)) { acc, t -> acc + rsd(t.money) }
 
