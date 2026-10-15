@@ -224,4 +224,10 @@
     <string name="scan_retry_restored">Receipt lookup was interrupted. Retry to review it before saving.</string>
     <string name="scan_torch_on">Turn flashlight on</string>
     <string name="scan_torch_off">Turn flashlight off</string>
+    <string name="scan_detected">Receipt detected</string>
+    <string name="scan_category">Category</string>
+    <string name="scan_paid_by">Paid by</string>
+    <string name="scan_edit">Edit expense details</string>
+    <string name="scan_save_next">Save &amp; scan next</string>
+    <string name="scan_save">Save</string>
 </resources>

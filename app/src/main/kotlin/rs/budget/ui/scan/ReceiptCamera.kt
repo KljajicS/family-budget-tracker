@@ -10,8 +10,17 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -96,11 +105,20 @@ fun ReceiptCamera(modifier: Modifier, onCode: (String) -> Unit, onError: () -> U
 
     Box(modifier) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
         if (camera?.cameraInfo?.hasFlashUnit() == true) {
-            TextButton(onClick = { camera?.cameraControl?.enableTorch(!torch) },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)) {
-                Text(stringResource(if (torch) R.string.scan_torch_off else R.string.scan_torch_on))
+            Box(Modifier.align(Alignment.TopEnd).padding(20.dp)) {
+                CameraButton(if (torch) Icons.Default.FlashOff else Icons.Default.FlashOn,
+                    stringResource(if (torch) R.string.scan_torch_off else R.string.scan_torch_on)) { camera?.cameraControl?.enableTorch(!torch) }
             }
         }
+    }
+}
+
+@Composable
+internal fun CameraButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).background(Color(0xFF303234), CircleShape)
+        .clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+        Icon(icon, label, tint = Color.White, modifier = Modifier.size(22.dp))
     }
 }

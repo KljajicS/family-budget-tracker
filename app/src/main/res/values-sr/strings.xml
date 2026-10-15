@@ -224,4 +224,10 @@
     <string name="scan_retry_restored">Preuzimanje računa je prekinuto. Pokušaj ponovo i proveri račun pre čuvanja.</string>
     <string name="scan_torch_on">Uključi lampu</string>
     <string name="scan_torch_off">Isključi lampu</string>
+    <string name="scan_detected">Račun prepoznat</string>
+    <string name="scan_category">Kategorija</string>
+    <string name="scan_paid_by">Platio/la</string>
+    <string name="scan_edit">Izmeni detalje troška</string>
+    <string name="scan_save_next">Sačuvaj i skeniraj</string>
+    <string name="scan_save">Sačuvaj</string>
 </resources>

@@ -49,6 +49,7 @@ data class AddState(
     val saving: Boolean = false,
     @StringRes val saveError: Int? = null,
     val receipt: Receipt? = null,
+    val paidByName: String = "",
     /** Set when the sheet pays one occurrence of a recurring rule: the type is locked and the id is derived. */
     val bill: Bill? = null,
 ) {
@@ -87,9 +88,10 @@ class AddViewModel @Inject constructor(
                 }
             }
             combine(repo.accounts, repo.categories) { a, c -> a to c }.collect { (accounts, categories) ->
+                val memberName = repo.currentMember()?.displayName.orEmpty()
                 _state.update { s ->
                     val account = s.accountId ?: accounts.firstOrNull { s.receipt == null || it.currency == Currency.RSD }?.id
-                    s.copy(accounts = accounts, categories = categories.sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } }, accountId = account,
+                    s.copy(paidByName = memberName, accounts = accounts, categories = categories.sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } }, accountId = account,
                         currency = accounts.firstOrNull { it.id == account }?.currency ?: s.currency)
                 }
             }
@@ -109,7 +111,7 @@ class AddViewModel @Inject constructor(
     }
 
     fun resetReceipt() = _state.update { s ->
-        if (s.saving) s else AddState(date = clock.today(), accounts = s.accounts, categories = s.categories)
+        if (s.saving) s else AddState(date = clock.today(), accounts = s.accounts, categories = s.categories, paidByName = s.paidByName)
     }
 
     fun skip() {
