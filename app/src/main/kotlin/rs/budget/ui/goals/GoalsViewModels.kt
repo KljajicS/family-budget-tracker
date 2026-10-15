@@ -141,10 +141,11 @@ class GoalDetailViewModel @Inject constructor(private val repo: BudgetRepository
     fun setDate(date: LocalDate) = form.update { it.copy(date = date) }
 
     fun add() {
-        val s = state.value
-        val amount = s.amount ?: return
+        val f = form.value
         viewModelScope.launch {
-            repo.allocate(GoalAllocation(newId(), goalId, amount, s.date))
+            val goal = repo.goal(goalId) ?: return@launch
+            val amount = f.amountText.toBigDecimalOrNull()?.let { Money.of(it, goal.target.currency) }?.takeIf { !it.isZero && !it.isNegative } ?: return@launch
+            repo.allocate(GoalAllocation(newId(), goalId, amount, f.date))
             form.update { it.copy(amountText = "") }
         }
     }
