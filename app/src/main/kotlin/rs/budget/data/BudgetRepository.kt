@@ -156,7 +156,7 @@ class BudgetRepository(
     val home: Flow<HomeSummary> =
         combine(today, accounts, transactions, budgetStatuses, upcomingBills) { day, accs, txs, statuses, bills ->
             val (held, partial) = BillCalculator.reserve(day, bills, statuses, rsdRates)
-            HomeInputs(day, accs, txs, BudgetCalculator.reserve(statuses, rsdRates), held, partial)
+            HomeInputs(day, accs, txs, BudgetCalculator.reserve(statuses, rsdRates), held, partial || BudgetCalculator.missingCurrencies(statuses, rsdRates).isNotEmpty())
         }.combine(goalHold) { h, (goalsHeld, goalsPartial) ->
             HomeCalculator.summarize(h.day, h.accounts, h.transactions, rsdRates, committed = h.committed, bills = h.bills, goals = goalsHeld, partialInputs = h.partial || goalsPartial)
         }.flowOn(Dispatchers.Default)
