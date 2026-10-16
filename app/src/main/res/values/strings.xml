@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Family Budget</string>
+    <string name="app_name">Family Budget Tracker</string>
     <string name="tab_home">Home</string>
     <string name="tab_insights">Insights</string>
     <string name="tab_scan">Scan</string>
