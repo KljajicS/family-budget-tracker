@@ -26,6 +26,22 @@ data class AccountCreated(val account: Account) : Event
 @Serializable @SerialName("AccountArchived")
 data class AccountArchived(val accountId: String) : Event
 
+/** Full display order of the accounts the device knew; accounts missing from the list sort after it. */
+@Serializable @SerialName("AccountsReordered")
+data class AccountsReordered(val accountIds: List<String>) : Event {
+    init {
+        require(accountIds.toSet().size == accountIds.size) { "Duplicate account in order" }
+    }
+}
+
+/** Goal priority, first funded first; goals missing from the list sort after it. */
+@Serializable @SerialName("GoalsReordered")
+data class GoalsReordered(val goalIds: List<String>) : Event {
+    init {
+        require(goalIds.toSet().size == goalIds.size) { "Duplicate goal in order" }
+    }
+}
+
 @Serializable @SerialName("CategoryCreated")
 data class CategoryCreated(val category: Category) : Event
 

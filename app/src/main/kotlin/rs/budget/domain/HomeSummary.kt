@@ -1,65 +1,58 @@
 package rs.budget.domain
 
-import java.math.BigDecimal
-import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.YearMonth
+import java.math.BigDecimal
+import java.math.RoundingMode
 
+/**
+ * Savings totals are null when an active balance has no exchange rate: a partial sum would read as the real figure.
+ * Month figures skip unconvertible amounts and set [monthPartial] instead.
+ */
 data class HomeSummary(
-    val safeToSpend: Money,
-    val safePerDay: Money,
-    val partial: Boolean,
-    val daysLeft: Int,
+    val savingsRsd: Money?,
+    val savingsEur: Money?,
     val income: Money,
     val spent: Money,
-    val savingsTotal: Money,
-    val savingsByCurrency: Map<Currency, Money>,
+    val monthPartial: Boolean,
     val balances: Map<String, Money>,
-)
+) {
+    val difference: Money get() = income - spent
+}
 
 object HomeCalculator {
 
-    fun summarize(
-        today: LocalDate,
-        accounts: List<Account>,
-        transactions: List<Transaction>,
-        rates: Rates,
-        committed: Money = Money.zero(Currency.RSD),
-        bills: Money = Money.zero(Currency.RSD),
-        goals: Money = Money.zero(Currency.RSD),
-        partialInputs: Boolean = false,
-    ): HomeSummary {
-        val byId = accounts.associateBy { it.id }
+    /** Archived accounts drop out of savings but their transactions still count in the month they happened. */
+    fun summarize(today: LocalDate, accounts: List<Account>, transactions: List<Transaction>, rates: Rates): HomeSummary {
         val posted = transactions.filter { it.date <= today }
-        val balances = balances(accounts, posted)
-        var partial = partialInputs
+        val balances = balances(accounts.filterNot { it.archived }, posted)
 
-        fun rsdOrSkip(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
+        fun total(currency: Currency): Money? {
+            val grouped = balances.values.groupBy { it.currency }
+                .mapValues { (_, amounts) -> amounts.fold(BigDecimal.ZERO) { sum, m -> sum + m.amount } }
+            var native = BigDecimal.ZERO
+            var foreignRsd = BigDecimal.ZERO
+            for ((source, amount) in grouped) {
+                if (source == currency) native += amount
+                else foreignRsd += amount.multiply(rates.rate(source) ?: return null)
+            }
+            if (grouped.keys.any { it != currency }) {
+                native += foreignRsd.divide(rates.rate(currency) ?: return null, Money.SCALE, RoundingMode.HALF_UP)
+            }
+            return Money.of(native, currency)
+        }
 
-        val liquid = balances
-            .filter { (id, _) -> byId[id]?.kind == AccountKind.SPENDING }
-            .values.fold(Money.zero(Currency.RSD)) { acc, m -> acc + rsdOrSkip(m) }
-
-        val savingsByCurrency = balances
-            .filter { (id, _) -> byId[id]?.kind == AccountKind.SAVINGS }
-            .values.groupBy { it.currency }
-            .mapValues { (c, list) -> list.fold(Money.zero(c)) { a, b -> a + b } }
-        val savingsTotal = savingsByCurrency.values.fold(Money.zero(Currency.RSD)) { acc, m -> acc + rsdOrSkip(m) }
-
+        var partial = false
         val month = YearMonth.from(today)
         val thisMonth = posted.filter { YearMonth.from(it.date) == month }
-        val income = thisMonth.filter { it.type == TransactionType.INCOME }.sumRsd(::rsdOrSkip)
-        val spent = thisMonth.filter { it.type == TransactionType.EXPENSE }.sumRsd(::rsdOrSkip)
-
-        val daysLeft = month.lengthOfMonth() - today.dayOfMonth + 1
-        val safe = liquid - committed - bills - goals
-        val perDay = Money.of(safe.amount.divide(BigDecimal(daysLeft), 2, RoundingMode.DOWN), Currency.RSD)
-
-        return HomeSummary(safe, perDay, partial, daysLeft, income, spent, savingsTotal, savingsByCurrency, balances)
+        fun sum(type: TransactionType) = thisMonth.filter { it.type == type }.fold(Money.zero(Currency.RSD)) { acc, t ->
+            acc + (rates.convert(t.money) ?: Money.zero(Currency.RSD).also { partial = true })
+        }
+        val income = sum(TransactionType.INCOME)
+        val spent = sum(TransactionType.EXPENSE)
+        return HomeSummary(total(Currency.RSD), total(Currency.EUR), income, spent, partial, balances)
     }
 
-    // ponytail: transfers carry the source currency to the destination; the Add screen only allows same-currency
-    // transfers in milestone 1, cross-currency transfers get an explicit received amount later.
     fun balances(accounts: List<Account>, transactions: List<Transaction>): Map<String, Money> {
         val result = accounts.associate { it.id to Money.zero(it.currency) }.toMutableMap()
         fun add(accountId: String, delta: Money) {
@@ -80,7 +73,4 @@ object HomeCalculator {
         }
         return result
     }
-
-    private fun List<Transaction>.sumRsd(convert: (Money) -> Money): Money =
-        fold(Money.zero(Currency.RSD)) { acc, t -> acc + convert(t.money) }
 }

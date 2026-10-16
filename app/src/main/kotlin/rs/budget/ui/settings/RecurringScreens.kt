@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -55,12 +56,22 @@ import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.PrimaryButton
 import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun RecurringScreen(onBack: () -> Unit, onNew: () -> Unit, onEdit: (String) -> Unit, vm: RecurringViewModel = hiltViewModel()) {
+fun RecurringScreen(
+    onBack: () -> Unit,
+    onNew: () -> Unit,
+    onEdit: (String) -> Unit,
+    onPay: (String, LocalDate) -> Unit,
+    vm: RecurringViewModel = hiltViewModel(),
+) {
     val rules by vm.rules.collectAsStateWithLifecycle()
     val accounts by vm.accounts.collectAsStateWithLifecycle()
+    val bills by vm.bills.collectAsStateWithLifecycle()
     val c = LocalColors.current
+    val locale = LocalLocale.current.platformLocale
 
     LazyColumn(
         Modifier.fillMaxSize().background(c.bg),
@@ -74,6 +85,27 @@ fun RecurringScreen(onBack: () -> Unit, onNew: () -> Unit, onEdit: (String) -> U
             }
         }
         if (rules.isEmpty()) item { Text(stringResource(R.string.recurring_empty), style = BodyStyle, color = c.muted) }
+        if (bills.isNotEmpty()) {
+            item { Text(stringResource(R.string.bills_upcoming), style = sans(18, FontWeight.SemiBold), color = c.text) }
+            items(bills, key = { "due:${it.txId}" }) { bill ->
+                val account = accounts.firstOrNull { it.id == bill.rule.accountId }?.name.orEmpty()
+                OutlinedBox(
+                    Modifier.fillMaxWidth(), radius = 14,
+                    padding = PaddingValues(14.dp),
+                    onClick = { onPay(bill.rule.id, bill.dueDate) },
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(bill.rule.name, style = sans(15, FontWeight.Medium), color = c.text)
+                            Text(bill.dueDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale)), style = CaptionStyle, color = c.muted)
+                            Text(stringResource(if (bill.overdue) R.string.bills_overdue else R.string.bills_from, account), style = CaptionStyle, color = if (bill.overdue) c.orange else c.muted)
+                        }
+                        Text("${formatAmount(bill.rule.money)} ${bill.rule.money.currency}", style = mono(13), color = c.text)
+                    }
+                }
+            }
+            item { Text(stringResource(R.string.recurring_title), style = sans(18, FontWeight.SemiBold), color = c.text, modifier = Modifier.padding(top = 12.dp)) }
+        }
         items(rules, key = { it.id }) { r ->
             val account = accounts.firstOrNull { it.id == r.accountId }?.name ?: stringResource(R.string.recurring_account_gone)
             val cadence = stringResource(if (r.cadence == Cadence.MONTHLY) R.string.recurring_monthly else R.string.recurring_yearly)

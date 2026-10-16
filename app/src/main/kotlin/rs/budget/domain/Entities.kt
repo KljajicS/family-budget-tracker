@@ -9,6 +9,7 @@ import kotlinx.serialization.encoding.Encoder
 import java.time.LocalDate
 import java.time.YearMonth
 
+/** Legacy: every active balance now counts as savings. Kept so older events and rows still decode. */
 enum class AccountKind { SPENDING, SAVINGS }
 enum class TransactionType { EXPENSE, INCOME, TRANSFER }
 enum class TransactionSource { MANUAL, RECEIPT, RECURRING }
@@ -21,7 +22,7 @@ data class Account(
     val id: String,
     val name: String,
     val currency: Currency,
-    val kind: AccountKind,
+    val kind: AccountKind = AccountKind.SPENDING,
     val archived: Boolean = false,
 )
 
@@ -81,7 +82,8 @@ data class Goal(
     val id: String,
     val name: String,
     val target: Money,
-    val monthly: Money,
+    /** Legacy contribution, no longer used; zero for new goals. */
+    val monthly: Money = Money.zero(target.currency),
     val archived: Boolean = false,
 ) {
     init {
@@ -91,7 +93,7 @@ data class Goal(
     }
 }
 
-/** Money the family explicitly assigned to a goal. The entry is the record; it moves no account balance. */
+/** Legacy explicit goal funding. Goals now fill from total savings; old events still replay into their table. */
 @Serializable
 data class GoalAllocation(
     val id: String,
@@ -104,6 +106,7 @@ data class GoalAllocation(
     }
 }
 
+/** Legacy monthly limit. Budgets are gone from the app; old events still replay into their table. */
 @Serializable
 data class Budget(
     val categoryId: String,

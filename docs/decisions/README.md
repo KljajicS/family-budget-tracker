@@ -15,3 +15,4 @@ One file per decision, numbered, never edited after acceptance. A reversed decis
 | [0009](0009-bills-and-budget-reserve.md) | Unpaid bills and the budget reserve are not subtracted twice |
 | [0010](0010-receipt-scanning.md) | Serbian receipt scanning with local QR decoding |
 | [0011](0011-exchange-rates.md) | Cached NBS rates and event-backed manual overrides |
+| [0012](0012-simplified-finances.md) | All-account savings, ordered goals and simplified screens |

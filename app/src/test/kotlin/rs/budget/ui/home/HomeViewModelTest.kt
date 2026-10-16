@@ -40,13 +40,18 @@ class HomeViewModelTest {
 
     @Test
     fun `state reflects repository`() = runTest(dispatcher) {
-        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING), Account("card", "Card", Currency.RSD), Account("old", "Old", Currency.RSD)))
         val m = repo.currentMember()!!.id
         repo.add(Transaction("t1", TransactionType.INCOME, Money.of("1000", Currency.RSD), "cash", null, null, LocalDate.of(2026, 10, 1), "", "", m, TransactionSource.MANUAL))
         repo.add(Transaction("t2", TransactionType.EXPENSE, Money.of("250", Currency.RSD), "cash", null, "cat-fun", LocalDate.of(2026, 10, 14), "", "Cinema", m, TransactionSource.MANUAL))
+        repo.reorderAccounts(listOf("card", "old", "cash"))
+        repo.archiveAccount("old")
         val vm = HomeViewModel(repo, clock)
         val s = vm.state.filterNotNull().first()
-        assertEquals(Money.of("750", Currency.RSD), s.summary.safeToSpend)
+        assertEquals(Money.of("750", Currency.RSD), s.summary.savingsRsd)
+        assertEquals(Money.of("750", Currency.RSD), s.summary.difference)
+        assertEquals(listOf("card" to Money.of("0", Currency.RSD), "cash" to Money.of("750", Currency.RSD)), s.accounts.map { it.account.id to it.balance })
+        assertEquals("Old", s.accountNames["old"])
         assertEquals("Cinema", s.recent.first().transaction.merchant)
         assertEquals(m, s.currentMemberId)
     }

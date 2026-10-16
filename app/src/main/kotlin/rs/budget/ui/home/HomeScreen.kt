@@ -5,14 +5,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,13 +17,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -40,39 +38,38 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.data.RecentTx
 import rs.budget.data.StarterCategories
-import androidx.compose.ui.graphics.Color
 import rs.budget.domain.Currency
-import rs.budget.domain.GoalStatus
 import rs.budget.domain.Money
-import rs.budget.ui.goals.goalColor
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
-import rs.budget.ui.budgets.BudgetRow
+import rs.budget.ui.RateNotice
+import rs.budget.ui.RateStatus
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.formatAmount
+import rs.budget.ui.monthLocale
+import rs.budget.ui.monthName
 import rs.budget.ui.theme.BigAmountStyle
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
-import rs.budget.ui.theme.PaceBar
-import rs.budget.ui.theme.RoundIconButton
 import rs.budget.ui.theme.SectionStyle
 import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.colorOf
 import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onGoals: () -> Unit, onSettings: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
+    val locale = LocalLocale.current.platformLocale
 
     LazyColumn(
         Modifier.fillMaxSize().background(c.bg),
@@ -88,130 +85,151 @@ fun HomeScreen(onAdd: () -> Unit, onBudgets: () -> Unit, onGoals: () -> Unit, on
                         .semantics { contentDescription = settings },
                     contentAlignment = Alignment.Center,
                 ) { Text(s.memberName.take(1).uppercase(), style = sans(16, FontWeight.SemiBold), color = c.primary) }
-                Text(monthName(s.today), style = TitleStyle, color = c.text, modifier = Modifier.weight(1f))
-                RoundIconButton(Icons.Default.Add, stringResource(R.string.home_add), onAdd)
-            }
-        }
-        item { rs.budget.ui.RateNotice(s.rateStatus) }
-        item { SafeToSpendCard(s) }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(stringResource(R.string.home_income), formatAmount(s.summary.income, sign = true), c.green, Modifier.weight(1f))
-                StatCard(stringResource(R.string.home_spent), formatAmount(-s.summary.spent, sign = true), c.text, Modifier.weight(1f))
-            }
-        }
-        item { SavingsCard(s.summary.savingsTotal, s.summary.savingsByCurrency) }
-        if (s.budgets.isNotEmpty()) item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.home_budgets), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
-                    Text(
-                        stringResource(R.string.home_see_all), style = sans(14), color = c.primary,
-                        modifier = Modifier.clickable(role = Role.Button, onClick = onBudgets).padding(vertical = 10.dp),
-                    )
+                Column(Modifier.weight(1f)) {
+                    Text(monthName(YearMonth.from(s.today), locale), style = TitleStyle, color = c.text)
+                    Text(s.today.year.toString(), style = LabelStyle, color = c.muted)
                 }
-                s.budgets.forEach { BudgetRow(it, emptyList(), compact = true) }
+                PillButton("+ " + stringResource(R.string.home_add), onAdd)
             }
         }
-        if (s.goals.isNotEmpty()) item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.home_goals), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
-                    Text(
-                        stringResource(R.string.home_see_all), style = sans(14), color = c.primary,
-                        modifier = Modifier.clickable(role = Role.Button, onClick = onGoals).padding(vertical = 10.dp),
-                    )
-                }
-                s.goals.forEachIndexed { i, g -> GoalMiniRow(g, goalColor(i)) }
-            }
-        }
+        item { RateNotice(s.rateStatus) }
+        item { SavingsCard(s, locale) }
+        item { MonthSection(s, locale) }
+        item { AccountsSection(s.accounts, onAccounts, locale) }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(R.string.home_recent), style = SectionStyle, color = c.text, modifier = Modifier.padding(bottom = 6.dp))
                 if (s.recent.isEmpty()) Text(stringResource(R.string.home_empty), style = BodyStyle, color = c.muted)
             }
         }
-        items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.currentMemberId, s.today) }
+        items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.accountNames, s.currentMemberId, s.today) }
     }
 }
 
 @Composable
-private fun GoalMiniRow(st: GoalStatus, color: Color) {
+fun PillButton(text: String, onClick: () -> Unit) {
     val c = LocalColors.current
-    val percent = (st.ratio * 100).toInt().coerceIn(0, 100)
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(st.goal.name, style = sans(15, FontWeight.Medium), color = c.text, modifier = Modifier.weight(1f))
-            Text(
-                "${formatAmount(st.allocated)} / ${formatAmount(st.goal.target)} ${st.goal.target.currency} · $percent%",
-                style = mono(13), color = if (st.reached) c.green else c.muted,
-            )
-        }
-        Box(Modifier.fillMaxWidth().height(6.dp).background(c.track, RoundedCornerShape(3.dp))) {
-            Box(Modifier.fillMaxWidth(st.ratio.toFloat().coerceIn(0f, 1f)).fillMaxHeight().background(color, RoundedCornerShape(3.dp)))
-        }
+    Box(
+        Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(22.dp)).background(c.surface2)
+            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(text, style = sans(15, FontWeight.Medium), color = c.text) }
+}
+
+@Composable
+fun accountColor(index: Int): Color {
+    val c = LocalColors.current
+    return listOf(c.green, c.primary, c.orange)[index % 3]
+}
+
+@Composable
+fun AccountTile(name: String, color: Color) {
+    val c = LocalColors.current
+    Box(Modifier.size(40.dp).background(color.copy(alpha = c.tintAlpha), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+        Text(name.take(1).uppercase(), style = sans(15, FontWeight.SemiBold), color = color)
     }
 }
 
 @Composable
-private fun SafeToSpendCard(s: HomeState) {
+private fun SavingsCard(s: HomeState, locale: Locale) {
     val c = LocalColors.current
+    val eur = s.summary.savingsEur
+    val rsd = s.summary.savingsRsd
+    val primary = eur ?: rsd
     Column(
         Modifier.fillMaxWidth().background(c.surface2, RoundedCornerShape(24.dp)).padding(horizontal = 20.dp, vertical = 22.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            stringResource(R.string.home_safe_to_spend).uppercase(),
-            style = sans(13, FontWeight.Medium, 0.06.em),
-            color = c.muted,
-        )
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(formatAmount(s.summary.safeToSpend), style = BigAmountStyle, color = c.text)
-            Text(Currency.RSD.name, style = sans(16, FontWeight.Medium), color = c.muted, modifier = Modifier.padding(bottom = 6.dp))
-        }
-        Text(stringResource(R.string.home_per_day, formatAmount(s.summary.safePerDay), s.summary.daysLeft), style = sans(14), color = c.muted)
-        if (s.summary.partial) Text(stringResource(R.string.home_partial), style = LabelStyle, color = c.orange)
-        val spent = s.budgetSpent
-        val total = s.budgetTotal
-        if (spent != null && total != null && !total.isZero) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PaceBar(spent.amount.toFloat() / total.amount.toFloat(), s.pace, c.primary, 10.dp)
-                Text(stringResource(R.string.home_spent_of, formatAmount(spent), formatAmount(total)), style = LabelStyle, color = c.muted)
+        Text(stringResource(R.string.home_total_savings).uppercase(locale), style = sans(13, FontWeight.Medium, 0.06.em), color = c.muted)
+        if (primary == null) {
+            Text("-", style = BigAmountStyle, color = c.muted)
+            Text(stringResource(R.string.home_savings_unavailable), style = LabelStyle, color = c.orange)
+        } else {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(formatAmount(primary, locale = locale), style = BigAmountStyle, color = c.text)
+                Text(primary.currency.name, style = mono(22, FontWeight.SemiBold), color = c.text, modifier = Modifier.padding(bottom = 5.dp))
             }
+            if (eur != null && rsd != null) Text("≈ ${formatAmount(rsd, locale = locale)} RSD", style = mono(17), color = c.muted)
+            if (eur == null) Text(stringResource(R.string.home_eur_unavailable), style = LabelStyle, color = c.orange)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.home_all_balances), style = LabelStyle, color = c.muted, modifier = Modifier.weight(1f))
+            rateSource(s.rateStatus, locale)?.let { Text(it, style = LabelStyle, color = c.muted) }
         }
     }
 }
 
 @Composable
-private fun StatCard(title: String, value: String, valueColor: androidx.compose.ui.graphics.Color, modifier: Modifier) {
+private fun rateSource(status: RateStatus, locale: Locale): String? {
+    val snapshot = status.snapshot
+    if (Currency.EUR in snapshot.overrides) return stringResource(R.string.home_rate_manual)
+    val quote = snapshot.cached[Currency.EUR] ?: return null
+    return stringResource(R.string.home_rate_nbs, quote.effectiveDate.format(DateTimeFormatter.ofPattern("d MMM", monthLocale(locale))))
+}
+
+@Composable
+private fun MonthSection(s: HomeState, locale: Locale) {
+    val c = LocalColors.current
+    val month = YearMonth.from(s.today)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column {
+            Text(stringResource(R.string.home_this_month), style = SectionStyle, color = c.text)
+            Text(stringResource(R.string.home_month_range, month.lengthOfMonth(), monthName(month, locale)), style = LabelStyle, color = c.muted)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(stringResource(R.string.home_income), s.summary.income, sign = true, c.green, Modifier.weight(1f), locale)
+            StatCard(stringResource(R.string.home_spent), s.summary.spent, sign = false, c.text, Modifier.weight(1f), locale)
+        }
+        val difference = s.summary.difference
+        OutlinedBox(Modifier.fillMaxWidth(), radius = 18, padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.home_difference), style = LabelStyle, color = c.muted, modifier = Modifier.weight(1f))
+                AmountText(difference, sign = true, if (difference.isNegative) c.orange else c.green, locale)
+            }
+        }
+        if (s.summary.monthPartial) Text(stringResource(R.string.home_partial), style = CaptionStyle, color = c.orange)
+    }
+}
+
+@Composable
+private fun StatCard(title: String, value: Money, sign: Boolean, color: Color, modifier: Modifier, locale: Locale) {
     val c = LocalColors.current
     OutlinedBox(modifier, radius = 18, padding = PaddingValues(16.dp)) {
         Text(title, style = LabelStyle, color = c.muted)
         Spacer(Modifier.size(6.dp))
-        Text(value, style = mono(20, FontWeight.SemiBold), color = valueColor)
+        AmountText(value, sign, color, locale)
     }
 }
 
 @Composable
-private fun SavingsCard(total: Money, byCurrency: Map<Currency, Money>) {
+private fun AmountText(value: Money, sign: Boolean, color: Color, locale: Locale) {
     val c = LocalColors.current
-    OutlinedBox(Modifier.fillMaxWidth(), radius = 18, padding = PaddingValues(horizontal = 16.dp, vertical = 18.dp)) {
-        Text(stringResource(R.string.home_savings), style = LabelStyle, color = c.muted)
-        Spacer(Modifier.size(12.dp))
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(formatAmount(total), style = mono(24, FontWeight.SemiBold), color = c.text)
-            Text(Currency.RSD.name, style = sans(14), color = c.muted, modifier = Modifier.padding(bottom = 3.dp))
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(formatAmount(value, sign = sign, locale = locale), style = mono(20, FontWeight.SemiBold), color = color, maxLines = 1)
+        Text(value.currency.name, style = sans(13), color = if (color == c.text) c.muted else color, modifier = Modifier.padding(bottom = 2.dp))
+    }
+}
+
+@Composable
+private fun AccountsSection(accounts: List<AccountBalance>, onAccounts: () -> Unit, locale: Locale) {
+    val c = LocalColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.home_accounts), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(R.string.home_see_all), style = sans(14), color = c.primary,
+                modifier = Modifier.clickable(role = Role.Button, onClick = onAccounts).padding(vertical = 10.dp),
+            )
         }
-        if (byCurrency.isNotEmpty()) {
-            Spacer(Modifier.size(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                byCurrency.values.forEach { m ->
-                    Text(
-                        "${formatAmount(m)} ${m.currency}",
-                        style = mono(13),
-                        color = c.text,
-                        modifier = Modifier.background(c.surface2, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
+        if (accounts.isEmpty()) {
+            Text(stringResource(R.string.accounts_empty), style = BodyStyle, color = c.muted)
+        } else OutlinedBox(Modifier.fillMaxWidth(), radius = 18, padding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)) {
+            accounts.forEachIndexed { i, (account, balance) ->
+                if (i > 0) HorizontalDivider(color = c.border, thickness = 1.dp)
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccountTile(account.name, accountColor(i))
+                    Text(account.name, style = sans(15), color = c.text, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text("${formatAmount(balance, locale = locale)} ${balance.currency}", style = mono(14), color = if (balance.isNegative) c.orange else c.text)
                 }
             }
         }
@@ -219,7 +237,7 @@ private fun SavingsCard(total: Money, byCurrency: Map<Currency, Money>) {
 }
 
 @Composable
-private fun RecentRow(r: RecentTx, me: String?, today: LocalDate) {
+private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String?, today: LocalDate) {
     val c = LocalColors.current
     val t = r.transaction
     val category = t.categoryId?.let { id -> categoryDisplayName(id, r.categoryName) }
@@ -235,6 +253,7 @@ private fun RecentRow(r: RecentTx, me: String?, today: LocalDate) {
         TransactionSource.RECEIPT -> R.string.source_receipt
         TransactionSource.RECURRING -> R.string.source_recurring
     }
+    val account = listOfNotNull(accountNames[t.accountId], t.toAccountId?.let { accountNames[it] }).joinToString(" → ").ifBlank { null }
     val signed = if (t.type == TransactionType.EXPENSE) -t.money else t.money
     val accent = when (t.type) {
         TransactionType.INCOME -> c.green
@@ -246,29 +265,18 @@ private fun RecentRow(r: RecentTx, me: String?, today: LocalDate) {
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, style = sans(15, FontWeight.Medium), color = c.text, maxLines = 1)
-            Text(listOfNotNull(category, who.ifBlank { null }, stringResource(source)).joinToString(" · "), style = LabelStyle, color = c.muted, maxLines = 1)
+            Text(listOfNotNull(category, account, who.ifBlank { null }, stringResource(source)).joinToString(" · "), style = LabelStyle, color = c.muted, maxLines = 1)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(formatAmount(signed, sign = t.type != TransactionType.TRANSFER), style = mono(15), color = if (t.type == TransactionType.INCOME) c.green else c.text)
+            Text("${formatAmount(signed, sign = t.type != TransactionType.TRANSFER)} ${t.money.currency}", style = mono(15), color = if (t.type == TransactionType.INCOME) c.green else c.text)
             Text(relativeDate(t.date, today), style = CaptionStyle, color = c.muted)
         }
     }
 }
 
 @Composable
-private fun monthName(today: LocalDate): String =
-    today.month.getDisplayName(TextStyle.FULL_STANDALONE, dateLocale()).replaceFirstChar { it.titlecase() }
-
-@Composable
 private fun relativeDate(date: LocalDate, today: LocalDate): String = when (date) {
     today -> stringResource(R.string.home_today)
     today.minusDays(1) -> stringResource(R.string.home_yesterday)
-    else -> date.format(DateTimeFormatter.ofPattern("d MMM", dateLocale()))
-}
-
-/** The app's Serbian strings are Latin script; sr-RS defaults to Cyrillic for month names, so pin Latin. */
-@Composable
-private fun dateLocale(): Locale {
-    val locale = LocalLocale.current.platformLocale
-    return if (locale.language == "sr") Locale.forLanguageTag("sr-Latn") else locale
+    else -> date.format(DateTimeFormatter.ofPattern("d MMM", monthLocale(LocalLocale.current.platformLocale)))
 }

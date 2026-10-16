@@ -13,26 +13,24 @@ import kotlinx.coroutines.flow.stateIn
 import rs.budget.data.BudgetRepository
 import rs.budget.data.Clock
 import rs.budget.data.RecentTx
-import rs.budget.domain.BudgetCalculator
-import rs.budget.domain.BudgetStatus
-import rs.budget.domain.GoalStatus
+import rs.budget.domain.Account
 import rs.budget.domain.HomeSummary
 import rs.budget.domain.Money
+import rs.budget.ui.RateStatus
 import java.time.LocalDate
 import javax.inject.Inject
 
+data class AccountBalance(val account: Account, val balance: Money)
+
 data class HomeState(
     val summary: HomeSummary,
+    val accounts: List<AccountBalance>,
     val recent: List<RecentTx>,
+    val accountNames: Map<String, String>,
     val currentMemberId: String?,
     val today: LocalDate,
     val memberName: String = "",
-    val budgets: List<BudgetStatus> = emptyList(),
-    val budgetSpent: Money? = null,
-    val budgetTotal: Money? = null,
-    val pace: Float = 0f,
-    val goals: List<GoalStatus> = emptyList(),
-    val rateStatus: rs.budget.ui.RateStatus = rs.budget.ui.RateStatus(),
+    val rateStatus: RateStatus = RateStatus(),
 )
 
 @HiltViewModel
@@ -43,17 +41,15 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock) : 
         flow { emit(repo.currentMember()?.id) },
         repo.members,
     ) { financial, recent, member, members ->
-        val statuses = financial.budgets
-        val (spent, total) = BudgetCalculator.total(statuses, financial.exchange.rates)
         HomeState(
-            financial.home, recent, member, financial.day,
+            financial.home,
+            financial.activeAccounts.mapNotNull { a -> financial.home.balances[a.id]?.let { AccountBalance(a, it) } },
+            recent,
+            financial.accounts.associate { it.id to it.name },
+            member,
+            financial.day,
             memberName = members.firstOrNull { it.id == member }?.displayName ?: "",
-            budgets = statuses.take(3),
-            budgetSpent = spent.takeIf { statuses.isNotEmpty() },
-            budgetTotal = total.takeIf { statuses.isNotEmpty() },
-            pace = statuses.firstOrNull()?.pace?.toFloat() ?: 0f,
-            goals = financial.goals.take(3),
-            rateStatus = rs.budget.ui.RateStatus.from(financial),
+            rateStatus = RateStatus.from(financial),
         )
     }
         .flowOn(Dispatchers.Default)

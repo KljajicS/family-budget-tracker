@@ -1,5 +1,7 @@
 # Roadmap
 
+Current direction: [simplified finances](../decisions/0012-simplified-finances.md). Historical budget and goal milestones below describe earlier releases. The simplified product removes budgets, uses all active balances as savings, funds ordered goals sequentially and remembers transaction accounts separately by type. Recurring payment moves to Settings.
+
 One milestone per screen, in the order the spec's build order dictates. Each milestone ends with an installable app the family can use. Detailed step-by-step plans live next to this file, one per milestone, written when the milestone starts.
 
 | # | Milestone | Delivers | Plan |

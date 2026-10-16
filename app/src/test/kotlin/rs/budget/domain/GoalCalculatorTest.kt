@@ -6,83 +6,90 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
-import java.time.LocalDate
-import java.time.YearMonth
 
 class GoalCalculatorTest {
-    private val today = LocalDate.of(2026, 10, 14)
-    private val rates = Rates(mapOf(Currency.RSD to BigDecimal.ONE, Currency.EUR to BigDecimal("117.00")))
-    private val rsdOnly = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
-
-    private fun goal(id: String, target: String, monthly: String, currency: Currency = Currency.RSD, archived: Boolean = false) =
-        Goal(id, id, Money.of(target, currency), Money.of(monthly, currency), archived)
-
-    private fun alloc(id: String, goal: String, amount: String, date: LocalDate = today, currency: Currency = Currency.RSD) =
-        GoalAllocation(id, goal, Money.of(amount, currency), date)
-
+    private val rates = Rates(mapOf(Currency.EUR to BigDecimal("117.2"), Currency.USD to BigDecimal("3")))
     private fun rsd(s: String) = Money.of(s, Currency.RSD)
+    private fun eur(s: String) = Money.of(s, Currency.EUR)
+    private fun goal(id: String, target: Money) = Goal(id, id, target)
 
     @Test
-    fun `ratio, reached and arrival month`() {
-        val goals = listOf(goal("fund", "1500000", "40000"), goal("done", "1000", "100"), goal("idle", "1000", "0"), goal("over", "1000", "100"), goal("slow", "1000000000", "0.01"))
-        val allocations = listOf(alloc("a", "fund", "1200000", LocalDate.of(2026, 9, 1)), alloc("b", "done", "1000"), alloc("c", "over", "1500"))
-        val s = GoalCalculator.statuses(today, goals, allocations).associateBy { it.goal.id }
-        assertEquals(0.8, s.getValue("fund").ratio, 1e-9)
-        assertFalse(s.getValue("fund").reached)
-        assertEquals(YearMonth.of(2027, 6), s.getValue("fund").arrival)
-        assertTrue(s.getValue("done").reached)
-        assertNull(s.getValue("done").arrival)
-        assertNull(s.getValue("idle").arrival)
-        assertTrue(s.getValue("over").reached)
-        assertEquals(1.5, s.getValue("over").ratio, 1e-9)
-        assertNull(s.getValue("slow").arrival)
-        assertEquals(listOf("over", "done", "fund", "idle", "slow"), GoalCalculator.statuses(today, goals, allocations).map { it.goal.id })
+    fun `savings fill goals one by one in priority order`() {
+        val goals = listOf(goal("fund", eur("5000")), goal("home", eur("10000")), goal("trip", eur("3000")))
+        val p = GoalCalculator.progress(goals, rsd("1406400"), rates)
+        assertEquals(listOf(eur("5000"), eur("7000"), eur("0")), p.map { it.funded })
+        assertEquals(listOf(true, false, false), p.map { it.reached })
+        assertEquals(listOf(false, false, true), p.map { it.waiting })
+        assertEquals(eur("3000"), p[1].left)
+        assertEquals(0.7, p[1].ratio!!, 0.0001)
     }
 
     @Test
-    fun `needs skips reached goals and converts currencies`() {
-        val goals = listOf(goal("fund", "1500000", "40000"), goal("trip", "3000", "150", Currency.EUR), goal("done", "100", "50"))
-        val statuses = GoalCalculator.statuses(today, goals, listOf(alloc("a", "done", "100")))
-        val (needs, partial) = GoalCalculator.needs(statuses, rates)
-        assertEquals(rsd("57550"), needs)
-        assertFalse(partial)
-        assertTrue(GoalCalculator.needs(statuses, rsdOnly).second)
+    fun `money is never counted twice and the residual is conserved across mixed currencies`() {
+        val goals = listOf(goal("a", eur("1.01")), goal("b", rsd("333.33")), goal("c", Money.of("7.77", Currency.USD)), goal("d", rsd("1000000")))
+        for (pool in listOf("0", "0.01", "118.37", "500", "523.66", "12345.67")) {
+            val p = GoalCalculator.progress(goals, rsd(pool), rates)
+            val used = p.fold(BigDecimal.ZERO) { acc, g -> acc + g.funded!!.amount.multiply(rates.rate(g.goal.target.currency)!!) }
+            assertTrue(used <= BigDecimal(pool))
+            assertTrue(BigDecimal(pool) - used < BigDecimal("1.18"))
+            p.forEach { assertTrue(it.funded!!.amount <= it.goal.target.amount) }
+        }
+        val full = GoalCalculator.progress(goals.take(3), rsd("1000000"), rates)
+        assertEquals(listOf(eur("1.01"), rsd("333.33"), Money.of("7.77", Currency.USD)), full.map { it.funded })
     }
 
     @Test
-    fun `hold is this month's contribution minus this month's allocations, floored, zero when reached`() {
-        val goals = listOf(goal("a", "100000", "100"), goal("b", "100000", "100"), goal("c", "100000", "100"), goal("done", "100", "100"))
-        val allocations = listOf(
-            alloc("1", "a", "150"),
-            alloc("2", "b", "40"),
-            alloc("3", "c", "500", LocalDate.of(2026, 9, 30)),
-            alloc("4", "done", "100"),
-        )
-        val statuses = GoalCalculator.statuses(today, goals, allocations)
-        val (held, partial) = GoalCalculator.hold(today, statuses, allocations, rates)
-        assertEquals(rsd("160"), held)
-        assertFalse(partial)
+    fun `tiny target costs retain precision and never receive free funding`() {
+        val tinyRates = Rates(mapOf(Currency.EUR to BigDecimal("0.1")))
+        val goals = (1..20).map { goal(it.toString(), eur("0.01")) }
+        for (pool in listOf("0", "-1")) {
+            val p = GoalCalculator.progress(goals, rsd(pool), tinyRates)
+            assertTrue(p.none { it.reached })
+            assertTrue(p.all { it.funded == eur("0") })
+        }
+        val p = GoalCalculator.progress(goals, rsd("0.01"), tinyRates)
+        assertEquals(10, p.count { it.reached })
+        assertTrue(p.drop(10).all { it.funded == eur("0") })
     }
 
     @Test
-    fun `unassigned ignores archived goals and goes negative when over-assigned`() {
-        val goals = listOf(goal("live", "1000", "10"), goal("gone", "1000", "10", archived = true))
-        val allocations = listOf(alloc("1", "live", "700"), alloc("2", "gone", "400"))
-        val statuses = GoalCalculator.statuses(today, goals, allocations)
-        assertEquals(rsd("300"), GoalCalculator.unassigned(rsd("1000"), statuses, rates).first)
-        assertEquals(rsd("-200"), GoalCalculator.unassigned(rsd("500"), statuses, rates).first)
+    fun `negative or zero savings fund nothing and the first open goal is not waiting`() {
+        val goals = listOf(goal("a", rsd("100")), goal("b", rsd("100")))
+        for (pool in listOf("-500", "0")) {
+            val p = GoalCalculator.progress(goals, rsd(pool), rates)
+            assertEquals(listOf(rsd("0"), rsd("0")), p.map { it.funded })
+            assertEquals(listOf(false, true), p.map { it.waiting })
+        }
     }
 
     @Test
-    fun `allocation in another currency than its goal is skipped, never thrown on`() {
-        val goals = listOf(goal("trip", "3000", "150", Currency.EUR))
-        val allocations = listOf(alloc("1", "trip", "100", currency = Currency.EUR), alloc("2", "trip", "5000", currency = Currency.RSD))
-        val s = GoalCalculator.statuses(today, goals, allocations).single()
-        assertEquals(Money.of("100", Currency.EUR), s.allocated)
-        val (held, _) = GoalCalculator.hold(today, listOf(s), allocations, rates)
-        assertEquals(rsd("5850"), held)
-        val (unassigned, partial) = GoalCalculator.unassigned(rsd("0"), listOf(s), rsdOnly)
-        assertEquals(rsd("0"), unassigned)
-        assertTrue(partial)
+    fun `missing rate makes that goal and every later one unknown instead of skipping priority`() {
+        val noUsd = Rates(mapOf(Currency.EUR to BigDecimal("117.2")))
+        val goals = listOf(goal("a", rsd("100")), goal("b", Money.of("10", Currency.USD)), goal("c", rsd("100")))
+        val p = GoalCalculator.progress(goals, rsd("1000"), noUsd)
+        assertEquals(rsd("100"), p[0].funded)
+        assertNull(p[1].funded)
+        assertNull(p[2].funded)
+        assertNull(p[2].ratio)
+        assertTrue(GoalCalculator.progress(goals, null, rates).all { it.funded == null && !it.reached })
+    }
+
+    @Test
+    fun `archived goals drop out and later goals move up`() {
+        val goals = listOf(goal("a", rsd("100")).copy(archived = true), goal("b", rsd("100")))
+        val p = GoalCalculator.progress(goals, rsd("100"), rates)
+        assertEquals(listOf("b"), p.map { it.goal.id })
+        assertTrue(p.single().reached)
+        assertFalse(p.single().waiting)
+    }
+
+    @Test
+    fun `full goal keeps its place and partial conversion never exceeds target`() {
+        val goals = listOf(goal("a", eur("10")), goal("b", eur("10")))
+        val p = GoalCalculator.progress(goals, rsd("2343.99"), rates)
+        assertEquals(eur("10"), p[0].funded)
+        assertTrue(p[0].reached)
+        assertFalse(p[1].reached)
+        assertTrue(p[1].funded!!.amount <= eur("10").amount)
     }
 }

@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,10 +35,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.ui.WriteFeedback
 import rs.budget.R
-import rs.budget.domain.AccountKind
 import rs.budget.domain.Currency
-import rs.budget.ui.theme.BodyStyle
-import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
@@ -59,7 +54,6 @@ fun SetupScreen(onDone: () -> Unit, vm: SetupViewModel = hiltViewModel()) {
     var adding by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newCurrency by remember { mutableStateOf(Currency.RSD) }
-    var newSavings by remember { mutableStateOf(false) }
 
     Column(
         Modifier.fillMaxSize().background(c.bg).verticalScroll(rememberScrollState()).padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 24.dp),
@@ -72,13 +66,7 @@ fun SetupScreen(onDone: () -> Unit, vm: SetupViewModel = hiltViewModel()) {
         state.accounts.forEachIndexed { i, a ->
             OutlinedBox(Modifier.fillMaxWidth(), radius = 14, padding = PaddingValues(horizontal = 14.dp, vertical = 12.dp), selected = a.enabled, onClick = { vm.toggleAccount(i) }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(a.name, style = sans(14, FontWeight.Medium), color = c.text)
-                        Text(
-                            if (a.kind == AccountKind.SAVINGS) stringResource(R.string.setup_account_savings) else "${a.currency}",
-                            style = CaptionStyle, color = c.muted,
-                        )
-                    }
+                    Text(a.name, style = sans(14, FontWeight.Medium), color = c.text, modifier = Modifier.weight(1f))
                     Text(a.currency.name, style = mono(13), color = c.muted)
                 }
             }
@@ -100,14 +88,7 @@ fun SetupScreen(onDone: () -> Unit, vm: SetupViewModel = hiltViewModel()) {
                     ) { Text(cur.name, style = mono(13), color = if (sel) c.bg else c.muted) }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Switch(
-                    checked = newSavings, onCheckedChange = { newSavings = it },
-                    colors = SwitchDefaults.colors(checkedTrackColor = c.primary, checkedThumbColor = c.onPrimary),
-                )
-                Text(stringResource(R.string.setup_account_savings_toggle), style = BodyStyle, color = c.text)
-            }
-            OutlinedBox(Modifier.fillMaxWidth(), radius = 14, padding = PaddingValues(12.dp), onClick = { vm.addAccount(newName, newCurrency, newSavings); newName = ""; adding = false }) {
+            OutlinedBox(Modifier.fillMaxWidth(), radius = 14, padding = PaddingValues(12.dp), onClick = { vm.addAccount(newName, newCurrency); newName = ""; adding = false }) {
                 Text(stringResource(R.string.setup_add_account), style = sans(14, FontWeight.Medium), color = c.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         } else {

@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -35,6 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -71,11 +73,8 @@ import rs.budget.ui.Routes
 import rs.budget.ui.Tab
 import rs.budget.ui.add.AddScreen
 import rs.budget.ui.scan.ScanScreen
-import rs.budget.ui.budgets.BudgetsScreen
-import rs.budget.ui.budgets.EditBudgetScreen
 import rs.budget.ui.home.HomeScreen
 import rs.budget.ui.goals.EditGoalScreen
-import rs.budget.ui.goals.GoalDetailScreen
 import rs.budget.ui.goals.GoalsScreen
 import rs.budget.ui.insights.InsightsScreen
 import rs.budget.ui.settings.AccountsScreen
@@ -193,8 +192,7 @@ fun BudgetRoot(root: RootViewModel) {
             composable(Tab.HOME.route) {
                 HomeScreen(
                     onAdd = { nav.navigate(Routes.add()) },
-                    onBudgets = { nav.navigate(Tab.BUDGETS.route) { launchSingleTop = true } },
-                    onGoals = { nav.navigate(Tab.GOALS.route) { launchSingleTop = true } },
+                    onAccounts = { nav.navigate(Tab.ACCOUNTS.route) { launchSingleTop = true } },
                     onSettings = { nav.navigate(Routes.SETTINGS) },
                 )
             }
@@ -202,13 +200,18 @@ fun BudgetRoot(root: RootViewModel) {
                 SettingsScreen(
                     onBack = { nav.popBackStack() },
                     onCategories = { nav.navigate(Routes.CATEGORIES) },
-                    onAccounts = { nav.navigate(Routes.ACCOUNTS) },
+                    onAccounts = { nav.navigate(Tab.ACCOUNTS.route) { launchSingleTop = true } },
                     onRecurring = { nav.navigate(Routes.RECURRING) },
                     onRates = { nav.navigate(Routes.EXCHANGE_RATES) },
                 )
             }
             composable(Routes.RECURRING) {
-                RecurringScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_RECURRING) }, onEdit = { nav.navigate(Routes.editRecurring(it)) })
+                RecurringScreen(
+                    onBack = { nav.popBackStack() },
+                    onNew = { nav.navigate(Routes.NEW_RECURRING) },
+                    onEdit = { nav.navigate(Routes.editRecurring(it)) },
+                    onPay = { ruleId, due -> nav.navigate(Routes.addBill(ruleId, due)) },
+                )
             }
             composable(Routes.EXCHANGE_RATES) { ExchangeRatesScreen(onBack = { nav.popBackStack() }) }
             composable(Routes.NEW_RECURRING) { EditRecurringScreen(onClose = { nav.popBackStack() }) }
@@ -218,8 +221,8 @@ fun BudgetRoot(root: RootViewModel) {
             }
             composable(Routes.NEW_CATEGORY) { EditCategoryScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_CATEGORY) { EditCategoryScreen(onClose = { nav.popBackStack() }) }
-            composable(Routes.ACCOUNTS) {
-                AccountsScreen(onBack = { nav.popBackStack() }, onNew = { nav.navigate(Routes.NEW_ACCOUNT) }, onEdit = { nav.navigate(Routes.editAccount(it)) })
+            composable(Tab.ACCOUNTS.route) {
+                AccountsScreen(onNew = { nav.navigate(Routes.NEW_ACCOUNT) }, onEdit = { nav.navigate(Routes.editAccount(it)) })
             }
             composable(Routes.NEW_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
@@ -232,23 +235,11 @@ fun BudgetRoot(root: RootViewModel) {
                     onManual = { nav.navigate(Routes.add()) },
                 )
             }
-            composable(Tab.BUDGETS.route) {
-                BudgetsScreen(
-                    onNew = { nav.navigate(Routes.NEW_BUDGET) },
-                    onEdit = { nav.navigate(Routes.editBudget(it)) },
-                    onPay = { ruleId, due -> nav.navigate(Routes.addBill(ruleId, due)) },
-                )
-            }
-            composable(Routes.NEW_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
-            composable(Routes.EDIT_BUDGET) { EditBudgetScreen(onClose = { nav.popBackStack() }) }
             composable(Tab.GOALS.route) {
-                GoalsScreen(onNew = { nav.navigate(Routes.NEW_GOAL) }, onOpen = { nav.navigate(Routes.goal(it)) })
+                GoalsScreen(onNew = { nav.navigate(Routes.NEW_GOAL) }, onOpen = { nav.navigate(Routes.editGoal(it)) })
             }
             composable(Routes.NEW_GOAL) { EditGoalScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_GOAL) { EditGoalScreen(onClose = { nav.popBackStack() }) }
-            composable(Routes.GOAL) {
-                GoalDetailScreen(onClose = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.editGoal(it)) })
-            }
             composable(Routes.SETUP) {
                 SetupScreen(onDone = { nav.navigate(Tab.HOME.route) { popUpTo(Routes.SETUP) { inclusive = true } } })
             }
@@ -268,21 +259,22 @@ private fun BottomBar(route: String?, onSelect: (Tab) -> Unit) {
     val c = LocalColors.current
     Column(Modifier.fillMaxWidth().background(c.bg).navigationBarsPadding()) {
         HorizontalDivider(color = c.border, thickness = 1.dp)
-        Row(Modifier.fillMaxWidth().height(83.dp).padding(start = 12.dp, end = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(112.dp).padding(bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
             Tab.entries.forEach { tab ->
                 val active = route == tab.route
                 val tint = if (active) c.primary else c.muted
                 Column(
-                    Modifier.weight(1f).clickable(role = Role.Tab) { onSelect(tab) },
+                    Modifier.weight(1f).fillMaxHeight().semantics { selected = active }
+                        .clickable(role = Role.Tab) { onSelect(tab) },
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
                 ) {
                     if (tab == Tab.SCAN) {
                         Box(
-                            Modifier.offset(y = (-24).dp).size(56.dp).background(c.primary, CircleShape),
+                            Modifier.size(72.dp).background(c.primary, CircleShape),
                             contentAlignment = Alignment.Center,
                         ) { Icon(tab.icon, contentDescription = null, tint = c.onPrimary, modifier = Modifier.size(26.dp)) }
-                        Text(stringResource(tab.label), style = sans(11, FontWeight.Medium), color = tint, modifier = Modifier.offset(y = (-20).dp))
+                        Text(stringResource(tab.label), style = sans(11, FontWeight.Medium), color = tint)
                     } else {
                         Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
                         Text(stringResource(tab.label), style = sans(11, FontWeight.Medium), color = tint)

@@ -4,7 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -27,6 +30,8 @@ import rs.budget.domain.RecurringRule
 import rs.budget.domain.newId
 import java.time.LocalDate
 import rs.budget.ui.CategoryPalette
+import rs.budget.ui.RateStatus
+import rs.budget.ui.home.AccountBalance
 import rs.budget.ui.WriteOperation
 import rs.budget.ui.parseMoneyInput
 import javax.inject.Inject
@@ -115,11 +120,43 @@ class EditCategoryViewModel @Inject constructor(private val repo: BudgetReposito
     }
 }
 
+data class AccountsState(
+    val accounts: List<AccountBalance> = emptyList(),
+    val rateStatus: RateStatus = RateStatus(),
+    val reorderFailures: Int = 0,
+)
+
 @HiltViewModel
-class AccountsViewModel @Inject constructor(repo: BudgetRepository) : ViewModel() {
-    val accounts: StateFlow<List<Account>> = repo.accounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+class AccountsViewModel @Inject constructor(private val repo: BudgetRepository) : ViewModel() {
+    val writes = WriteOperation(viewModelScope)
+    private val failures = MutableStateFlow(0)
+
+    val state: StateFlow<AccountsState?> = combine(repo.financial, failures) { financial, failed ->
+        AccountsState(
+            financial.activeAccounts.mapNotNull { a -> financial.home.balances[a.id]?.let { AccountBalance(a, it) } },
+            RateStatus.from(financial),
+            failed,
+        )
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** A drop while the previous order is still saving is undone rather than silently lost. */
+    fun reorder(ids: List<String>) {
+        if (writes.state.value.busy) {
+            failures.update { it + 1 }
+            return
+        }
+        writes.run(finish = false) {
+            try {
+                repo.reorderAccounts(ids)
+            } catch (e: Exception) {
+                failures.update { it + 1 }
+                throw e
+            }
+        }
+    }
 }
 
+/** [balanceRsd] is null without a rate; [kind] is legacy and only carried through edits. */
 data class EditAccountState(
     val editing: Boolean = false,
     val id: String? = null,
@@ -127,6 +164,8 @@ data class EditAccountState(
     val currency: Currency = Currency.RSD,
     val kind: AccountKind = AccountKind.SPENDING,
     val currencyLocked: Boolean = false,
+    val balance: Money? = null,
+    val balanceRsd: Money? = null,
     val done: Boolean = false,
 ) {
     val canSave: Boolean get() = name.isNotBlank()
@@ -144,11 +183,16 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
             val used = repo.accountInUse(id)
             repo.accounts.first().firstOrNull { it.id == id }?.let { a -> _state.update { it.copy(name = a.name, currency = a.currency, kind = a.kind, currencyLocked = used) } }
         }
+        if (id != null) viewModelScope.launch {
+            repo.financial.collect { f ->
+                val balance = f.home.balances[id]
+                _state.update { it.copy(balance = balance, balanceRsd = balance?.let { f.exchange.rates.convert(it) }) }
+            }
+        }
     }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
     fun setCurrency(currency: Currency) = _state.update { if (it.currencyLocked) it else it.copy(currency = currency) }
-    fun setKind(kind: AccountKind) = _state.update { it.copy(kind = kind) }
 
     fun save() {
         val s = _state.value
@@ -171,6 +215,7 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
 
 @HiltViewModel
 class RecurringViewModel @Inject constructor(repo: BudgetRepository) : ViewModel() {
+    val bills = repo.upcomingBills.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val rules: StateFlow<List<RecurringRule>> = repo.rules.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val accounts: StateFlow<List<Account>> = repo.accounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

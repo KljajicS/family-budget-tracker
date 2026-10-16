@@ -16,6 +16,9 @@ import rs.budget.data.Clock
 import rs.budget.domain.Category
 import rs.budget.domain.InsightsCalculator
 import rs.budget.domain.InsightsSummary
+import rs.budget.domain.Slice
+import rs.budget.domain.Transaction
+import rs.budget.ui.RateStatus
 import java.time.YearMonth
 import javax.inject.Inject
 
@@ -23,7 +26,10 @@ data class InsightsState(
     val summary: InsightsSummary,
     val categories: Map<String, Category>,
     val hasData: Boolean,
-    val rateStatus: rs.budget.ui.RateStatus = rs.budget.ui.RateStatus(),
+    val selected: Slice? = null,
+    val drilldown: List<Transaction> = emptyList(),
+    val accountNames: Map<String, String> = emptyMap(),
+    val rateStatus: RateStatus = RateStatus(),
 ) {
     val canGoBack: Boolean get() = summary.month > summary.range.start
     val canGoForward: Boolean get() = summary.month < summary.range.endInclusive
@@ -31,24 +37,37 @@ data class InsightsState(
 
 @HiltViewModel
 class InsightsViewModel @Inject constructor(repo: BudgetRepository, private val clock: Clock) : ViewModel() {
+    private data class Selection(val categoryId: String?)
+
     private val month = MutableStateFlow(YearMonth.from(clock.today()))
+    private val selection = MutableStateFlow<Selection?>(null)
 
     val state: StateFlow<InsightsState?> = combine(
-        month, repo.financial, repo.allCategories,
-    ) { m, financial, categories ->
+        month, selection, repo.financial, repo.allCategories,
+    ) { m, chosen, financial, categories ->
+        val summary = InsightsCalculator.summarize(financial.day, m, financial.transactions, financial.exchange.rates)
+        val slice = chosen?.let { s -> summary.slices.firstOrNull { it.categoryId == s.categoryId } }
         InsightsState(
-            InsightsCalculator.summarize(financial.day, m, financial.transactions, financial.accounts, financial.budgets, financial.exchange.rates),
+            summary,
             categories.associateBy { it.id },
             hasData = financial.transactions.isNotEmpty(),
-            rateStatus = rs.budget.ui.RateStatus.from(financial),
+            selected = slice,
+            drilldown = slice?.let { InsightsCalculator.drilldown(financial.day, summary, it, financial.transactions) }.orEmpty(),
+            accountNames = financial.accounts.associate { it.id to it.name },
+            rateStatus = RateStatus.from(financial),
         )
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun previousMonth() = step(-1)
     fun nextMonth() = step(1)
 
+    /** Tapping the open category again closes it. */
+    fun select(slice: Slice) = selection.update { if (it != null && it.categoryId == slice.categoryId) null else Selection(slice.categoryId) }
+    fun closeCategory() = selection.update { null }
+
     private fun step(months: Long) {
         val range = state.value?.summary?.range ?: return
+        selection.value = null
         month.update { it.plusMonths(months).coerceIn(range.start, range.endInclusive) }
     }
 }

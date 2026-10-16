@@ -74,7 +74,7 @@ class RateRepositoryTest {
             "INSERT INTO receipt VALUES ('rc','t','issuer','invoice','url','merchant','2026-10-15','10.00','[]')",
         )
         inserts.forEach { driver.execute(null, it, 0) }
-        BudgetDb.Schema.migrate(driver, 5, 6)
+        BudgetDb.Schema.migrate(driver, 5, BudgetDb.Schema.version)
         val db = BudgetDb(driver)
         assertEquals("10.00", db.txQueries.all().executeAsList().single().amount)
         assertEquals(1L, db.eventQueries.count().executeAsOne())

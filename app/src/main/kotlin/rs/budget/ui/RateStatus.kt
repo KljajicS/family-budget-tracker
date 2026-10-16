@@ -19,9 +19,8 @@ data class RateStatus(
 ) {
     companion object {
         fun from(financial: FinancialSnapshot): RateStatus {
-            val currencies = financial.accounts.map { it.currency } + financial.transactions.map { it.money.currency } +
-                financial.budgets.map { it.budget.currency } + financial.bills.map { it.rule.money.currency } +
-                financial.goals.map { it.goal.target.currency }
+            val currencies = financial.activeAccounts.map { it.currency } + financial.transactions.map { it.money.currency } +
+                financial.bills.map { it.rule.money.currency } + financial.goals.map { it.goal.target.currency }
             return RateStatus(financial.exchange, financial.missingCurrencies,
             financial.exchange.cached.any { (currency, quote) ->
                 currency !in financial.exchange.overrides && !quote.effectiveDate.isAfter(financial.day.minusDays(7))

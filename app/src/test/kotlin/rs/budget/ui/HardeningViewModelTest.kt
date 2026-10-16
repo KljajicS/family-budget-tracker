@@ -14,11 +14,10 @@ import rs.budget.RootViewModel
 import rs.budget.data.*
 import rs.budget.data.db.BudgetDb
 import rs.budget.domain.*
-import rs.budget.ui.budgets.EditState
 import rs.budget.ui.add.AddViewModel
 import rs.budget.ui.goals.EditGoalState
 import rs.budget.ui.goals.EditGoalViewModel
-import rs.budget.ui.goals.GoalDetailViewModel
+import rs.budget.ui.settings.EditAccountViewModel
 import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.atomic.AtomicReference
@@ -37,12 +36,11 @@ class HardeningViewModelTest {
     @Test fun `money inputs reject exponents excess precision and unbounded values`() {
         for (text in listOf("1e2147483647", "1e-2147483647", "0.001", "12.345", "9".repeat(1000), "-5", "NaN")) {
             assertNull(parseMoneyInput(text, Currency.RSD))
-            assertFalse(EditState(categoryId = "c", amountText = text).canSave)
             assertFalse(EditGoalState(name = "Trip", targetText = text).canSave)
         }
-        assertFalse(EditState(categoryId = "c", amountText = "0").canSave)
+        assertFalse(EditGoalState(name = "Trip", targetText = "0").canSave)
         assertEquals(Money.of("12.34", Currency.RSD), parseMoneyInput("12.34", Currency.RSD))
-        assertTrue(EditGoalState(name = "Trip", targetText = "100", monthlyText = "").canSave)
+        assertTrue(EditGoalState(name = "Trip", targetText = "100").canSave)
     }
 
     @Test fun `double tap creates one goal and completed form cannot resubmit`() = runTest(dispatcher) {
@@ -58,19 +56,24 @@ class HardeningViewModelTest {
         assertEquals(1L, db.eventQueries.count().executeAsOne())
     }
 
-    @Test fun `failed allocation preserves draft and retry records it once`() = runTest(dispatcher) {
-        repo.setGoal(Goal("g", "Trip", Money.of("1000", Currency.RSD), Money.zero(Currency.RSD)))
-        val vm = GoalDetailViewModel(repo, clock, SavedStateHandle(mapOf("id" to "g")))
-        vm.setAmount("25")
-        driver.execute(null, "CREATE TRIGGER fail_allocation BEFORE INSERT ON goal_allocation BEGIN SELECT RAISE(ABORT, 'disk full'); END", 0)
-        vm.add()
-        vm.add()
+    @Test fun `failed account archive keeps the account and retry archives it once`() = runTest(dispatcher) {
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD), Account("card", "Card", Currency.RSD)))
+        repo.add(Transaction("t", TransactionType.INCOME, Money.of("500", Currency.RSD), "card", null, null, clock.today(), "", "", "m", TransactionSource.MANUAL))
+        val vm = EditAccountViewModel(repo, SavedStateHandle(mapOf("id" to "card")))
+        vm.state.first { it.name == "Card" && it.balance != null }
+        assertEquals(Money.of("500", Currency.RSD), vm.state.value.balanceRsd)
+        driver.execute(null, "CREATE TRIGGER fail_archive BEFORE UPDATE ON account BEGIN SELECT RAISE(ABORT, 'disk full'); END", 0)
+        vm.delete()
+        vm.delete()
         vm.writes.state.first { it.failed }
-        assertTrue(db.goalAllocationQueries.all().executeAsList().isEmpty())
-        driver.execute(null, "DROP TRIGGER fail_allocation", 0)
-        vm.add()
-        vm.writes.state.first { !it.busy && !it.failed }
-        assertEquals("25.00", db.goalAllocationQueries.all().executeAsList().single().amount)
+        assertEquals(2, db.accountQueries.active().executeAsList().size)
+        driver.execute(null, "DROP TRIGGER fail_archive", 0)
+        val before = db.eventQueries.count().executeAsOne()
+        vm.delete()
+        vm.state.first { it.done }
+        assertEquals(before + 1, db.eventQueries.count().executeAsOne())
+        assertEquals(listOf("cash"), db.accountQueries.active().executeAsList().map { it.id })
+        assertEquals(1, db.txQueries.all().executeAsList().size)
     }
 
     @Test fun `startup initializes off caller thread and supports retry`() = runTest(dispatcher) {

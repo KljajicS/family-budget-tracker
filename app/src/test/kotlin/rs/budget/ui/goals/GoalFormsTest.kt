@@ -20,11 +20,10 @@ import rs.budget.data.FixedClock
 import rs.budget.data.Projector
 import rs.budget.data.testDb
 import rs.budget.domain.Account
-import rs.budget.domain.AccountKind
 import rs.budget.domain.Currency
+import rs.budget.domain.Goal
 import rs.budget.domain.Money
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -38,8 +37,8 @@ class GoalFormsTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `create validates, detail funds and removes, currency locks, delete archives`() = runTest(dispatcher) {
-        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
+    fun `create needs a name and positive target, edit can change currency, delete archives`() = runTest(dispatcher) {
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD)))
 
         val create = EditGoalViewModel(repo, SavedStateHandle())
         assertFalse(create.state.value.canSave)
@@ -47,40 +46,37 @@ class GoalFormsTest {
         create.setTarget("0")
         assertFalse(create.state.value.canSave)
         create.setTarget("3000")
-        create.setMonthly("-5")
-        assertFalse(create.state.value.canSave)
-        create.setMonthly("150")
         create.setCurrency(Currency.EUR)
         assertTrue(create.state.value.canSave)
         create.save()
         create.state.first { it.done }
         val goal = repo.goals.first().single()
         assertEquals(Money.of("3000", Currency.EUR), goal.target)
-        assertEquals(Money.of("150", Currency.EUR), goal.monthly)
-
-        val detail = GoalDetailViewModel(repo, clock, SavedStateHandle(mapOf("id" to goal.id)))
-        detail.state.first { it.status != null }
-        assertEquals(LocalDate.of(2026, 10, 14), detail.state.value.date)
-        assertFalse(detail.state.value.canAdd)
-        detail.setAmount("200")
-        detail.add()
-        detail.state.first { it.allocations.size == 1 }
-        assertEquals(Money.of("200", Currency.EUR), detail.state.value.allocations.single().money)
-        assertEquals("", detail.state.value.amountText)
-        detail.setAmount("100")
-        detail.add()
-        val two = detail.state.first { it.allocations.size == 2 && it.status?.allocated == Money.of("300", Currency.EUR) }
-        detail.deleteAllocation(two.allocations.first().id)
-        detail.state.first { it.allocations.size == 1 }
+        assertEquals(Money.zero(Currency.EUR), goal.monthly)
 
         val edit = EditGoalViewModel(repo, SavedStateHandle(mapOf("id" to goal.id)))
         edit.state.first { it.name == "Trip" }
-        assertTrue(edit.state.value.currencyLocked)
         edit.setCurrency(Currency.RSD)
-        assertEquals(Currency.EUR, edit.state.value.currency)
-        edit.delete()
+        edit.setTarget("350000")
+        edit.save()
         edit.state.first { it.done }
+        assertEquals(Money.of("350000", Currency.RSD), repo.goal(goal.id)!!.target)
+
+        val delete = EditGoalViewModel(repo, SavedStateHandle(mapOf("id" to goal.id)))
+        delete.state.first { it.name == "Trip" }
+        delete.delete()
+        delete.state.first { it.done }
         assertEquals(0, repo.goals.first().size)
-        detail.state.first { it.gone }
+    }
+
+    @Test
+    fun `editing a legacy goal keeps its old contribution in the same currency`() = runTest(dispatcher) {
+        repo.setGoal(Goal("g", "Old", Money.of("1000", Currency.EUR), Money.of("50", Currency.EUR)))
+        val edit = EditGoalViewModel(repo, SavedStateHandle(mapOf("id" to "g")))
+        edit.state.first { it.name == "Old" }
+        edit.setName("Renamed")
+        edit.save()
+        edit.state.first { it.done }
+        assertEquals(Money.of("50", Currency.EUR), repo.goal("g")!!.monthly)
     }
 }

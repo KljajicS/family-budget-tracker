@@ -37,10 +37,10 @@ class SetupViewModelTest {
         assertFalse(vm.state.value.canFinish)
         vm.setName("Ana")
         assertTrue(vm.state.value.canFinish)
-        vm.addAccount("EUR cash", Currency.EUR, savings = false)
+        vm.addAccount("EUR cash", Currency.EUR)
         vm.finish()
         vm.state.first { it.done }
-        assertEquals(listOf("Card", "Cash", "EUR cash"), repo.accounts.first().map { it.name })
+        assertEquals(listOf("Cash", "Card", "EUR cash"), repo.accounts.first().map { it.name })
         assertEquals("Ana", repo.currentMember()!!.displayName)
     }
 }

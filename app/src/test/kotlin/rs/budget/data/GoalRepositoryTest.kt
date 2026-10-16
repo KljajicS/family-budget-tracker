@@ -7,10 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.budget.domain.Account
-import rs.budget.domain.AccountKind
 import rs.budget.domain.Currency
 import rs.budget.domain.Goal
-import rs.budget.domain.GoalAllocation
 import rs.budget.domain.Money
 import rs.budget.domain.Transaction
 import rs.budget.domain.TransactionSource
@@ -22,26 +20,23 @@ import java.time.ZoneId
 class GoalRepositoryTest {
     private val db = testDb()
     private val clock = FixedClock(Instant.parse("2026-10-14T10:00:00Z"), ZoneId.of("Europe/Belgrade"))
-    private val repo = BudgetRepository(db, EventStore(db, "dev-1", clock, Projector(db)), clock, "dev-1")
-    private val fund = Goal("fund", "Emergency fund", Money.of("100000", Currency.RSD), Money.of("10000", Currency.RSD))
+    private val store = EventStore(db, "dev-1", clock, Projector(db))
+    private val repo = BudgetRepository(db, store, clock, "dev-1")
+    private fun rsd(s: String) = Money.of(s, Currency.RSD)
 
-    private suspend fun seed() {
-        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)))
+    private suspend fun seed(amount: String = "150000") {
+        repo.setUp("S", listOf(Account("cash", "Cash", Currency.RSD)))
         val m = repo.currentMember()!!.id
-        repo.add(Transaction("t1", TransactionType.INCOME, Money.of("100000", Currency.RSD), "cash", null, null, LocalDate.of(2026, 10, 1), "", "", m, TransactionSource.MANUAL))
+        repo.add(Transaction("t1", TransactionType.INCOME, rsd(amount), "cash", null, null, LocalDate.of(2026, 10, 1), "", "", m, TransactionSource.MANUAL))
     }
 
     @Test
-    fun `goals are set, edited, funded and archived through events`() = runTest {
+    fun `goals are set, edited and archived through events`() = runTest {
         seed()
+        val fund = Goal("fund", "Emergency fund", rsd("100000"))
         repo.setGoal(fund)
         repo.setGoal(fund.copy(name = "Rezerva"))
         assertEquals("Rezerva", repo.goal("fund")!!.name)
-        repo.allocate(GoalAllocation("a1", "fund", Money.of("25000", Currency.RSD), LocalDate.of(2026, 10, 5)))
-        repo.allocate(GoalAllocation("a2", "fund", Money.of("5000", Currency.RSD), LocalDate.of(2026, 10, 6)))
-        assertEquals(Money.of("30000", Currency.RSD), repo.goalStatuses.first().single().allocated)
-        repo.deleteAllocation("a2")
-        assertEquals(Money.of("25000", Currency.RSD), repo.goalStatuses.first().single().allocated)
         repo.archiveGoal("fund")
         assertEquals(0, repo.goals.first().size)
         repo.setGoal(fund.copy(name = "Back"))
@@ -49,21 +44,43 @@ class GoalRepositoryTest {
     }
 
     @Test
-    fun `safe to spend holds the contribution until this month's money is assigned`() = runTest {
+    fun `new goals append, priority order drives funding and survives a rebuild`() = runTest {
         seed()
-        assertEquals(Money.of("100000", Currency.RSD), repo.home.first().safeToSpend)
-        repo.setGoal(fund)
-        assertEquals(Money.of("90000", Currency.RSD), repo.home.first().safeToSpend)
-        repo.allocate(GoalAllocation("a1", "fund", Money.of("4000", Currency.RSD), LocalDate.of(2026, 10, 5)))
-        assertEquals(Money.of("94000", Currency.RSD), repo.home.first().safeToSpend)
-        repo.allocate(GoalAllocation("a2", "fund", Money.of("9000", Currency.RSD), LocalDate.of(2026, 10, 6)))
-        assertEquals(Money.of("100000", Currency.RSD), repo.home.first().safeToSpend)
+        repo.setGoal(Goal("z", "Zoo", rsd("100000")))
+        repo.setGoal(Goal("a", "Apartment", rsd("100000")))
+        assertEquals(listOf("z", "a"), repo.goals.first().map { it.id })
+        assertEquals(listOf(rsd("100000"), rsd("50000")), repo.financial.first().goals.map { it.funded })
+
+        repo.reorderGoals(listOf("a", "z"))
+        assertEquals(listOf(rsd("100000"), rsd("50000")), repo.financial.first().goals.map { it.funded })
+        assertEquals(listOf("a", "z"), repo.financial.first().goals.map { it.goal.id })
+
+        repo.setGoal(Goal("b", "Bike", rsd("1000")))
+        assertEquals(listOf("a", "z", "b"), repo.goals.first().map { it.id })
+        assertTrue(repo.financial.first().goals.last().waiting)
+
+        repo.archiveGoal("a")
+        assertEquals(listOf(rsd("100000"), rsd("1000")), repo.financial.first().goals.map { it.funded })
+
+        store.rebuild()
+        assertEquals(listOf("z", "b"), repo.goals.first().map { it.id })
     }
 
     @Test
-    fun `a goal without a rate flags home as partial`() = runTest {
+    fun `spending savings lowers coverage from the bottom`() = runTest {
+        seed("100000")
+        repo.setGoal(Goal("a", "A", rsd("60000")))
+        repo.setGoal(Goal("b", "B", rsd("60000")))
+        repo.add(Transaction("t2", TransactionType.EXPENSE, rsd("50000"), "cash", null, null, LocalDate.of(2026, 10, 2), "", "", "m", TransactionSource.MANUAL))
+        assertEquals(listOf(rsd("50000"), rsd("0")), repo.financial.first().goals.map { it.funded })
+    }
+
+    @Test
+    fun `a goal without a rate makes progress unknown and lists the currency`() = runTest {
         seed()
-        repo.setGoal(Goal("trip", "Trip", Money.of("3000", Currency.EUR), Money.of("150", Currency.EUR)))
-        assertTrue(repo.home.first().partial)
+        repo.setGoal(Goal("trip", "Trip", Money.of("3000", Currency.EUR)))
+        val f = repo.financial.first()
+        assertNull(f.goals.single().funded)
+        assertEquals(setOf(Currency.EUR), f.missingCurrencies)
     }
 }

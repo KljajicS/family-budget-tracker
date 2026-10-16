@@ -2,7 +2,6 @@ package rs.budget.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Test
 import rs.budget.data.db.BudgetDb
@@ -65,7 +64,7 @@ class HardeningTest {
         assertTrue(db.txQueries.all().executeAsList().isEmpty())
     }
 
-    @Test fun `future bill payment stays reserved and future goal funding does not release hold`() = runTest {
+    @Test fun `future bill payment keeps the bill upcoming until its date`() = runTest {
         repo.setUp("S", listOf(account))
         val amount = Money.of("100", Currency.RSD)
         val rule = RecurringRule("rent", "Rent", amount, account.id, "cat-bills", Cadence.MONTHLY, clock.today().plusDays(1))
@@ -75,11 +74,5 @@ class HardeningTest {
             rule.firstDue, "", "", repo.currentMember()!!.id, TransactionSource.RECURRING)
         assertEquals(1, BillCalculator.upcoming(clock.today(), listOf(rule), setOf(account.id), listOf(tx), emptySet()).size)
         assertTrue(BillCalculator.upcoming(rule.firstDue, listOf(rule), setOf(account.id), listOf(tx), emptySet()).isEmpty())
-        val goal = Goal("g", "Trip", amount, amount)
-        val allocations = listOf(GoalAllocation("allocation", goal.id, amount, rule.firstDue))
-        val statuses = GoalCalculator.statuses(clock.today(), listOf(goal), allocations)
-        assertFalse(statuses.single().reached)
-        assertEquals(amount, GoalCalculator.hold(clock.today(), statuses, allocations, repo.exchangeRates.snapshots.first().rates).first)
-        assertTrue(GoalCalculator.statuses(rule.firstDue, listOf(goal), allocations).single().reached)
     }
 }

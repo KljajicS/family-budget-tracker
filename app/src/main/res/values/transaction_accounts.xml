@@ -1,0 +1,7 @@
+<resources>
+    <string name="add_deposit_into">Deposit into</string>
+    <string name="add_pay_from">Pay from</string>
+    <string name="add_choose_account">Choose account</string>
+    <string name="add_save_income_into">Add income to %1$s</string>
+    <string name="add_save_expense_from">Add expense from %1$s</string>
+</resources>

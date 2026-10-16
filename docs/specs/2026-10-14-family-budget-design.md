@@ -2,6 +2,8 @@
 
 Status: draft for review. Date: 2026-10-14.
 
+Historical design. The approved 2026-10-17 simplification in [ADR 12](../decisions/0012-simplified-finances.md) supersedes the budget, safe-to-spend, account-kind and allocated-goal behavior below. Original screen images are style references; the current product has Accounts instead of Budgets and sequential goal funding.
+
 ## 1. Purpose
 
 Replace the paper notebook two people use to track household money. The app answers, at a glance:
