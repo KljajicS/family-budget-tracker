@@ -62,10 +62,20 @@ class InsightsViewModelTest {
         assertFalse(s.canGoBack)
         assertEquals(listOf("cat-fun"), s.summary.slices.map { it.categoryId })
 
+        vm.select(s.summary.slices.single())
+        s = vm.state.filterNotNull().first { it.selected != null }
+        assertEquals(listOf("t1"), s.drilldown.map { it.id })
+        assertEquals("Cash", s.accountNames["cash"])
+        vm.select(s.summary.slices.single())
+        vm.state.filterNotNull().first { it.selected == null }
+        vm.select(s.summary.slices.single())
+        vm.state.filterNotNull().first { it.selected != null }
+
         vm.nextMonth()
         vm.nextMonth()
         vm.nextMonth()
         s = vm.state.filterNotNull().first { it.summary.month == YearMonth.of(2026, 10) }
         assertFalse(s.canGoForward)
+        assertEquals(null, s.selected)
     }
 }

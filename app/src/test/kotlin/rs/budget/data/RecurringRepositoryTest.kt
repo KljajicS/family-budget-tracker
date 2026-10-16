@@ -50,22 +50,17 @@ class RecurringRepositoryTest {
     }
 
     @Test
-    fun `safe to spend holds the bill, stays on payment and rises on skip`() = runTest {
+    fun `an unpaid bill holds nothing back, paying it moves the balance once`() = runTest {
         val m = seed()
-        val before = repo.home.first().safeToSpend
         repo.setRule(rent)
-        val held = repo.home.first().safeToSpend
-        assertEquals(Money.of("100000", Currency.RSD), before)
-        assertEquals(Money.of("60000", Currency.RSD), held)
+        assertEquals(Money.of("100000", Currency.RSD), repo.home.first().savingsRsd)
 
         val bill = repo.upcomingBills.first().single()
         repo.add(pay(bill, m))
+        repo.add(pay(bill, m))
         assertEquals(emptyList<Bill>(), repo.upcomingBills.first())
-        assertEquals(Money.of("60000", Currency.RSD), repo.home.first().safeToSpend)
-
-        repo.delete(bill.txId)
-        repo.skipBill("rent", "2026-10")
-        assertEquals(Money.of("100000", Currency.RSD), repo.home.first().safeToSpend)
+        assertEquals(Money.of("60000", Currency.RSD), repo.home.first().savingsRsd)
+        assertEquals(Money.of("40000", Currency.RSD), repo.home.first().spent)
     }
 
     @Test

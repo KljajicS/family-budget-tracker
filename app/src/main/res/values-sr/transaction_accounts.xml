@@ -1,0 +1,7 @@
+<resources>
+    <string name="add_deposit_into">Uplati na</string>
+    <string name="add_pay_from">Plati sa</string>
+    <string name="add_choose_account">Izaberi račun</string>
+    <string name="add_save_income_into">Dodaj prihod na %1$s</string>
+    <string name="add_save_expense_from">Dodaj trošak sa %1$s</string>
+</resources>

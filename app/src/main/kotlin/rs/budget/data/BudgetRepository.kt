@@ -15,12 +15,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import rs.budget.data.db.Account as AccountRow
-import rs.budget.data.db.Budget as BudgetRow
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.db.Category as CategoryRow
 import rs.budget.data.db.Member as MemberRow
 import rs.budget.data.db.Goal as GoalRow
-import rs.budget.data.db.Goal_allocation as AllocationRow
 import rs.budget.data.db.Recent
 import rs.budget.data.db.Recurring_rule as RuleRow
 import rs.budget.data.db.Tx as TxRow
@@ -29,29 +27,22 @@ import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountKind
 import rs.budget.domain.AccountUpdated
+import rs.budget.domain.AccountsReordered
 import rs.budget.domain.Bill
 import rs.budget.domain.BillCalculator
 import rs.budget.domain.BillSkipped
 import rs.budget.domain.Cadence
 import rs.budget.domain.Goal
-import rs.budget.domain.GoalAllocated
-import rs.budget.domain.GoalAllocation
-import rs.budget.domain.GoalAllocationDeleted
 import rs.budget.domain.GoalArchived
 import rs.budget.domain.GoalCalculator
 import rs.budget.domain.GoalSet
-import rs.budget.domain.GoalStatus
+import rs.budget.domain.GoalsReordered
 import rs.budget.domain.RecurringRule
 import rs.budget.domain.RecurringRuleArchived
 import rs.budget.domain.RecurringRuleSet
 import rs.budget.domain.CategoryArchived
 import rs.budget.domain.CategoryUpdated
 import rs.budget.domain.MemberRenamed
-import rs.budget.domain.Budget
-import rs.budget.domain.BudgetCalculator
-import rs.budget.domain.BudgetRemoved
-import rs.budget.domain.BudgetSet
-import rs.budget.domain.BudgetStatus
 import rs.budget.domain.Category
 import rs.budget.domain.CategoryCreated
 import rs.budget.domain.Currency
@@ -71,7 +62,6 @@ import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.domain.newId
 import java.time.LocalDate
-import java.time.YearMonth
 
 data class RecentTx(val transaction: Transaction, val categoryName: String?, val paidByName: String?)
 class DuplicateReceipt : IllegalStateException("Receipt already saved")
@@ -86,6 +76,7 @@ class BudgetRepository(
     sharingScope: CoroutineScope? = null,
     val exchangeRates: RateRepository = RateRepository(db, store, clock),
 ) {
+    /** Active accounts in the family's saved order; pickers and Home use the same order. */
     val accounts: Flow<List<Account>> =
         db.accountQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
@@ -109,11 +100,6 @@ class BudgetRepository(
     fun recent(limit: Int): Flow<List<RecentTx>> =
         db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }.flowOn(Dispatchers.Default)
 
-    val budgets: Flow<List<Budget>> =
-        db.budgetQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
-
-    fun effectiveBudgets(month: YearMonth): Flow<List<Budget>> = budgets.map { BudgetCalculator.effective(it, month) }.flowOn(Dispatchers.Default)
-
     /** Re-reads the date once a minute so a screen left open over midnight on the 1st moves to the new month. */
     private val today: Flow<LocalDate> = flow {
         while (true) {
@@ -128,49 +114,39 @@ class BudgetRepository(
     private val skips: Flow<Set<Pair<String, String>>> =
         db.billSkipQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.rule_id to it.due_period }.toSet() }
 
+    /** Active goals in priority order: savings fill the first one before the next. */
     val goals: Flow<List<Goal>> =
         db.goalQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
 
-    val allocations: Flow<List<GoalAllocation>> =
-        db.goalAllocationQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
-
-    private val financialInputs = combine(today, allAccounts, transactions, budgets, exchangeRates.snapshots) { day, accs, txs, bs, rates ->
-        FinancialInputs(day, accs, txs, bs, rates)
+    private val financialInputs = combine(today, allAccounts, transactions, exchangeRates.snapshots) { day, accs, txs, rates ->
+        FinancialInputs(day, accs, txs, rates)
     }
-    private val commitments = combine(rules, skips, goals, allocations) { rs, ss, gs, alloc -> Commitments(rs, ss, gs, alloc) }
+    private val commitments = combine(rules, skips, goals) { rs, ss, gs -> Commitments(rs, ss, gs) }
 
     val financial: Flow<FinancialSnapshot> = financialInputs.combine(commitments) { input, commitments ->
-        val (day, allAccs, txs, bs, exchange) = input
+        val (day, allAccs, txs, exchange) = input
         val rates = exchange.rates
         val active = allAccs.filterNot { it.archived }
-        val statuses = BudgetCalculator.statuses(day, BudgetCalculator.effective(bs, YearMonth.from(day)), txs, rates)
         val bills = BillCalculator.upcoming(day, commitments.rules, active.map { it.id }.toSet(), txs, commitments.skips)
-        val goals = GoalCalculator.statuses(day, commitments.goals, commitments.allocations)
-        val (billHold, billsPartial) = BillCalculator.reserve(day, bills, statuses, rates)
-        val (goalHold, goalsPartial) = GoalCalculator.hold(day, goals, commitments.allocations, rates)
-        val missing = (allAccs.map { it.currency } + txs.map { it.money.currency } + statuses.map { it.budget.currency } +
-            bills.map { it.rule.money.currency } + goals.map { it.goal.target.currency }).filter { rates.rate(it) == null }.toSet()
-        val home = HomeCalculator.summarize(day, active, txs, rates,
-            committed = BudgetCalculator.reserve(statuses, rates), bills = billHold, goals = goalHold,
-            partialInputs = billsPartial || goalsPartial || BudgetCalculator.missingCurrencies(statuses, rates).isNotEmpty())
-        FinancialSnapshot(day, allAccs, txs, statuses, bills, goals, home, exchange, missing)
+        val home = HomeCalculator.summarize(day, allAccs, txs, rates)
+        val goals = GoalCalculator.progress(commitments.goals, home.savingsRsd, rates)
+        val missing = (active.map { it.currency } + txs.map { it.money.currency } + bills.map { it.rule.money.currency } +
+            commitments.goals.map { it.target.currency }).filter { rates.rate(it) == null }.toSet()
+        FinancialSnapshot(day, allAccs, txs, bills, goals, home, exchange, missing)
     }.flowOn(Dispatchers.Default).let { source ->
         if (sharingScope == null) source else source.shareIn(sharingScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
     }
 
     val home: Flow<HomeSummary> = financial.map { it.home }
-    val budgetStatuses: Flow<List<BudgetStatus>> = financial.map { it.budgets }
     val upcomingBills: Flow<List<Bill>> = financial.map { it.bills }
-    val goalStatuses: Flow<List<GoalStatus>> = financial.map { it.goals }
 
-    private data class FinancialInputs(val day: LocalDate, val accounts: List<Account>, val transactions: List<Transaction>, val budgets: List<Budget>, val rates: ExchangeRateSnapshot)
-    private data class Commitments(val rules: List<RecurringRule>, val skips: Set<Pair<String, String>>, val goals: List<Goal>, val allocations: List<GoalAllocation>)
+    private data class FinancialInputs(val day: LocalDate, val accounts: List<Account>, val transactions: List<Transaction>, val rates: ExchangeRateSnapshot)
+    private data class Commitments(val rules: List<RecurringRule>, val skips: Set<Pair<String, String>>, val goals: List<Goal>)
 
     suspend fun goal(id: String): Goal? = withContext(Dispatchers.IO) { db.goalQueries.byId(id).executeAsOneOrNull()?.toDomain() }
     suspend fun setGoal(goal: Goal) { store.append(GoalSet(goal)) }
     suspend fun archiveGoal(id: String) { store.append(GoalArchived(id)) }
-    suspend fun allocate(allocation: GoalAllocation) { store.append(GoalAllocated(allocation)) }
-    suspend fun deleteAllocation(id: String) { store.append(GoalAllocationDeleted(id)) }
+    suspend fun reorderGoals(ids: List<String>) { store.append(GoalsReordered(ids)) }
 
     suspend fun rule(id: String): RecurringRule? = withContext(Dispatchers.IO) { db.recurringRuleQueries.byId(id).executeAsOneOrNull()?.toDomain() }
     suspend fun setRule(rule: RecurringRule) {
@@ -183,10 +159,6 @@ class BudgetRepository(
     }
     suspend fun archiveRule(id: String) { store.append(RecurringRuleArchived(id)) }
     suspend fun skipBill(ruleId: String, period: String) { store.append(BillSkipped(ruleId, period)) }
-
-    suspend fun setBudget(budget: Budget) { store.append(BudgetSet(budget)) }
-
-    suspend fun removeBudget(categoryId: String, month: YearMonth) { store.append(BudgetRemoved(categoryId, month)) }
 
     suspend fun currentMember(): Member? = withContext(Dispatchers.IO) {
         db.memberQueries.byDevice(deviceId).executeAsOneOrNull()?.toDomain()
@@ -219,7 +191,10 @@ class BudgetRepository(
             }
         }
     }
+
+    /** Allowed with money still in it: the balance leaves savings and goals, its transactions stay in reports. */
     suspend fun archiveAccount(id: String) { store.append(AccountArchived(id)) }
+    suspend fun reorderAccounts(ids: List<String>) { store.append(AccountsReordered(ids)) }
 
     suspend fun renameMember(memberId: String, displayName: String) { store.append(MemberRenamed(memberId, displayName.trim())) }
 
@@ -260,9 +235,7 @@ class BudgetRepository(
     }
     suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
 
-    private fun BudgetRow.toDomain() = Budget(category_id, YearMonth.parse(month), Money.of(amount, Currency.valueOf(currency)))
     private fun GoalRow.toDomain() = Goal(id, name, Money.of(target, Currency.valueOf(currency)), Money.of(monthly, Currency.valueOf(currency)), archived == 1L)
-    private fun AllocationRow.toDomain() = GoalAllocation(id, goal_id, Money.of(amount, Currency.valueOf(currency)), LocalDate.parse(date))
     private fun RuleRow.toDomain() = RecurringRule(
         id, name, Money.of(amount, Currency.valueOf(currency)), account_id, category_id, Cadence.valueOf(cadence), LocalDate.parse(first_due), archived == 1L,
     )

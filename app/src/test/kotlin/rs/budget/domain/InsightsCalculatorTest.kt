@@ -1,6 +1,7 @@
 package rs.budget.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,31 +13,24 @@ class InsightsCalculatorTest {
     private val today = LocalDate.of(2026, 10, 14)
     private val oct = YearMonth.of(2026, 10)
     private val rates = Rates(mapOf(Currency.RSD to BigDecimal.ONE))
-    private val cash = Account("cash", "Cash", Currency.RSD, AccountKind.SPENDING)
-    private val savings = Account("sav", "Savings", Currency.RSD, AccountKind.SAVINGS)
-    private val accounts = listOf(cash, savings)
 
     private fun tx(id: String, amount: String, date: LocalDate, cat: String? = "g", type: TransactionType = TransactionType.EXPENSE, account: String = "cash", to: String? = null, currency: Currency = Currency.RSD) =
         Transaction(id, type, Money.of(amount, currency), account, to, if (type == TransactionType.EXPENSE) cat else null, date, "", "", "m1", TransactionSource.MANUAL)
 
     private fun rsd(s: String) = Money.of(s, Currency.RSD)
 
-    @Test fun `current budget missing rate does not mark historical summary partial`() {
-        val budgets = BudgetCalculator.statuses(today, listOf(Budget("g", oct, Money.of("100", Currency.EUR))), emptyList(), rates)
-        assertTrue(InsightsCalculator.summarize(today, oct, emptyList(), accounts, budgets, rates).partial)
-        org.junit.Assert.assertFalse(InsightsCalculator.summarize(today, oct.minusMonths(1), emptyList(), accounts, budgets, rates).partial)
-    }
-
     @Test
     fun `slices are the top four plus other and shares add up to 100`() {
         val txs = listOf("a" to "300", "b" to "250", "c" to "200", "d" to "150", "e" to "50", "f" to "30").mapIndexed { i, (c, amt) -> tx("$i", amt, today, c) } +
             tx("x", "20", today, cat = null)
-        val s = InsightsCalculator.summarize(today, oct, txs, accounts, emptyList(), rates)
+        val s = InsightsCalculator.summarize(today, oct, txs, rates)
         assertEquals(rsd("1000"), s.spent)
         assertEquals(listOf("a", "b", "c", "d", null), s.slices.map { it.categoryId })
         assertEquals(rsd("100"), s.slices.last().amount)
         assertEquals(100, s.slices.sumOf { it.share })
         assertEquals(listOf(30, 25, 20, 15, 10), s.slices.map { it.share })
+        assertEquals(listOf("x", "5", "4"), InsightsCalculator.drilldown(today, s, s.slices.last(), txs).map { it.id }.sorted().reversed())
+        assertEquals(listOf("0"), InsightsCalculator.drilldown(today, s, s.slices.first(), txs).map { it.id })
     }
 
     @Test
@@ -45,18 +39,19 @@ class InsightsCalculatorTest {
             tx("1", "1000", today, type = TransactionType.INCOME),
             tx("2", "500", today, type = TransactionType.TRANSFER, to = "sav"),
         )
-        val s = InsightsCalculator.summarize(today, oct, txs, accounts, emptyList(), rates)
+        val s = InsightsCalculator.summarize(today, oct, txs, rates)
         assertEquals(rsd("0"), s.spent)
         assertEquals(emptyList<Slice>(), s.slices)
-        val empty = InsightsCalculator.summarize(today, oct, emptyList(), accounts, emptyList(), rates)
+        assertEquals(rsd("0"), s.months.last().expenses)
+        assertTrue(s.changes.isEmpty())
+        val empty = InsightsCalculator.summarize(today, oct, emptyList(), rates)
         assertEquals(6, empty.months.size)
-        assertEquals(6, empty.savings.size)
-        assertEquals(rsd("0"), empty.savingsDelta)
+        assertTrue(empty.changes.isEmpty())
         assertEquals(oct..oct, empty.range)
     }
 
     @Test
-    fun `six month window keeps empty months and flags the month in progress`() {
+    fun `six month window ends at the selected month and keeps empty months`() {
         val txs = listOf(
             tx("1", "100000", LocalDate.of(2026, 5, 1), type = TransactionType.INCOME),
             tx("2", "40000", LocalDate.of(2026, 5, 2)),
@@ -64,68 +59,75 @@ class InsightsCalculatorTest {
             tx("4", "70000", LocalDate.of(2026, 9, 2)),
             tx("5", "1000", today),
         )
-        val s = InsightsCalculator.summarize(today, oct, txs, accounts, emptyList(), rates)
+        val s = InsightsCalculator.summarize(today, oct, txs, rates)
         assertEquals((5..10).map { YearMonth.of(2026, it) }, s.months.map { it.month })
         assertEquals(listOf(false, false, false, false, false, true), s.months.map { it.inProgress })
         assertEquals(rsd("0"), s.months[1].income)
-        assertEquals(rsd("18000"), s.averageSaved)
+        assertEquals(rsd("60000"), s.months[0].difference)
+        assertEquals(rsd("30000"), s.months[4].difference)
         assertEquals(YearMonth.of(2026, 5)..oct, s.range)
-    }
-
-    @Test
-    fun `savings line is cumulative, counts archived savings accounts and ignores spending accounts`() {
-        val old = Account("old", "Old", Currency.RSD, AccountKind.SAVINGS, archived = true)
-        val txs = listOf(
-            tx("1", "500000", LocalDate.of(2026, 1, 10), type = TransactionType.INCOME),
-            tx("2", "10000", LocalDate.of(2026, 6, 5), type = TransactionType.TRANSFER, to = "old"),
-            tx("3", "20000", LocalDate.of(2026, 8, 5), type = TransactionType.TRANSFER, to = "sav"),
-            tx("4", "5000", LocalDate.of(2026, 10, 1), type = TransactionType.TRANSFER, account = "sav", to = "cash"),
-        )
-        val s = InsightsCalculator.summarize(today, oct, txs, accounts + old, emptyList(), rates)
-        assertEquals(listOf("0", "10000", "10000", "30000", "30000", "25000").map(::rsd), s.savings.map { it.second })
-        assertEquals(rsd("25000"), s.savingsDelta)
+        val sep = InsightsCalculator.summarize(today, YearMonth.of(2026, 9), txs, rates)
+        assertEquals((4..9).map { YearMonth.of(2026, it) }, sep.months.map { it.month })
+        assertTrue(sep.months.none { it.inProgress })
     }
 
     @Test
     fun `range clamps a future dated first transaction to the current month`() {
-        val s = InsightsCalculator.summarize(today, oct, listOf(tx("1", "10", LocalDate.of(2026, 12, 1))), accounts, emptyList(), rates)
+        val s = InsightsCalculator.summarize(today, oct, listOf(tx("1", "10", LocalDate.of(2026, 12, 1))), rates)
         assertEquals(oct..oct, s.range)
     }
 
     @Test
-    fun `tip priority is budget, then above average, then saved, and none for past months`() {
-        val status = BudgetStatus("g", rsd("10000"), rsd("9500"), rsd("500"), 0.95, 0.45, PaceState.LOW)
+    fun `current month compares the same elapsed days, top three by absolute change, new spending has no percent`() {
         val txs = listOf(
-            tx("1", "5000", LocalDate.of(2026, 8, 3), "e"),
-            tx("2", "7000", LocalDate.of(2026, 9, 3), "e"),
-            tx("3", "9000", today, "e"),
-            tx("4", "50000", LocalDate.of(2026, 10, 1), type = TransactionType.INCOME),
+            tx("1", "10000", LocalDate.of(2026, 9, 5), "groceries"),
+            tx("2", "50000", LocalDate.of(2026, 9, 20), "groceries"),
+            tx("3", "18000", today, "groceries"),
+            tx("4", "6000", LocalDate.of(2026, 9, 14), "transport"),
+            tx("5", "1000", today, "transport"),
+            tx("6", "3000", today, "new"),
+            tx("7", "100", LocalDate.of(2026, 9, 1), "small"),
+            tx("8", "200", today, "small"),
+            tx("9", "400", LocalDate.of(2026, 9, 3), "same"),
+            tx("10", "400", today, "same"),
         )
-        val budget = InsightsCalculator.summarize(today, oct, txs, accounts, listOf(status), rates).tip as Tip.BudgetNearLimit
-        assertEquals("g", budget.categoryId)
-        assertEquals(95, budget.percent)
-        assertEquals(18, budget.daysLeft)
-        assertEquals(rsd("500"), budget.left)
-        assertNull(budget.average)
-
-        val above = InsightsCalculator.summarize(today, oct, txs, accounts, emptyList(), rates).tip as Tip.AboveAverage
-        assertEquals("e", above.categoryId)
-        assertEquals(rsd("9000"), above.spent)
-        assertEquals(rsd("4000"), above.average)
-
-        val fresh = listOf(tx("5", "9000", today, "n"), txs.last())
-        assertTrue(InsightsCalculator.summarize(today, oct, fresh, accounts, emptyList(), rates).tip is Tip.Saved)
-
-        val saved = InsightsCalculator.summarize(today, oct, txs.take(1) + txs.last(), accounts, emptyList(), rates).tip as Tip.Saved
-        assertEquals(rsd("50000"), saved.saved)
-
-        assertNull(InsightsCalculator.summarize(today, YearMonth.of(2026, 9), txs, accounts, listOf(status), rates).tip)
+        val s = InsightsCalculator.summarize(today, oct, txs, rates)
+        assertEquals(14, s.comparedDays)
+        assertEquals(listOf("groceries", "transport", "new"), s.changes.map { it.categoryId })
+        assertEquals(rsd("8000"), s.changes[0].delta)
+        assertEquals(80, s.changes[0].percent)
+        assertEquals(rsd("-5000"), s.changes[1].delta)
+        assertEquals(-83, s.changes[1].percent)
+        assertNull(s.changes[2].percent)
+        assertFalse(s.changesPartial)
     }
 
     @Test
-    fun `amounts without a rate are skipped and flagged`() {
-        val s = InsightsCalculator.summarize(today, oct, listOf(tx("1", "10", today, currency = Currency.EUR)), accounts, emptyList(), rates)
-        assertTrue(s.partial)
+    fun `completed months compare whole months and partial comparison clamps to a shorter month`() {
+        val txs = listOf(
+            tx("1", "100", LocalDate.of(2026, 8, 31), "a"),
+            tx("2", "300", LocalDate.of(2026, 9, 30), "a"),
+        )
+        val sep = InsightsCalculator.summarize(today, YearMonth.of(2026, 9), txs, rates)
+        assertNull(sep.comparedDays)
+        assertEquals(rsd("200"), sep.changes.single().delta)
+
+        val march31 = LocalDate.of(2027, 3, 31)
+        val leap = listOf(tx("3", "500", LocalDate.of(2027, 2, 28), "a"), tx("4", "100", march31, "a"))
+        val march = InsightsCalculator.summarize(march31, YearMonth.of(2027, 3), leap, rates)
+        assertEquals(rsd("-400"), march.changes.single().delta)
+        val jan = InsightsCalculator.summarize(LocalDate.of(2027, 1, 2), YearMonth.of(2027, 1), listOf(tx("5", "50", LocalDate.of(2026, 12, 2), "a"), tx("6", "60", LocalDate.of(2026, 12, 3), "a")), rates)
+        assertEquals(rsd("-50"), jan.changes.single().delta)
+    }
+
+    @Test
+    fun `amounts without a rate are skipped and flagged per section`() {
+        val s = InsightsCalculator.summarize(today, oct, listOf(tx("1", "10", today, currency = Currency.EUR), tx("2", "10", LocalDate.of(2026, 5, 1), currency = Currency.EUR)), rates)
+        assertTrue(s.spendingPartial)
+        assertTrue(s.monthsPartial)
+        assertTrue(s.changesPartial)
         assertEquals(rsd("0"), s.spent)
+        val may = InsightsCalculator.summarize(today, YearMonth.of(2026, 3), listOf(tx("2", "10", LocalDate.of(2026, 5, 1), currency = Currency.EUR)), rates)
+        assertFalse(may.spendingPartial)
     }
 }

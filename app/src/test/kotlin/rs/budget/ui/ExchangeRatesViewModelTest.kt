@@ -19,9 +19,9 @@ import rs.budget.data.db.BudgetDb
 import rs.budget.data.rates.*
 import rs.budget.domain.*
 import rs.budget.ui.home.HomeViewModel
-import rs.budget.ui.budgets.BudgetsViewModel
 import rs.budget.ui.goals.GoalsViewModel
 import rs.budget.ui.insights.InsightsViewModel
+import rs.budget.ui.settings.AccountsViewModel
 import rs.budget.ui.settings.ExchangeRatesViewModel
 import java.math.BigDecimal
 import java.time.Instant
@@ -66,12 +66,11 @@ class ExchangeRatesViewModelTest {
         add("savings", TransactionType.INCOME, "100", "save")
         add("expense", TransactionType.EXPENSE, "10", "spend")
         add("old", TransactionType.EXPENSE, "3", "spend", true)
-        repo.setBudget(Budget("cat-groceries", YearMonth.from(clock.today()), Money.of("100", Currency.EUR)))
         repo.setRule(RecurringRule("bill", "Bill", Money.of("20", Currency.EUR), "spend", "cat-bills", Cadence.MONTHLY, clock.today().plusDays(5)))
-        repo.setGoal(Goal("goal", "Goal", Money.of("100", Currency.EUR), Money.of("5", Currency.EUR)))
+        repo.setGoal(Goal("goal", "Goal", Money.of("2000", Currency.RSD)))
         val original = db.txQueries.all().executeAsList()
         val home = HomeViewModel(repo, clock)
-        val budgets = BudgetsViewModel(repo, clock)
+        val accounts = AccountsViewModel(repo)
         val goals = GoalsViewModel(repo, clock)
         val insights = InsightsViewModel(repo, clock)
         fun <T : Any> observe(state: StateFlow<T?>, verify: (T) -> Unit): Channel<T> {
@@ -82,25 +81,25 @@ class ExchangeRatesViewModelTest {
             return channel
         }
         fun expected(amount: String, status: RateStatus) = Money.of(BigDecimal(amount).multiply(status.snapshot.rates.rate(Currency.EUR) ?: BigDecimal.ZERO), Currency.RSD)
+        fun known(status: RateStatus) = status.snapshot.rates.rate(Currency.EUR) != null
         val homes = observe(home.state) { s ->
-            assertEquals(expected("872", s.rateStatus), s.summary.safeToSpend)
-            assertEquals(expected("10", s.rateStatus), s.budgetSpent)
-            assertEquals(expected("100", s.rateStatus), s.budgetTotal)
+            if (known(s.rateStatus)) {
+                assertEquals(expected("1087", s.rateStatus), s.summary.savingsRsd)
+                assertEquals(Money.of("1087", Currency.EUR), s.summary.savingsEur)
+                assertEquals(expected("1090", s.rateStatus), s.summary.difference)
+            } else assertNull(s.summary.savingsRsd)
         }
-        val budgetStates = observe(budgets.state) { s ->
-            assertEquals(expected("10", s.rateStatus), s.spent)
-            assertEquals(expected("100", s.rateStatus), s.total)
-            assertEquals(expected("20", s.rateStatus), s.upcomingTotal)
+        val accountStates = observe(accounts.state) { s ->
+            assertEquals(listOf(Money.of("987", Currency.EUR), Money.of("100", Currency.EUR)), s.accounts.map { it.balance })
         }
         val goalStates = observe(goals.state) { s ->
-            assertEquals(expected("100", s.rateStatus), s.savingsTotal)
-            assertEquals(expected("5", s.rateStatus), s.needs)
+            assertEquals(if (known(s.rateStatus)) Money.of("2000", Currency.RSD) else null, s.goals.single().funded)
         }
         val insightStates = observe(insights.state) { s ->
             assertEquals(expected(if (s.summary.month == YearMonth.from(clock.today())) "10" else "3", s.rateStatus), s.summary.spent)
         }
-        assertTrue(homes.receive().summary.partial)
-        assertEquals(setOf(Currency.EUR), budgetStates.receive().rateStatus.missing)
+        assertTrue(homes.receive().summary.monthPartial)
+        assertEquals(setOf(Currency.EUR), accountStates.receive().rateStatus.missing)
         goalStates.receive()
         insightStates.receive()
         suspend fun <T> awaitRate(channel: Channel<T>, rate: BigDecimal, status: (T) -> RateStatus) {
@@ -111,7 +110,7 @@ class ExchangeRatesViewModelTest {
             when (rate) { "120", "119" -> rates.setOverride(Currency.EUR, rate); "117" -> rates.setOverride(Currency.EUR, null) }
             val decimal = rate.toBigDecimal()
             awaitRate(homes, decimal) { it.rateStatus }
-            awaitRate(budgetStates, decimal) { it.rateStatus }
+            awaitRate(accountStates, decimal) { it.rateStatus }
             awaitRate(goalStates, decimal) { it.rateStatus }
             awaitRate(insightStates, decimal) { it.rateStatus }
         }

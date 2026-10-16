@@ -18,6 +18,7 @@ import rs.budget.data.DuplicateReceipt
 import rs.budget.data.InvalidReceiptAccount
 import rs.budget.data.InvalidReceiptCategory
 import rs.budget.data.StarterCategories
+import rs.budget.data.TransactionAccountStore
 import rs.budget.domain.Account
 import rs.budget.domain.Bill
 import rs.budget.domain.BillCalculator
@@ -53,7 +54,7 @@ data class AddState(
     val bill: Bill? = null,
 ) {
     val canSave: Boolean get() = !saving && !saved && amount.value != null && accountId != null && error == null &&
-        accounts.any { it.id == accountId && it.currency == currency } &&
+        accounts.any { it.id == accountId && !it.archived && it.currency == currency } &&
         (receipt == null || currency == Currency.RSD) &&
         (type != TransactionType.EXPENSE || categoryId == null || categories.any { it.id == categoryId }) &&
         (type != TransactionType.TRANSFER || toAccountId != null)
@@ -64,9 +65,11 @@ class AddViewModel @Inject constructor(
     private val repo: BudgetRepository,
     private val clock: Clock,
     savedState: SavedStateHandle,
+    private val transactionAccounts: TransactionAccountStore = TransactionAccountStore({ null }, { _, _ -> }),
 ) : ViewModel() {
     private val _state = MutableStateFlow(AddState(date = clock.today()))
     val state: StateFlow<AddState> = _state
+    private val accountChoices = mutableMapOf<TransactionType, String>()
 
     init {
         viewModelScope.launch {
@@ -81,6 +84,7 @@ class AddViewModel @Inject constructor(
                         amount = AmountInput(rule.money.amount.stripTrailingZeros().toPlainString()),
                         categoryId = rule.categoryId,
                         accountId = rule.accountId,
+                        currency = rule.money.currency,
                         date = clock.today(),
                         merchant = rule.name,
                         bill = Bill(rule, due, period, billTxId(rule.id, period), overdue = due < clock.today()),
@@ -91,29 +95,36 @@ class AddViewModel @Inject constructor(
                 val memberName = repo.currentMember()?.displayName.orEmpty()
                 val sortedCategories = categories.sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } }
                 _state.update { s ->
-                    val account = s.accountId ?: accounts.firstOrNull { s.receipt == null || it.currency == Currency.RSD }?.id
-                    s.copy(categoryId = if (s.receipt == null && s.bill == null && s.categoryId != null && categories.none { it.id == s.categoryId }) sortedCategories.firstOrNull()?.id else s.categoryId,
-                        paidByName = memberName, accounts = accounts, categories = sortedCategories, accountId = account,
-                        currency = accounts.firstOrNull { it.id == account }?.currency ?: s.currency)
+                    selectAccount(s.copy(categoryId = if (s.receipt == null && s.bill == null && s.categoryId != null && categories.none { it.id == s.categoryId }) sortedCategories.firstOrNull()?.id else s.categoryId,
+                        paidByName = memberName, accounts = accounts, categories = sortedCategories))
                 }
             }
         }
     }
 
-    fun setType(type: TransactionType) = _state.update { if (it.bill != null || it.receipt != null) it else validate(it.copy(type = type, toAccountId = null)) }
-
-    fun prefillReceipt(receipt: Receipt, categoryId: String?) = _state.update { s ->
-        if (s.receipt?.id == receipt.id) s else s.copy(
-            type = TransactionType.EXPENSE, amount = AmountInput(receipt.total.amount.toPlainString()),
-            currency = Currency.RSD, categoryId = categoryId,
-            accountId = s.accounts.firstOrNull { it.currency == Currency.RSD }?.id, toAccountId = null,
-            date = receipt.date, merchant = receipt.merchant, receipt = receipt, bill = null,
-            saved = false, saving = false, error = null, saveError = null,
+    fun setType(type: TransactionType) = _state.update { s ->
+        if (s.bill != null || s.receipt != null || s.type == type) s else selectAccount(
+            s.copy(type = type, toAccountId = null),
+            if (type == TransactionType.TRANSFER) s.accountId else accountChoices[type],
         )
     }
 
-    fun resetReceipt() = _state.update { s ->
-        if (s.saving) s else AddState(date = clock.today(), accounts = s.accounts, categories = s.categories, paidByName = s.paidByName)
+    fun prefillReceipt(receipt: Receipt, categoryId: String?) = _state.update { s ->
+        if (s.receipt?.id == receipt.id) s else selectAccount(s.copy(
+            type = TransactionType.EXPENSE, amount = AmountInput(receipt.total.amount.toPlainString()),
+            currency = Currency.RSD, categoryId = categoryId,
+            accountId = null, toAccountId = null,
+            date = receipt.date, merchant = receipt.merchant, receipt = receipt, bill = null,
+            saved = false, saving = false, error = null, saveError = null,
+        ), accountChoices[TransactionType.EXPENSE])
+    }
+
+    fun resetReceipt() {
+        if (_state.value.saving) return
+        accountChoices.clear()
+        _state.update { s ->
+            selectAccount(AddState(date = clock.today(), accounts = s.accounts, categories = s.categories, paidByName = s.paidByName))
+        }
     }
 
     fun skip() {
@@ -137,8 +148,11 @@ class AddViewModel @Inject constructor(
     fun setDate(date: LocalDate) = _state.update { if (it.bill != null) it else it.copy(date = date) }
     fun setMerchant(text: String) = _state.update { it.copy(merchant = text) }
 
-    fun setAccount(id: String) = _state.update { s ->
-        validate(s.copy(accountId = id, currency = s.accounts.firstOrNull { it.id == id }?.currency ?: s.currency))
+    fun setAccount(id: String) {
+        accountChoices[_state.value.type] = id
+        _state.update { s ->
+            validate(s.copy(accountId = id, currency = s.accounts.firstOrNull { it.id == id }?.currency ?: s.currency))
+        }
     }
 
     fun setToAccount(id: String) = _state.update { validate(it.copy(toAccountId = id)) }
@@ -147,15 +161,16 @@ class AddViewModel @Inject constructor(
         val s = _state.value
         val amount = s.amount.value ?: return
         if (!s.canSave) return
+        val accountId = requireNotNull(s.accountId)
         _state.update { it.copy(saving = true, saveError = null) }
         viewModelScope.launch {
             try {
-            val member = requireNotNull(repo.currentMember())
-            val transaction = Transaction(
+                val member = requireNotNull(repo.currentMember())
+                val transaction = Transaction(
                     id = s.receipt?.transactionId ?: s.bill?.txId ?: newId(),
                     type = s.type,
                     money = Money.of(amount, s.currency),
-                    accountId = s.accountId!!,
+                    accountId = accountId,
                     toAccountId = if (s.type == TransactionType.TRANSFER) s.toAccountId else null,
                     categoryId = if (s.type == TransactionType.EXPENSE) s.categoryId else null,
                     date = if (s.bill != null) clock.today() else s.date,
@@ -168,8 +183,7 @@ class AddViewModel @Inject constructor(
                         else -> TransactionSource.MANUAL
                     },
                 )
-            if (s.receipt != null) repo.addReceipt(transaction, s.receipt) else repo.add(transaction)
-            _state.update { it.copy(saved = true, saving = false) }
+                if (s.receipt != null) repo.addReceipt(transaction, s.receipt) else repo.add(transaction)
             } catch (e: CancellationException) {
                 _state.update { it.copy(saving = false) }
                 throw e
@@ -181,8 +195,27 @@ class AddViewModel @Inject constructor(
                     else -> R.string.add_save_failed
                 }
                 _state.update { it.copy(saving = false, saveError = message) }
+                return@launch
+            }
+            _state.update { it.copy(saved = true, saving = false) }
+            try {
+                transactionAccounts.remember(s.type, accountId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Retrying a persisted transaction would duplicate it when only the device preference failed.
             }
         }
+    }
+
+    private fun selectAccount(s: AddState, preferredId: String? = s.accountId): AddState {
+        val eligible = s.accounts.filter { !it.archived && (s.receipt == null || it.currency == Currency.RSD) }
+        val account = eligible.firstOrNull { it.id == preferredId }
+            ?: if (s.bill != null) null else {
+                transactionAccounts.lastUsed(s.type)?.let { id -> eligible.firstOrNull { it.id == id } }
+                    ?: eligible.firstOrNull()
+            }
+        return validate(s.copy(accountId = account?.id, currency = account?.currency ?: s.currency))
     }
 
     private fun validate(s: AddState): AddState {

@@ -1,15 +1,11 @@
 package rs.budget.domain
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.math.BigDecimal
 import java.time.LocalDate
 
 class BillCalculatorTest {
     private val today = LocalDate.of(2026, 10, 14)
-    private val rates = Rates(mapOf(Currency.RSD to BigDecimal.ONE, Currency.EUR to BigDecimal("117.00")))
     private val accounts = setOf("cash")
 
     private fun rule(id: String, amount: String, firstDue: LocalDate, cadence: Cadence = Cadence.MONTHLY, category: String = "cat-bills", account: String = "cash", currency: Currency = Currency.RSD) =
@@ -17,10 +13,6 @@ class BillCalculatorTest {
 
     private fun paid(bill: Bill) = Transaction(
         bill.txId, TransactionType.EXPENSE, bill.rule.money, bill.rule.accountId, null, bill.rule.categoryId, bill.dueDate, "", bill.rule.name, "m1", TransactionSource.RECURRING,
-    )
-
-    private fun status(category: String, budget: String, spent: String) = BudgetStatus(
-        category, Money.of(budget, Currency.RSD), Money.of(spent, Currency.RSD), Money.of(budget, Currency.RSD) - Money.of(spent, Currency.RSD), 0.0, 0.0, PaceState.ON_TRACK,
     )
 
     @Test
@@ -70,35 +62,5 @@ class BillCalculatorTest {
         val archivedRule = rule("a", "100", LocalDate.of(2026, 10, 5)).copy(archived = true)
         val goneAccount = rule("b", "100", LocalDate.of(2026, 10, 5), account = "old")
         assertEquals(emptyList<Bill>(), BillCalculator.upcoming(today, listOf(archivedRule, goneAccount), accounts, emptyList(), emptySet()))
-    }
-
-    @Test
-    fun `reserve counts overdue in full and only the uncovered part this month`() {
-        val rent = rule("rent", "40000", LocalDate.of(2026, 9, 1), category = "cat-bills")
-        val net = rule("net", "3000", LocalDate.of(2026, 10, 25), category = "cat-fun")
-        val bills = BillCalculator.upcoming(today, listOf(rent, net), accounts, emptyList(), emptySet())
-        val (held, partial) = BillCalculator.reserve(today, bills, listOf(status("cat-bills", "50000", "15000")), rates)
-        assertEquals(Money.of("48000", Currency.RSD), held)
-        assertFalse(partial)
-    }
-
-    @Test
-    fun `reserve floors at zero per category and counts an exhausted budget in full`() {
-        val rent = rule("rent", "10000", LocalDate.of(2026, 10, 20), category = "cat-bills")
-        val bills = BillCalculator.upcoming(today, listOf(rent), accounts, emptyList(), emptySet())
-        val (covered, _) = BillCalculator.reserve(today, bills, listOf(status("cat-bills", "50000", "0")), rates)
-        assertEquals(Money.zero(Currency.RSD), covered)
-        val (exhausted, _) = BillCalculator.reserve(today, bills, listOf(status("cat-bills", "10000", "12000")), rates)
-        assertEquals(Money.of("10000", Currency.RSD), exhausted)
-    }
-
-    @Test
-    fun `reserve converts and flags currencies without a rate`() {
-        val eur = rule("eur", "10", LocalDate.of(2026, 10, 20), currency = Currency.EUR)
-        val usd = rule("usd", "10", LocalDate.of(2026, 10, 21), currency = Currency.USD)
-        val bills = BillCalculator.upcoming(today, listOf(eur, usd), accounts, emptyList(), emptySet())
-        val (held, partial) = BillCalculator.reserve(today, bills, emptyList(), rates)
-        assertEquals(Money.of("1170", Currency.RSD), held)
-        assertTrue(partial)
     }
 }

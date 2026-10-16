@@ -65,17 +65,12 @@ fun EditGoalScreen(onClose: () -> Unit, vm: EditGoalViewModel = hiltViewModel())
             FieldBox(stringResource(R.string.goal_name), s.name, vm::setName)
 
             Text(stringResource(R.string.goal_currency), style = LabelStyle, color = c.muted)
-            if (s.currencyLocked) {
-                Text(s.currency.name, style = mono(15), color = c.text)
-                Text(stringResource(R.string.goal_currency_locked), style = LabelStyle, color = c.muted)
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Currency.entries.forEach { cur -> CurrencyPill(cur.name, s.currency == cur) { vm.setCurrency(cur) } }
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Currency.entries.forEach { cur -> CurrencyPill(cur.name, s.currency == cur) { vm.setCurrency(cur) } }
             }
 
             AmountField(stringResource(R.string.goal_target), s.targetText, s.currency, vm::setTarget)
-            AmountField(stringResource(R.string.goal_monthly), s.monthlyText, s.currency, vm::setMonthly)
+            Text(stringResource(R.string.goal_fill_hint), style = LabelStyle, color = c.muted)
 
             if (s.editing) {
                 Spacer(Modifier.size(6.dp))
@@ -95,7 +90,7 @@ fun EditGoalScreen(onClose: () -> Unit, vm: EditGoalViewModel = hiltViewModel())
 }
 
 @Composable
-internal fun AmountField(label: String, value: String, currency: Currency, onChange: (String) -> Unit) {
+private fun AmountField(label: String, value: String, currency: Currency, onChange: (String) -> Unit) {
     val c = LocalColors.current
     Text(label, style = LabelStyle, color = c.muted)
     OutlinedBox(Modifier.fillMaxWidth(), radius = 14, padding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)) {

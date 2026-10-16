@@ -7,12 +7,16 @@ import java.time.YearMonth
 
 data class Slice(val categoryId: String?, val amount: Money, val share: Int)
 
-data class MonthTotals(val month: YearMonth, val income: Money, val expenses: Money, val inProgress: Boolean)
+data class MonthTotals(val month: YearMonth, val income: Money, val expenses: Money, val inProgress: Boolean) {
+    val difference: Money get() = income - expenses
+}
 
-sealed interface Tip {
-    data class BudgetNearLimit(val categoryId: String, val percent: Int, val daysLeft: Int, val left: Money, val average: Money?) : Tip
-    data class AboveAverage(val categoryId: String, val spent: Money, val average: Money) : Tip
-    data class Saved(val saved: Money, val average: Money) : Tip
+data class CategoryChange(val categoryId: String?, val current: Money, val previous: Money) {
+    val delta: Money get() = current - previous
+
+    /** Null when nothing was spent before: shown as new spending rather than an infinite percentage. */
+    val percent: Int? get() = if (previous.isZero) null else
+        delta.amount.multiply(BigDecimal(100)).divide(previous.amount, 0, RoundingMode.HALF_UP).toInt()
 }
 
 data class InsightsSummary(
@@ -20,59 +24,68 @@ data class InsightsSummary(
     val range: ClosedRange<YearMonth>,
     val spent: Money,
     val slices: List<Slice>,
+    val spendingPartial: Boolean,
     val months: List<MonthTotals>,
-    val averageSaved: Money,
-    val savings: List<Pair<YearMonth, Money>>,
-    val savingsDelta: Money,
-    val tip: Tip?,
-    val partial: Boolean,
+    val monthsPartial: Boolean,
+    val changes: List<CategoryChange>,
+    /** Days compared from the start of each month while [month] is in progress; null when whole months are compared. */
+    val comparedDays: Int?,
+    val changesPartial: Boolean,
 )
 
 object InsightsCalculator {
     private const val WINDOW = 6
     private const val TOP = 4
+    private const val CHANGES = 3
 
-    fun summarize(
-        today: LocalDate,
-        month: YearMonth,
-        transactions: List<Transaction>,
-        accounts: List<Account>,
-        statuses: List<BudgetStatus>,
-        rates: Rates,
-    ): InsightsSummary {
+    private class Converter(private val rates: Rates) {
+        var partial = false
+        fun sum(list: List<Transaction>): Money =
+            list.fold(Money.zero(Currency.RSD)) { acc, t -> acc + (rates.convert(t.money) ?: Money.zero(Currency.RSD).also { partial = true }) }
+    }
+
+    fun summarize(today: LocalDate, month: YearMonth, transactions: List<Transaction>, rates: Rates): InsightsSummary {
         val posted = transactions.filter { it.date <= today }
-        var partial = month == YearMonth.from(today) && BudgetCalculator.missingCurrencies(statuses, rates).isNotEmpty()
-        fun rsd(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
-        fun sum(list: List<Transaction>) = list.fold(Money.zero(Currency.RSD)) { acc, t -> acc + rsd(t.money) }
-
         val current = YearMonth.from(today)
         val first = posted.minOfOrNull { YearMonth.from(it.date) }?.coerceAtMost(current) ?: current
-        val range = first..current
-
         val expenses = posted.filter { it.type == TransactionType.EXPENSE }
+
+        val spending = Converter(rates)
         val thisMonth = expenses.filter { YearMonth.from(it.date) == month }
-        val spent = sum(thisMonth)
-        val slices = slices(thisMonth.groupBy { it.categoryId }.mapValues { (_, list) -> sum(list) }, spent)
+        val spent = spending.sum(thisMonth)
+        val slices = slices(thisMonth.groupBy { it.categoryId }.mapValues { (_, list) -> spending.sum(list) }, spent)
 
-        val window = (WINDOW - 1 downTo 0).map { month.minusMonths(it.toLong()) }
-        val months = window.map { m ->
+        val totals = Converter(rates)
+        val months = (WINDOW - 1 downTo 0).map { month.minusMonths(it.toLong()) }.map { m ->
             val inMonth = posted.filter { YearMonth.from(it.date) == m }
-            MonthTotals(m, sum(inMonth.filter { it.type == TransactionType.INCOME }), sum(inMonth.filter { it.type == TransactionType.EXPENSE }), inProgress = m == current)
+            MonthTotals(m, totals.sum(inMonth.filter { it.type == TransactionType.INCOME }), totals.sum(inMonth.filter { it.type == TransactionType.EXPENSE }), m == current)
         }
-        val completed = months.filter { !it.inProgress }
-        val averageSaved = if (completed.isEmpty()) Money.zero(Currency.RSD) else
-            Money.of(completed.fold(BigDecimal.ZERO) { acc, t -> acc + (t.income - t.expenses).amount }.divide(BigDecimal(completed.size), 2, RoundingMode.HALF_UP), Currency.RSD)
 
-        val savingsIds = accounts.filter { it.kind == AccountKind.SAVINGS }.map { it.id }.toSet()
-        val savings = window.map { m ->
-            val end = m.atEndOfMonth()
-            val balances = HomeCalculator.balances(accounts, posted.filter { it.date <= end })
-            m to balances.filterKeys { it in savingsIds }.values.fold(Money.zero(Currency.RSD)) { acc, b -> acc + rsd(b) }
-        }
-        val savingsDelta = savings.last().second - savings.first().second
+        // A month in progress is compared with the same number of days of the month before, clamped to its length.
+        val comparedDays = if (month == current) today.dayOfMonth else null
+        val previous = month.minusMonths(1)
+        val previousEnd = comparedDays?.let { previous.atDay(minOf(it, previous.lengthOfMonth())) } ?: previous.atEndOfMonth()
+        val changing = Converter(rates)
+        val now = thisMonth.groupBy { it.categoryId }.mapValues { (_, list) -> changing.sum(list) }
+        val before = expenses.filter { YearMonth.from(it.date) == previous && it.date <= previousEnd }
+            .groupBy { it.categoryId }.mapValues { (_, list) -> changing.sum(list) }
+        val zero = Money.zero(Currency.RSD)
+        val changes = (now.keys + before.keys)
+            .map { CategoryChange(it, now[it] ?: zero, before[it] ?: zero) }
+            .filterNot { it.delta.isZero }
+            .sortedWith(compareByDescending<CategoryChange> { it.delta.amount.abs() }.thenBy { it.categoryId ?: "" })
+            .take(CHANGES)
 
-        val tip = if (month == current) tip(today, month, expenses, statuses, months.last(), averageSaved, ::rsd) else null
-        return InsightsSummary(month, range, spent, slices, months, averageSaved, savings, savingsDelta, tip, partial)
+        return InsightsSummary(month, first..current, spent, slices, spending.partial, months, totals.partial, changes, comparedDays, changing.partial)
+    }
+
+    /** Posted expenses behind [slice]; the unnamed slice holds everything outside the named ones. */
+    fun drilldown(today: LocalDate, summary: InsightsSummary, slice: Slice, transactions: List<Transaction>): List<Transaction> {
+        val named = summary.slices.mapNotNull { it.categoryId }.toSet()
+        return transactions
+            .filter { it.date <= today && it.type == TransactionType.EXPENSE && YearMonth.from(it.date) == summary.month }
+            .filter { if (slice.categoryId != null) it.categoryId == slice.categoryId else it.categoryId !in named }
+            .sortedWith(compareByDescending<Transaction> { it.date }.thenByDescending { it.id })
     }
 
     private fun slices(byCategory: Map<String?, Money>, total: Money): List<Slice> {
@@ -85,35 +98,5 @@ object InsightsCalculator {
         // Rounding can leave the shares at 99 or 101; the largest slice absorbs the difference so the legend adds up.
         val drift = 100 - slices.sumOf { it.share }
         return slices.mapIndexed { i, s -> if (i == 0) s.copy(share = s.share + drift) else s }
-    }
-
-    private fun tip(
-        today: LocalDate,
-        month: YearMonth,
-        expenses: List<Transaction>,
-        statuses: List<BudgetStatus>,
-        thisMonth: MonthTotals,
-        averageSaved: Money,
-        rsd: (Money) -> Money,
-    ): Tip {
-        val daysLeft = month.lengthOfMonth() - today.dayOfMonth + 1
-        fun averageOf(categoryId: String?): Money? {
-            val previous = (1..3).map { month.minusMonths(it.toLong()) }
-            val sums = previous.map { m -> expenses.filter { it.categoryId == categoryId && YearMonth.from(it.date) == m }.fold(Money.zero(Currency.RSD)) { a, t -> a + rsd(t.money) } }
-            if (sums.all { it.isZero }) return null
-            return Money.of(sums.fold(BigDecimal.ZERO) { a, m -> a + m.amount }.divide(BigDecimal(sums.size), 2, RoundingMode.HALF_UP), Currency.RSD)
-        }
-
-        statuses.filter { it.ratio >= 0.9 }.maxByOrNull { it.ratio }?.let { s ->
-            val average = averageOf(s.categoryId)?.takeIf { rsd(s.spent).amount > it.amount }
-            return Tip.BudgetNearLimit(s.categoryId, (s.ratio * 100).toInt(), daysLeft, rsd(s.left), average)
-        }
-        expenses.filter { YearMonth.from(it.date) == month && it.categoryId != null }
-            .groupBy { it.categoryId!! }
-            .mapValues { (_, list) -> list.fold(Money.zero(Currency.RSD)) { a, t -> a + rsd(t.money) } }
-            .mapNotNull { (id, spent) -> averageOf(id)?.takeIf { spent.amount > it.amount }?.let { Tip.AboveAverage(id, spent, it) } }
-            .maxByOrNull { (it.spent - it.average).amount }
-            ?.let { return it }
-        return Tip.Saved(thisMonth.income - thisMonth.expenses, averageSaved)
     }
 }

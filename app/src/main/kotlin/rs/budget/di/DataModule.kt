@@ -17,6 +17,7 @@ import rs.budget.data.EventStore
 import rs.budget.data.Projector
 import rs.budget.data.SystemClock
 import rs.budget.data.ThemeStore
+import rs.budget.data.TransactionAccountStore
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.deviceId
 import rs.budget.data.receipt.FiscalReceiptClient
@@ -57,6 +58,9 @@ object DataModule {
 
     @Provides @Singleton
     fun themeStore(@ApplicationContext context: Context): ThemeStore = ThemeStore.fromPreferences(context)
+
+    @Provides @Singleton
+    fun transactionAccountStore(@ApplicationContext context: Context): TransactionAccountStore = TransactionAccountStore.fromPreferences(context)
 
     @Provides @Singleton
     fun repository(@ApplicationContext context: Context, db: BudgetDb, clock: Clock): BudgetRepository {

@@ -1,6 +1,7 @@
 package rs.budget.ui.insights
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,24 +12,31 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.LocalColors
+import rs.budget.ui.theme.sans
+import kotlin.math.floor
+import kotlin.math.log10
+import kotlin.math.pow
 
 @Composable
 fun Donut(slices: List<Pair<Color, Float>>, description: String, modifier: Modifier = Modifier) {
     val c = LocalColors.current
-    val stroke = with(LocalDensity.current) { 18.dp.toPx() }
+    val stroke = with(LocalDensity.current) { 22.dp.toPx() }
     Canvas(modifier.semantics { contentDescription = description }) {
         val inset = stroke / 2
         val arcSize = Size(size.width - stroke, size.height - stroke)
@@ -43,67 +51,65 @@ fun Donut(slices: List<Pair<Color, Float>>, description: String, modifier: Modif
     }
 }
 
-data class BarPair(val label: String, val income: Float, val expenses: Float, val faded: Boolean)
+data class BarGroup(val label: String, val income: Float, val expenses: Float, val description: String)
 
-@Composable
-fun BarPairs(items: List<BarPair>, incomeColor: Color, expenseColor: Color, description: String, modifier: Modifier = Modifier) {
-    val max = items.maxOfOrNull { maxOf(it.income, it.expenses) }?.takeIf { it > 0f } ?: 0f
-    Column(modifier.semantics { contentDescription = description }) {
-        Canvas(Modifier.fillMaxWidth().height(130.dp)) {
-            if (items.isEmpty() || max == 0f) return@Canvas
-            val slot = size.width / items.size
-            val bar = (slot * 0.22f).coerceAtMost(14.dp.toPx())
-            val gap = 4.dp.toPx()
-            val radius = androidx.compose.ui.geometry.CornerRadius(bar / 2, bar / 2)
-            items.forEachIndexed { i, it ->
-                val center = slot * i + slot / 2
-                val alpha = if (it.faded) 0.45f else 1f
-                fun draw(value: Float, color: Color, x: Float) {
-                    val h = size.height * (value / max)
-                    if (h > 0f) drawRoundRect(color.copy(alpha = alpha), Offset(x, size.height - h), Size(bar, h), radius)
-                }
-                draw(it.income, incomeColor, center - gap / 2 - bar)
-                draw(it.expenses, expenseColor, center + gap / 2)
-            }
-        }
-        AxisLabels(items.map { it.label })
-    }
+/** Rounds up to 1, 2, 2.5 or 5 times a power of ten so the axis reads in round numbers. */
+fun niceMax(value: Float): Float {
+    if (value <= 0f) return 1f
+    val magnitude = 10f.pow(floor(log10(value)))
+    return listOf(1f, 2f, 2.5f, 5f, 10f).map { it * magnitude }.first { it >= value }
 }
 
+/** Each month is its own tap target so TalkBack and touch both reach it; [axis] runs top to bottom. */
 @Composable
-fun TrendLine(points: List<Pair<String, Float>>, color: Color, description: String, modifier: Modifier = Modifier) {
-    Column(modifier.semantics { contentDescription = description }) {
-        Canvas(Modifier.fillMaxWidth().height(110.dp)) {
-            if (points.size < 2) return@Canvas
-            val min = points.minOf { it.second }
-            val max = points.maxOf { it.second }
-            val span = (max - min).takeIf { it > 0f } ?: 1f
-            val dot = 5.dp.toPx()
-            val stepX = (size.width - dot * 2) / (points.size - 1)
-            fun y(v: Float) = dot + (size.height - dot * 2) * (1f - (v - min) / span)
-            val line = Path()
-            points.forEachIndexed { i, (_, v) ->
-                val x = dot + stepX * i
-                if (i == 0) line.moveTo(x, y(v)) else line.lineTo(x, y(v))
-            }
-            val area = Path().apply {
-                addPath(line)
-                lineTo(dot + stepX * (points.size - 1), size.height)
-                lineTo(dot, size.height)
-                close()
-            }
-            drawPath(area, color.copy(alpha = 0.15f))
-            drawPath(line, color, style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round))
-            drawCircle(color, dot, Offset(dot + stepX * (points.size - 1), y(points.last().second)))
-        }
-        AxisLabels(points.map { it.first })
-    }
-}
-
-@Composable
-private fun AxisLabels(labels: List<String>) {
+fun BarChart(
+    groups: List<BarGroup>,
+    max: Float,
+    axis: List<String>,
+    selected: Int?,
+    emphasized: Int,
+    onSelect: (Int) -> Unit,
+    incomeColor: Color,
+    expenseColor: Color,
+    modifier: Modifier = Modifier,
+) {
     val c = LocalColors.current
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        labels.forEach { Text(it, style = CaptionStyle, color = c.muted, textAlign = TextAlign.Center, modifier = Modifier.weight(1f)) }
+    val chartHeight = 150.dp
+    Row(modifier.fillMaxWidth()) {
+        Column(Modifier.height(chartHeight).padding(end = 6.dp), verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.End) {
+            axis.forEach { Text(it, style = CaptionStyle, color = c.muted) }
+        }
+        groups.forEachIndexed { i, g ->
+            val active = i == selected
+            Column(
+                Modifier.weight(1f)
+                    .semantics { contentDescription = g.description; this.selected = active }
+                    .clickable(role = Role.Button) { onSelect(i) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Canvas(Modifier.fillMaxWidth().height(chartHeight)) {
+                    if (active) drawRoundRect(c.primary.copy(alpha = 0.08f), cornerRadius = CornerRadius(8.dp.toPx()))
+                    val dash = PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 4.dp.toPx()))
+                    listOf(0f, 0.5f, 1f).forEach { level ->
+                        val y = size.height * (1f - level)
+                        drawLine(c.border, Offset(0f, y), Offset(size.width, y), 1.dp.toPx(), pathEffect = if (level > 0f) dash else null)
+                    }
+                    val bar = (size.width * 0.28f).coerceAtMost(16.dp.toPx())
+                    val gap = 3.dp.toPx()
+                    val center = size.width / 2
+                    fun draw(value: Float, color: Color, x: Float) {
+                        val h = size.height * (value / max).coerceIn(0f, 1f)
+                        if (h > 0f) drawRoundRect(color, Offset(x, size.height - h), Size(bar, h), CornerRadius(3.dp.toPx()))
+                    }
+                    draw(g.income, incomeColor, center - gap / 2 - bar)
+                    draw(g.expenses, expenseColor, center + gap / 2)
+                }
+                Text(
+                    g.label, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp),
+                    style = if (i == emphasized || active) sans(12, FontWeight.SemiBold) else CaptionStyle,
+                    color = if (i == emphasized || active) c.text else c.muted,
+                )
+            }
+        }
     }
 }

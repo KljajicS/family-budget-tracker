@@ -6,7 +6,9 @@ import rs.budget.domain.EventJson
 import rs.budget.domain.AccountArchived
 import rs.budget.domain.AccountCreated
 import rs.budget.domain.AccountUpdated
+import rs.budget.domain.AccountsReordered
 import rs.budget.domain.BillSkipped
+import rs.budget.domain.GoalsReordered
 import rs.budget.domain.BudgetRemoved
 import rs.budget.domain.BudgetSet
 import rs.budget.domain.CategoryArchived
@@ -41,6 +43,11 @@ class Projector(private val db: BudgetDb) {
             // Edits never change archived: a stale edit from the other phone must not bring a deleted row back (ADR 8).
             is AccountUpdated -> db.accountQueries.update(e.account.name, e.account.currency.name, e.account.kind.name, e.account.id)
             is AccountArchived -> db.accountQueries.archive(e.accountId)
+            is AccountsReordered -> {
+                val existing = db.accountQueries.all().executeAsList().map { it.id }
+                (e.accountIds.filter { it in existing } + existing).distinct()
+                    .forEachIndexed { i, id -> db.accountQueries.setPosition(i.toLong(), id) }
+            }
             is CategoryCreated -> db.categoryQueries.insertIgnore(
                 e.category.id, e.category.name, e.category.color, if (e.category.archived) 1 else 0,
             )
@@ -69,7 +76,7 @@ class Projector(private val db: BudgetDb) {
             is BudgetSet -> db.budgetQueries.upsert(
                 e.budget.categoryId, e.budget.month.toString(), e.budget.money.amount.toPlainString(), e.budget.money.currency.name,
             )
-            // A zero row is the tombstone: it stops carry-forward from an earlier month (see BudgetCalculator.effective).
+            // Legacy budget events still replay so old logs rebuild unchanged; a zero row was the removal tombstone.
             is BudgetRemoved -> db.budgetQueries.upsert(e.categoryId, e.month.toString(), "0.00", "RSD")
             is RecurringRuleSet -> with(e.rule) {
                 db.recurringRuleQueries.insertIgnore(id, name, money.amount.toPlainString(), money.currency.name, accountId, categoryId, cadence.name, firstDue.toString())
@@ -82,6 +89,11 @@ class Projector(private val db: BudgetDb) {
                 db.goalQueries.update(name, target.amount.toPlainString(), monthly.amount.toPlainString(), target.currency.name, id)
             }
             is GoalArchived -> db.goalQueries.archive(e.goalId)
+            is GoalsReordered -> {
+                val existing = db.goalQueries.all().executeAsList().map { it.id }
+                (e.goalIds.filter { it in existing } + existing).distinct()
+                    .forEachIndexed { i, id -> db.goalQueries.setPosition(i.toLong(), id) }
+            }
             is GoalAllocated -> with(e.allocation) {
                 db.goalAllocationQueries.insertIgnore(id, goalId, money.amount.toPlainString(), money.currency.name, date.toString())
             }
@@ -105,6 +117,6 @@ class Projector(private val db: BudgetDb) {
 
     companion object {
         /** Bump when a projector change must reach existing installs; the app rebuilds once on mismatch. */
-        const val VERSION = 5
+        const val VERSION = 6
     }
 }

@@ -23,8 +23,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -99,13 +101,18 @@ fun AddContent(
 
         if (s.type == TransactionType.EXPENSE) CategoryGrid(s.categories, s.categoryId, onCategory)
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AccountBox(stringResource(R.string.add_account), s.accounts.filter { s.receipt == null || it.currency == Currency.RSD }, s.accountId, onAccount, Modifier.weight(1f))
-            if (s.type == TransactionType.TRANSFER) {
+        if (s.type == TransactionType.TRANSFER) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                AccountBox(stringResource(R.string.add_account), s.accounts, s.accountId, onAccount, Modifier.weight(1f))
                 AccountBox(stringResource(R.string.add_to_account), s.accounts, s.toAccountId, onToAccount, Modifier.weight(1f))
-            } else {
-                DateBox(s.date, onDate, Modifier.weight(1f), enabled = s.bill == null)
             }
+        } else {
+            AccountBox(
+                stringResource(if (s.type == TransactionType.INCOME) R.string.add_deposit_into else R.string.add_pay_from),
+                s.accounts.filter { !it.archived && (s.receipt == null || it.currency == Currency.RSD) },
+                s.accountId, onAccount, Modifier.fillMaxWidth(),
+            )
+            DateBox(s.date, onDate, Modifier.fillMaxWidth(), enabled = s.bill == null)
         }
         s.error?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
         s.saveError?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
@@ -132,7 +139,13 @@ fun AddContent(
         }
 
         Keypad(onKey = onKey)
-        PrimaryButton(stringResource(s.type.saveLabel()), enabled = s.canSave, onClick = onSave)
+        val account = s.accounts.firstOrNull { it.id == s.accountId }
+        val saveLabel = when {
+            account == null || s.type == TransactionType.TRANSFER -> stringResource(s.type.saveLabel())
+            s.type == TransactionType.INCOME -> stringResource(R.string.add_save_income_into, account.name)
+            else -> stringResource(R.string.add_save_expense_from, account.name)
+        }
+        PrimaryButton(saveLabel, enabled = s.canSave, onClick = onSave)
     }
 }
 
@@ -181,14 +194,19 @@ fun AccountBox(label: String, accounts: List<Account>, selectedId: String?, onSe
     val c = LocalColors.current
     var open by remember { mutableStateOf(false) }
     val selected = accounts.firstOrNull { it.id == selectedId }
-    val value = selected?.let { "${it.name} · ${it.currency}" } ?: ""
+    val value = selected?.let { "${it.name} · ${it.currency}" } ?: stringResource(R.string.add_choose_account)
     Box(modifier) {
         OutlinedBox(
             Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = "$label, $value" },
             radius = 14, padding = PaddingValues(horizontal = 14.dp, vertical = 8.dp), onClick = { open = true },
         ) {
-            Text(label, style = CaptionStyle, color = c.muted)
-            Text(value, style = sans(14, FontWeight.Medium), color = c.text, modifier = Modifier.padding(top = 2.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(label, style = CaptionStyle, color = c.muted)
+                    Text(value, style = sans(14, FontWeight.Medium), color = c.text, modifier = Modifier.padding(top = 2.dp))
+                }
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = c.muted)
+            }
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             accounts.forEach { a ->

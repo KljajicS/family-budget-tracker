@@ -57,7 +57,7 @@ class EventStoreTest {
         val r2 = store.append(AccountCreated(Account("a2", "Card", Currency.RSD, AccountKind.SPENDING)))
         assertEquals(1L, r1.seq)
         assertEquals(2L, r2.seq)
-        assertEquals(listOf("Card", "Cash"), db.accountQueries.active().executeAsList().map { it.name })
+        assertEquals(listOf("Cash", "Card"), db.accountQueries.active().executeAsList().map { it.name })
         assertEquals("AccountCreated", db.eventQueries.allInOrder().executeAsList().first().type)
     }
 

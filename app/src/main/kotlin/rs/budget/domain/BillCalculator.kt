@@ -49,23 +49,4 @@ object BillCalculator {
             .filter { it.txId !in paid && (it.rule.id to it.period) !in skips }
             .sortedWith(compareBy({ it.dueDate }, { it.rule.name }))
     }
-
-    /**
-     * RSD that safe to spend must hold back for [bills]: overdue ones in full, current-month ones only beyond what the
-     * category's remaining budget already reserves. Second value is true when some amount had no rate and was skipped.
-     */
-    fun reserve(today: LocalDate, bills: List<Bill>, statuses: List<BudgetStatus>, rates: Rates): Pair<Money, Boolean> {
-        var partial = false
-        fun rsd(m: Money): Money = rates.convert(m) ?: Money.zero(Currency.RSD).also { partial = true }
-        val month = YearMonth.from(today)
-        val (thisMonth, overdue) = bills.partition { YearMonth.from(it.dueDate) == month }
-        var total = overdue.fold(Money.zero(Currency.RSD)) { acc, b -> acc + rsd(b.rule.money) }
-        thisMonth.groupBy { it.rule.categoryId }.forEach { (categoryId, inCategory) ->
-            val due = inCategory.fold(Money.zero(Currency.RSD)) { acc, b -> acc + rsd(b.rule.money) }
-            val left = statuses.firstOrNull { it.categoryId == categoryId }?.left?.takeIf { !it.isNegative }?.let(::rsd) ?: Money.zero(Currency.RSD)
-            val uncovered = due - left
-            if (!uncovered.isNegative) total += uncovered
-        }
-        return total to partial
-    }
 }

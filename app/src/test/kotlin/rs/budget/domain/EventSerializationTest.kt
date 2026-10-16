@@ -27,6 +27,15 @@ class EventSerializationTest {
     }
 
     @Test
+    fun `legacy account kind and goal contribution still decode, new goals default to zero contribution`() {
+        val account = """{"type":"AccountCreated","account":{"id":"a","name":"Savings","currency":"EUR","kind":"SAVINGS","archived":false}}"""
+        assertEquals(AccountKind.SAVINGS, (EventJson.decodeFromString(Event.serializer(), account) as AccountCreated).account.kind)
+        val goal = """{"type":"GoalSet","goal":{"id":"g","name":"Trip","target":{"amount":"3000.00","currency":"EUR"},"monthly":{"amount":"150.00","currency":"EUR"}}}"""
+        assertEquals(Money.of("150", Currency.EUR), (EventJson.decodeFromString(Event.serializer(), goal) as GoalSet).goal.monthly)
+        assertEquals(Money.zero(Currency.EUR), Goal("g", "Trip", Money.of("3000", Currency.EUR)).monthly)
+    }
+
+    @Test
     fun `budget set round trips`() {
         val event: Event = BudgetSet(Budget("cat-groceries", java.time.YearMonth.of(2026, 10), Money.of("60000", Currency.RSD)))
         val json = EventJson.encodeToString(Event.serializer(), event)
@@ -48,7 +57,10 @@ class EventSerializationTest {
     fun `goal events round trip`() {
         val goal = Goal("g1", "Trip", Money.of("3000", Currency.EUR), Money.of("150", Currency.EUR))
         val allocation = GoalAllocation("a1", "g1", Money.of("200", Currency.EUR), LocalDate.of(2026, 10, 14))
-        listOf<Event>(GoalSet(goal), GoalArchived("g1"), GoalAllocated(allocation), GoalAllocationDeleted("a1")).forEach { event ->
+        listOf<Event>(
+            GoalSet(goal), GoalArchived("g1"), GoalAllocated(allocation), GoalAllocationDeleted("a1"),
+            GoalsReordered(listOf("g2", "g1")), AccountsReordered(listOf("a2", "a1")),
+        ).forEach { event ->
             val json = EventJson.encodeToString(Event.serializer(), event)
             assertEquals(event, EventJson.decodeFromString(Event.serializer(), json))
         }
