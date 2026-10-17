@@ -2,6 +2,7 @@ package rs.budget.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.*
 import org.junit.Test
 import rs.budget.data.db.BudgetDb
@@ -30,16 +31,36 @@ class LoanProjectionTest {
         assertEquals(1L, db.loanQueries.byId(loan.id).executeAsOne().archived)
     }
 
-    @Test fun `schema seven migration preserves accounts and events`() {
+    @Test fun `schema seven migration preserves financial history through replay`() = runTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         javaClass.getResource("/schema-v5.sql")!!.readText().split(';').filter { it.isNotBlank() }.forEach { driver.execute(null, it, 0) }
         BudgetDb.Schema.migrate(driver, 5, 7)
-        driver.execute(null, "INSERT INTO account(id,name,currency,kind,archived,position) VALUES ('a','Cash','RSD','SPENDING',0,0)", 0)
-        driver.execute(null, "INSERT INTO event VALUES ('e','d',1,1,'future','{}')", 0)
+        val oldDb = BudgetDb(driver)
+        val oldStore = EventStore(oldDb, "old", clock, Projector(oldDb))
+        fun rsd(value: String) = Money.of(value, Currency.RSD)
+        val income = Transaction("income", TransactionType.INCOME, rsd("1000"), "a", null, null, clock.today(), "", "", "m", TransactionSource.MANUAL)
+        val events = listOf(AccountCreated(Account("a", "Cash", Currency.RSD)), TransactionAdded(income),
+            TransactionAdded(income.copy(id = "expense", type = TransactionType.EXPENSE, money = rsd("250"))),
+            GoalSet(Goal("g", "Reserve", rsd("1000"))),
+            RecurringRuleSet(RecurringRule("r", "Bill", rsd("100"), "a", "c", Cadence.MONTHLY, clock.today())))
+        oldStore.appendAll(events)
         BudgetDb.Schema.migrate(driver, 7, BudgetDb.Schema.version)
         val db = BudgetDb(driver)
         assertEquals("Cash", db.accountQueries.byId("a").executeAsOne().name)
-        assertEquals(1L, db.eventQueries.count().executeAsOne())
+        assertEquals(events.size.toLong(), db.eventQueries.count().executeAsOne())
         assertTrue(db.loanQueries.all().executeAsList().isEmpty())
+        val store = EventStore(db, "new", clock, Projector(db))
+        val repo = BudgetRepository(db, store, clock)
+        val before = repo.financial.first()
+        store.rebuild()
+        val after = repo.financial.first()
+        assertEquals(before.home, after.home)
+        assertEquals(before.transactions, after.transactions)
+        assertEquals(before.goals, after.goals)
+        assertEquals(before.bills, after.bills)
+        assertEquals(rsd("750"), after.home.savingsRsd)
+        assertEquals(rsd("250"), after.home.spent)
+        assertEquals(rsd("750"), after.goals.single().funded)
+        assertEquals("r", after.bills.single().rule.id)
     }
 }

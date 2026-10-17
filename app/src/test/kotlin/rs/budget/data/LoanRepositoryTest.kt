@@ -115,4 +115,48 @@ class LoanRepositoryTest {
         assertEquals(rsd("750"), repo.home.first().savingsRsd)
         assertEquals(rsd("6600"), loans.book.first().balance(target, clock.today()).beforeUnknownPayments)
     }
+
+    @Test fun `RSD debit against EUR loan stores actual amounts through replay`() = runTest {
+        repo.addAccount(Account("a", "Dinars", Currency.RSD))
+        loans.create(loan)
+        val debit = tx("t").copy(money = Money.of("29350", Currency.RSD))
+        loans.record(payment(), debit)
+        assertEquals(Money.of("-29350", Currency.RSD), repo.home.first().balances["a"])
+        assertEquals(Money.of("29350", Currency.RSD), repo.home.first().spent)
+        assertEquals(eur("6600"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
+        store.rebuild()
+        assertEquals(debit, repo.transactions.first().single())
+        assertEquals(payment(), loans.book.first().payments.single())
+        loans.split("p", eur("210"))
+        assertEquals(Money.of("-29350", Currency.RSD), repo.home.first().balances["a"])
+        assertEquals(eur("6590"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
+    }
+
+    @Test fun `metadata cannot rewrite opening and corrections enforce dates and idempotency`() = runTest {
+        setup()
+        assertTrue(runCatching { loans.update(loan.copy(opening = eur("1"))) }.isFailure)
+        assertTrue(runCatching { loans.update(loan.copy(start = clock.today().minusDays(1))) }.isFailure)
+        loans.update(loan.copy(name = "Renamed"))
+        val correction = LoanAdjustment("j", "l", eur("-10"), clock.today(), "Opening correction")
+        assertTrue(runCatching { loans.adjust(correction.copy(date = clock.today().minusDays(1))) }.isFailure)
+        assertTrue(runCatching { loans.adjust(correction.copy(date = clock.today().plusDays(1))) }.isFailure)
+        loans.adjust(correction)
+        loans.adjust(correction)
+        assertEquals(eur("6790"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
+        loans.archive("l")
+        assertTrue(runCatching { loans.update(loan.copy(name = "Again")) }.isFailure)
+        assertTrue(runCatching { loans.adjust(correction.copy(id = "j2")) }.isFailure)
+    }
+
+    @Test fun `receipt validation rejects stale accounts invalid dates and mismatched retries`() = runTest {
+        repo.addAccount(Account("a", "Bank", Currency.EUR))
+        val receipt = tx("credit", TransactionType.LOAN_RECEIPT)
+        assertTrue(runCatching { loans.create(loan, receipt.copy(date = clock.today().minusDays(1))) }.isFailure)
+        assertTrue(runCatching { loans.create(loan.copy(opening = eur("0")), receipt) }.isFailure)
+        loans.create(loan, receipt)
+        assertTrue(runCatching { loans.create(loan, receipt.copy(money = eur("251"))) }.isFailure)
+        repo.archiveAccount("a")
+        assertTrue(runCatching { loans.create(loan.copy(id = "l2"), receipt.copy(id = "other")) }.isFailure)
+        assertEquals(1, repo.transactions.first().size)
+    }
 }
