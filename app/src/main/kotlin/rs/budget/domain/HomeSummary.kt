@@ -63,7 +63,7 @@ object HomeCalculator {
         }
         for (t in transactions) {
             when (t.type) {
-                TransactionType.INCOME -> add(t.accountId, t.money)
+                TransactionType.INCOME, TransactionType.LOAN_RECEIPT -> add(t.accountId, t.money)
                 TransactionType.EXPENSE -> add(t.accountId, -t.money)
                 TransactionType.TRANSFER -> {
                     add(t.accountId, -t.money)

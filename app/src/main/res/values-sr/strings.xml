@@ -1,4 +1,5 @@
 <resources>
+    <string name="loan_received">Primljen kredit</string>
     <string name="app_name">Family Budget Tracker</string>
     <string name="tab_home">Početna</string>
     <string name="tab_insights">Uvidi</string>

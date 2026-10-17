@@ -11,7 +11,7 @@ import java.time.YearMonth
 
 /** Legacy: every active balance now counts as savings. Kept so older events and rows still decode. */
 enum class AccountKind { SPENDING, SAVINGS }
-enum class TransactionType { EXPENSE, INCOME, TRANSFER }
+enum class TransactionType { EXPENSE, INCOME, TRANSFER, LOAN_RECEIPT }
 enum class TransactionSource { MANUAL, RECEIPT, RECURRING }
 
 @Serializable

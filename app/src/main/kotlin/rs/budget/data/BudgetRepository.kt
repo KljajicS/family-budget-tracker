@@ -76,6 +76,7 @@ class BudgetRepository(
     sharingScope: CoroutineScope? = null,
     val exchangeRates: RateRepository = RateRepository(db, store, clock),
 ) {
+    val loans = LoanRepository(db, store, clock)
     /** Active accounts in the family's saved order; pickers and Home use the same order. */
     val accounts: Flow<List<Account>> =
         db.accountQueries.active().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
@@ -198,7 +199,7 @@ class BudgetRepository(
 
     suspend fun renameMember(memberId: String, displayName: String) { store.append(MemberRenamed(memberId, displayName.trim())) }
 
-    suspend fun add(t: Transaction) { store.append(TransactionAdded(t)) { validateTransaction(t) } }
+    suspend fun add(t: Transaction) { store.append(TransactionAdded(t)) { loans.requireUnlinked(t.id); require(t.type != TransactionType.LOAN_RECEIPT); validateTransaction(t) } }
 
     suspend fun hasReceipt(id: String): Boolean = withContext(Dispatchers.IO) {
         db.receiptQueries.byId(id).executeAsOneOrNull() != null
@@ -212,6 +213,7 @@ class BudgetRepository(
         require(t.id == receipt.transactionId && t.source == TransactionSource.RECEIPT && t.type == TransactionType.EXPENSE)
         require(t.money.currency == Currency.RSD && receipt.total.currency == Currency.RSD)
         store.append(TransactionAdded(t, receipt)) {
+            loans.requireUnlinked(t.id)
             if (db.receiptQueries.byId(receipt.id).executeAsOneOrNull() != null) throw DuplicateReceipt()
             val account = db.accountQueries.byId(t.accountId).executeAsOneOrNull()
             if (account == null || account.archived != 0L || account.currency != "RSD") throw InvalidReceiptAccount()
@@ -220,7 +222,7 @@ class BudgetRepository(
             }
         }
     }
-    suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) { validateTransaction(t) } }
+    suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) { loans.requireUnlinked(t.id); require(t.type != TransactionType.LOAN_RECEIPT); validateTransaction(t) } }
 
     private fun validateTransaction(t: Transaction) {
         val account = db.accountQueries.byId(t.accountId).executeAsOneOrNull()
@@ -233,7 +235,7 @@ class BudgetRepository(
             }
         }
     }
-    suspend fun delete(id: String) { store.append(TransactionDeleted(id)) }
+    suspend fun delete(id: String) { store.append(TransactionDeleted(id)) { loans.requireUnlinked(id) } }
 
     private fun GoalRow.toDomain() = Goal(id, name, Money.of(target, Currency.valueOf(currency)), Money.of(monthly, Currency.valueOf(currency)), archived == 1L)
     private fun RuleRow.toDomain() = RecurringRule(

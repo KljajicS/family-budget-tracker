@@ -153,7 +153,7 @@ fun AddContent(
 private fun TypeSwitch(selected: TransactionType, onSelect: (TransactionType) -> Unit) {
     val c = LocalColors.current
     Row(Modifier.width(270.dp).background(c.surface2, RoundedCornerShape(14.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        TransactionType.entries.forEach { t ->
+        listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER).forEach { t ->
             val active = t == selected
             Box(
                 Modifier.weight(1f).height(36.dp)
@@ -265,10 +265,12 @@ private fun TransactionType.label() = when (this) {
     TransactionType.EXPENSE -> R.string.add_expense
     TransactionType.INCOME -> R.string.add_income
     TransactionType.TRANSFER -> R.string.add_transfer
+    TransactionType.LOAN_RECEIPT -> R.string.loan_received
 }
 
 private fun TransactionType.saveLabel() = when (this) {
     TransactionType.EXPENSE -> R.string.add_save_expense
     TransactionType.INCOME -> R.string.add_save_income
     TransactionType.TRANSFER -> R.string.add_save_transfer
+    TransactionType.LOAN_RECEIPT -> R.string.loan_received
 }

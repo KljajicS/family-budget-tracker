@@ -33,6 +33,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DataModule {
     @Provides @Singleton
+    fun loans(repo: BudgetRepository): rs.budget.data.LoanRepository = repo.loans
+    @Provides @Singleton
     fun rates(repo: BudgetRepository): RateRepository = repo.exchangeRates
 
     @Provides @Singleton

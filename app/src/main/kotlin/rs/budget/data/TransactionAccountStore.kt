@@ -8,10 +8,10 @@ class TransactionAccountStore(
     private val read: (TransactionType) -> String?,
     private val write: (TransactionType, String) -> Unit,
 ) {
-    fun lastUsed(type: TransactionType): String? = if (type == TransactionType.TRANSFER) null else read(type)
+    fun lastUsed(type: TransactionType): String? = if (type == TransactionType.EXPENSE || type == TransactionType.INCOME) read(type) else null
 
     fun remember(type: TransactionType, accountId: String) {
-        if (type != TransactionType.TRANSFER) write(type, accountId)
+        if (type == TransactionType.EXPENSE || type == TransactionType.INCOME) write(type, accountId)
     }
 
     companion object {

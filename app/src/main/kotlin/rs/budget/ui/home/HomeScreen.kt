@@ -246,6 +246,7 @@ private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String
         TransactionType.EXPENSE -> R.string.add_expense
         TransactionType.INCOME -> R.string.add_income
         TransactionType.TRANSFER -> R.string.add_transfer
+        TransactionType.LOAN_RECEIPT -> R.string.loan_received
     }
     val title = t.merchant.ifBlank { category ?: stringResource(typeLabel) }
     val who = if (t.paidBy == me) stringResource(R.string.member_you) else r.paidByName ?: ""
