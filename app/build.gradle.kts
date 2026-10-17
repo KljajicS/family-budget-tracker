@@ -19,8 +19,18 @@ android {
         versionName = "0.3.1"
     }
 
+    signingConfigs {
+        create("distribution") {
+            storeFile = providers.environmentVariable("BUDGET_KEYSTORE_PATH").orNull?.let { file(it) }
+            storePassword = providers.environmentVariable("BUDGET_KEYSTORE_PASSWORD").orNull
+            keyAlias = providers.environmentVariable("BUDGET_KEY_ALIAS").orNull
+            keyPassword = providers.environmentVariable("BUDGET_KEY_PASSWORD").orNull
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("distribution")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
@@ -98,3 +108,18 @@ tasks.register("checkDomainPurity") {
     }
 }
 tasks.named("check") { dependsOn("checkDomainPurity") }
+
+val checkReleaseSigning by tasks.registering {
+    val required = listOf("BUDGET_KEYSTORE_PATH", "BUDGET_KEYSTORE_PASSWORD", "BUDGET_KEY_ALIAS", "BUDGET_KEY_PASSWORD")
+    val configured = required.all { !providers.environmentVariable(it).orNull.isNullOrBlank() }
+    val keyFile = providers.environmentVariable("BUDGET_KEYSTORE_PATH").orNull?.let { file(it) }
+    doLast {
+        check(configured) {
+            "Release signing is not configured. See docs/releasing.md."
+        }
+        check(keyFile?.isFile == true) {
+            "Release keystore file is missing."
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkReleaseSigning) }
