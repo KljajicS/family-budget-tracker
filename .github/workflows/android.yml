@@ -1,14 +1,30 @@
 name: android
 on:
   push:
+    branches: ['main']
     tags: ['v*']
+  pull_request:
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      BUDGET_KEYSTORE_PATH: ${{ runner.temp }}/budget-release.keystore
+    steps:
+      - uses: actions/checkout@v7
+      - run: make lint-workflows
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v6
+      - run: make lint test build
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.event.created && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -18,20 +34,28 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Restore distribution signing key
         env:
+          BUDGET_KEYSTORE_PATH: ${{ runner.temp }}/budget-release.keystore
           KEYSTORE_BASE64: ${{ secrets.BUDGET_KEYSTORE_BASE64 }}
         run: |
           test -n "$KEYSTORE_BASE64" || { echo 'Missing distribution signing key'; exit 1; }
           umask 077
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$BUDGET_KEYSTORE_PATH"
-      - run: make lint test release
+      - run: make release
         env:
+          BUDGET_KEYSTORE_PATH: ${{ runner.temp }}/budget-release.keystore
           BUDGET_KEYSTORE_PASSWORD: ${{ secrets.BUDGET_KEYSTORE_PASSWORD }}
           BUDGET_KEY_ALIAS: ${{ secrets.BUDGET_KEY_ALIAS }}
           BUDGET_KEY_PASSWORD: ${{ secrets.BUDGET_KEY_PASSWORD }}
+      - name: Set release title
+        id: release-title
+        run: printf 'name=%s\n' "${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v3
         with:
+          name: ${{ steps.release-title.outputs.name }}
           files: app/build/outputs/apk/release/app-release.apk
           fail_on_unmatched_files: true
       - name: Remove temporary signing key
         if: always()
+        env:
+          BUDGET_KEYSTORE_PATH: ${{ runner.temp }}/budget-release.keystore
         run: rm -f "$BUDGET_KEYSTORE_PATH"

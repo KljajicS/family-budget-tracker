@@ -1,6 +1,9 @@
-.PHONY: check lint test build release run shot emu
+.PHONY: check lint lint-workflows test build release run shot emu
 
 check: lint test
+
+lint-workflows:
+	bash scripts/lint-workflows.sh
 
 lint:
 	./gradlew --quiet :app:lintDebug :app:checkDomainPurity
