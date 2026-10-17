@@ -1,0 +1,32 @@
+CREATE TABLE loan (
+    id TEXT NOT NULL PRIMARY KEY,
+    payload TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0
+);
+
+all:
+SELECT * FROM loan;
+
+byId:
+SELECT * FROM loan WHERE id = ?;
+
+insertIgnore:
+INSERT OR IGNORE INTO loan(id, payload) VALUES (?, ?);
+
+update:
+UPDATE loan SET payload = ? WHERE id = ?;
+
+archive:
+UPDATE loan SET archived = 1 WHERE id = ?;
+
+observe:
+SELECT (SELECT COUNT(*) FROM loan) AS loans,
+(SELECT COUNT(*) FROM loan_payment) AS payments,
+(SELECT COUNT(*) FROM loan_receipt) AS receipts,
+(SELECT COUNT(*) FROM loan_adjustment) AS adjustments,
+(SELECT COUNT(*) FROM tx) AS transactions,
+(SELECT COUNT(*) FROM account) AS accounts;
+
+deleteAll:
+DELETE FROM loan;
+

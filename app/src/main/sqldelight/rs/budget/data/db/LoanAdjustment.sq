@@ -1,0 +1,19 @@
+CREATE TABLE loan_adjustment (
+    id TEXT NOT NULL PRIMARY KEY,
+    loan_id TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
+CREATE INDEX loan_adjustment_loan ON loan_adjustment(loan_id);
+
+all:
+SELECT * FROM loan_adjustment;
+
+byId:
+SELECT * FROM loan_adjustment WHERE id = ?;
+
+insertIgnore:
+INSERT OR IGNORE INTO loan_adjustment(id, loan_id, payload) VALUES (?, ?, ?);
+
+deleteAll:
+DELETE FROM loan_adjustment;
+

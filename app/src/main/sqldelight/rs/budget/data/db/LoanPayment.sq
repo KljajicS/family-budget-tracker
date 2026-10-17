@@ -1,0 +1,34 @@
+CREATE TABLE loan_payment (
+    id TEXT NOT NULL PRIMARY KEY,
+    loan_id TEXT,
+    tx_id TEXT,
+    payload TEXT,
+    removed INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX loan_payment_tx ON loan_payment(tx_id) WHERE removed = 0;
+CREATE INDEX loan_payment_loan ON loan_payment(loan_id);
+
+all:
+SELECT * FROM loan_payment WHERE removed = 0;
+
+byId:
+SELECT * FROM loan_payment WHERE id = ?;
+
+forTransaction:
+SELECT * FROM loan_payment WHERE tx_id = ? AND removed = 0;
+
+insertIgnore:
+INSERT OR IGNORE INTO loan_payment(id, loan_id, tx_id, payload) VALUES (?, ?, ?, ?);
+
+update:
+UPDATE loan_payment SET payload = ? WHERE id = ? AND removed = 0;
+
+insertTombstone:
+INSERT OR IGNORE INTO loan_payment(id, removed) VALUES (?, 1);
+
+remove:
+UPDATE loan_payment SET removed = 1 WHERE id = ?;
+
+deleteAll:
+DELETE FROM loan_payment;
+

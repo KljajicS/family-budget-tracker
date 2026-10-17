@@ -1,0 +1,18 @@
+CREATE TABLE loan_receipt (
+    id TEXT NOT NULL PRIMARY KEY,
+    loan_id TEXT NOT NULL UNIQUE,
+    tx_id TEXT NOT NULL UNIQUE
+);
+
+all:
+SELECT * FROM loan_receipt;
+
+forTransaction:
+SELECT * FROM loan_receipt WHERE tx_id = ?;
+
+insertIgnore:
+INSERT OR IGNORE INTO loan_receipt(id, loan_id, tx_id) VALUES (?, ?, ?);
+
+deleteAll:
+DELETE FROM loan_receipt;
+

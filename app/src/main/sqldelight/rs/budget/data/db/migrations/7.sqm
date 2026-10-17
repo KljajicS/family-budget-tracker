@@ -1,0 +1,28 @@
+CREATE TABLE loan (
+    id TEXT NOT NULL PRIMARY KEY,
+    payload TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE loan_payment (
+    id TEXT NOT NULL PRIMARY KEY,
+    loan_id TEXT,
+    tx_id TEXT,
+    payload TEXT,
+    removed INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX loan_payment_tx ON loan_payment(tx_id) WHERE removed = 0;
+CREATE INDEX loan_payment_loan ON loan_payment(loan_id);
+
+CREATE TABLE loan_receipt (
+    id TEXT NOT NULL PRIMARY KEY,
+    loan_id TEXT NOT NULL UNIQUE,
+    tx_id TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE loan_adjustment (
+    id TEXT NOT NULL PRIMARY KEY,
+    loan_id TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
+CREATE INDEX loan_adjustment_loan ON loan_adjustment(loan_id);

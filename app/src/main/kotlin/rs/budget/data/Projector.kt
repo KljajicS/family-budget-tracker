@@ -27,6 +27,14 @@ import rs.budget.domain.RecurringRuleSet
 import rs.budget.domain.TransactionAdded
 import rs.budget.domain.TransactionDeleted
 import rs.budget.domain.TransactionEdited
+import rs.budget.domain.LoanCreated
+import rs.budget.domain.LoanUpdated
+import rs.budget.domain.LoanArchived
+import rs.budget.domain.LoanPaymentAdded
+import rs.budget.domain.LoanPaymentUpdated
+import rs.budget.domain.LoanPaymentRemoved
+import rs.budget.domain.LoanPrincipalAdjusted
+import rs.budget.domain.LoanReceiptLinked
 
 // Replay in log order so older edits cannot overwrite newer changes.
 class Projector(private val db: BudgetDb) {
@@ -34,6 +42,21 @@ class Projector(private val db: BudgetDb) {
     fun apply(record: EventRecord) {
         val at = record.occurredAt.toEpochMilli()
         when (val e = record.event) {
+            is LoanCreated -> db.loanQueries.insertIgnore(e.loan.id, EventJson.encodeToString(e.loan))
+            is LoanUpdated -> db.loanQueries.update(EventJson.encodeToString(e.loan), e.loan.id)
+            is LoanArchived -> db.loanQueries.archive(e.loanId)
+            is LoanPaymentAdded -> with(e.payment) {
+                db.loanPaymentQueries.insertIgnore(id, loanId, transactionId, EventJson.encodeToString(this))
+            }
+            is LoanPaymentUpdated -> db.loanPaymentQueries.update(EventJson.encodeToString(e.payment), e.payment.id)
+            is LoanPaymentRemoved -> {
+                db.loanPaymentQueries.insertTombstone(e.paymentId)
+                db.loanPaymentQueries.remove(e.paymentId)
+            }
+            is LoanPrincipalAdjusted -> with(e.adjustment) {
+                db.loanAdjustmentQueries.insertIgnore(id, loanId, EventJson.encodeToString(this))
+            }
+            is LoanReceiptLinked -> db.loanReceiptQueries.insertIgnore(e.id, e.loanId, e.transactionId)
             is ExchangeRateOverrideSet -> db.exchangeRateOverrideQueries.upsert(e.currency.name, e.rate, at)
             is MemberCreated -> db.memberQueries.insertIgnore(e.member.id, e.member.displayName, e.member.deviceId)
             is MemberRenamed -> db.memberQueries.rename(e.displayName, e.memberId)
@@ -102,6 +125,10 @@ class Projector(private val db: BudgetDb) {
     }
 
     fun clear() {
+        db.loanPaymentQueries.deleteAll()
+        db.loanReceiptQueries.deleteAll()
+        db.loanAdjustmentQueries.deleteAll()
+        db.loanQueries.deleteAll()
         db.exchangeRateOverrideQueries.deleteAll()
         db.receiptQueries.deleteAll()
         db.goalAllocationQueries.deleteAll()
