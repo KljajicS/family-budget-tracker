@@ -51,7 +51,7 @@ import rs.budget.ui.ReorderColumn
 import rs.budget.ui.WriteFeedback
 import rs.budget.ui.WriteOperation
 import rs.budget.ui.formatAmount
-import rs.budget.ui.home.PillButton
+import rs.budget.ui.theme.AddButton
 import rs.budget.ui.home.accountColor
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.FieldBox
@@ -80,7 +80,7 @@ fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, onNewLoan: () ->
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.accounts_title), style = TitleStyle, color = c.text, modifier = Modifier.weight(1f))
-                PillButton(stringResource(R.string.accounts_new), onNew)
+                AddButton(stringResource(R.string.account_new_title), onNew)
             }
         }
         if (s.accounts.isEmpty()) {

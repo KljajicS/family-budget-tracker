@@ -1,5 +1,7 @@
 package rs.budget.ui.home
 
+import rs.budget.ui.theme.AddButton
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
@@ -90,7 +91,7 @@ fun HomeScreen(onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit
                     Text(monthName(YearMonth.from(s.today), locale), style = TitleStyle, color = c.text)
                     Text(s.today.year.toString(), style = LabelStyle, color = c.muted)
                 }
-                PillButton("+ " + stringResource(R.string.home_add), onAdd)
+                AddButton(stringResource(R.string.home_add), onAdd)
             }
         }
         item { RateNotice(s.rateStatus) }
@@ -105,16 +106,6 @@ fun HomeScreen(onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit
         }
         items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.accountNames, s.currentMemberId, s.today) }
     }
-}
-
-@Composable
-fun PillButton(text: String, onClick: () -> Unit) {
-    val c = LocalColors.current
-    Box(
-        Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(22.dp)).background(c.surface2)
-            .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(text, style = sans(15, FontWeight.Medium), color = c.text) }
 }
 
 @Composable

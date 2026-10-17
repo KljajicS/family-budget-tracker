@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -31,10 +33,15 @@ import androidx.compose.ui.unit.dp
 
 
 @Composable
+fun AddButton(label: String, onClick: () -> Unit) {
+    RoundIconButton(Icons.Default.Add, label, onClick)
+}
+
+@Composable
 fun RoundIconButton(icon: ImageVector, contentDescription: String, onClick: () -> Unit) {
     val c = LocalColors.current
     Box(
-        Modifier.size(44.dp).background(c.surface2, CircleShape).clickable(onClick = onClick, role = Role.Button),
+        Modifier.size(48.dp).clip(CircleShape).background(c.surface2).clickable(onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription, tint = c.text, modifier = Modifier.size(22.dp)) }
 }

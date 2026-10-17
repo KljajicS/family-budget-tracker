@@ -1,6 +1,6 @@
 <resources>
     <string name="loans_title">Krediti</string>
-    <string name="loan_new">+ Dodaj kredit</string>
+    <string name="loan_new">Dodaj kredit</string>
     <string name="loan_edit">Izmeni kredit</string>
     <string name="loan_removed">Uklonjeno praćenje</string>
     <string name="loan_paid_off">Otplaćeno</string>
@@ -90,7 +90,7 @@
     <string name="home_spent">Potrošeno</string>
     <string name="home_recent">Nedavno</string>
     <string name="home_empty">Još nema transakcija. Dodirni + da dodaš.</string>
-    <string name="home_add">Dodaj</string>
+    <string name="home_add">Dodaj transakciju</string>
     <string name="home_today">Danas</string>
     <string name="home_yesterday">Juče</string>
 
@@ -137,7 +137,7 @@
     <string name="theme_dark">Tamna</string>
 
     <string name="categories_title">Kategorije</string>
-    <string name="categories_empty">Nema kategorija. Dodirni Novi da dodaš.</string>
+    <string name="categories_empty">Nema kategorija. Dodirni + da dodaš.</string>
     <string name="category_new_title">Nova kategorija</string>
     <string name="category_edit_title">Izmena kategorije</string>
     <string name="category_name">Naziv</string>
@@ -147,8 +147,7 @@
     <string name="category_delete_hint">Stare transakcije zadržavaju naziv. Kategorija nestaje iz izbora.</string>
 
     <string name="accounts_title">Računi</string>
-    <string name="accounts_empty">Nema računa. Dodirni Novi račun da dodaš.</string>
-    <string name="accounts_new">+ Novi račun</string>
+    <string name="accounts_empty">Nema računa. Dodirni + da dodaš.</string>
     <string name="account_new_title">Novi račun</string>
     <string name="account_edit_title">Izmena računa</string>
     <string name="account_name">Naziv</string>
@@ -168,7 +167,7 @@
 
     <string name="settings_recurring">Redovni računi</string>
     <string name="recurring_title">Redovni računi</string>
-    <string name="recurring_empty">Nema redovnih računa. Dodirni Novi da jednom uneseš kiriju, internet ili osiguranje.</string>
+    <string name="recurring_empty">Nema redovnih računa. Dodirni + da jednom uneseš kiriju, internet ili osiguranje.</string>
     <string name="recurring_new_title">Novi redovni račun</string>
     <string name="recurring_edit_title">Izmena redovnog računa</string>
     <string name="recurring_name">Naziv</string>
@@ -213,8 +212,7 @@
     <string name="insights_chart_month">%1$s: prihodi %2$s RSD, potrošnja %3$s RSD</string>
 
     <string name="goals_title">Ciljevi</string>
-    <string name="goals_new">+ Novi cilj</string>
-    <string name="goals_empty">Još nema ciljeva. Dodirni Novi cilj da počneš da štediš za nešto.</string>
+    <string name="goals_empty">Još nema ciljeva. Dodirni + da počneš da štediš za nešto.</string>
     <string name="goals_funded">Ispunjen</string>
     <string name="goals_to_go">Još %1$s %2$s</string>
     <string name="goals_waiting">Čeka prethodne ciljeve</string>
@@ -229,7 +227,6 @@
     <string name="goal_save">Sačuvaj cilj</string>
     <string name="goal_delete">Obriši cilj</string>
     <string name="goal_delete_hint">Štednja se više ne računa za ovaj cilj i prelazi na ciljeve ispod njega.</string>
-    <string name="list_new">+ Novi</string>
 
     <string name="source_manual">Ručno</string>
     <string name="source_receipt">QR račun</string>

@@ -1,5 +1,7 @@
 package rs.budget.ui.setup
 
+import rs.budget.ui.theme.AddButton
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -92,11 +94,7 @@ fun SetupScreen(onDone: () -> Unit, vm: SetupViewModel = hiltViewModel()) {
                 Text(stringResource(R.string.setup_add_account), style = sans(14, FontWeight.Medium), color = c.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         } else {
-            Text(
-                "+ " + stringResource(R.string.setup_add_account),
-                style = sans(14, FontWeight.Medium), color = c.primary,
-                modifier = Modifier.clickable(role = Role.Button) { adding = true }.padding(vertical = 10.dp),
-            )
+            AddButton(stringResource(R.string.setup_add_account)) { adding = true }
         }
 
         Spacer(Modifier.size(10.dp))

@@ -48,6 +48,7 @@ import rs.budget.ui.add.DateBox
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.formatAmount
 import rs.budget.ui.theme.BodyStyle
+import rs.budget.ui.theme.AddButton
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
@@ -81,7 +82,7 @@ fun RecurringScreen(
         item {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { ScreenHeader(stringResource(R.string.recurring_title), onBack) }
-                NewPill(onNew)
+                AddButton(stringResource(R.string.recurring_new_title), onNew)
             }
         }
         if (rules.isEmpty()) item { Text(stringResource(R.string.recurring_empty), style = BodyStyle, color = c.muted) }

@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,9 +38,9 @@ fun LoansSection(onNew: () -> Unit, onOpen: (String) -> Unit, vm: LoanListViewMo
     val book by vm.book.collectAsStateWithLifecycle()
     val c = LocalColors.current
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.loans_title), style = TitleStyle, color = c.text)
-            TextButton(onClick = onNew) { Text(stringResource(R.string.loan_new), color = c.primary) }
+            AddButton(stringResource(R.string.loan_new), onNew)
         }
         val data = book ?: return@Column
         val groups = data.loans.groupBy { loan ->

@@ -12,14 +12,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +38,7 @@ import rs.budget.R
 import rs.budget.ui.CategoryPalette
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.theme.BodyStyle
+import rs.budget.ui.theme.AddButton
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
@@ -61,7 +60,7 @@ fun CategoriesScreen(onBack: () -> Unit, onNew: () -> Unit, onEdit: (String) -> 
         item {
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { ScreenHeader(stringResource(R.string.categories_title), onBack) }
-                NewPill(onNew)
+                AddButton(stringResource(R.string.category_new_title), onNew)
             }
         }
         if (categories.isEmpty()) item { Text(stringResource(R.string.categories_empty), style = BodyStyle, color = c.muted) }
@@ -74,15 +73,6 @@ fun CategoriesScreen(onBack: () -> Unit, onNew: () -> Unit, onEdit: (String) -> 
             }
         }
     }
-}
-
-@Composable
-fun NewPill(onClick: () -> Unit) {
-    val c = LocalColors.current
-    Box(
-        Modifier.height(40.dp).clip(RoundedCornerShape(20.dp)).border(1.dp, c.border, RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(stringResource(R.string.list_new), style = sans(14, FontWeight.Medium), color = c.text) }
 }
 
 @Composable

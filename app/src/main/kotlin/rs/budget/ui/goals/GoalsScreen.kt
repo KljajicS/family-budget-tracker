@@ -33,7 +33,7 @@ import rs.budget.ui.DragHandle
 import rs.budget.ui.ReorderColumn
 import rs.budget.ui.WriteFeedback
 import rs.budget.ui.formatAmount
-import rs.budget.ui.home.PillButton
+import rs.budget.ui.theme.AddButton
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.LocalColors
@@ -58,7 +58,7 @@ fun GoalsScreen(onNew: () -> Unit, onOpen: (String) -> Unit, vm: GoalsViewModel 
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.goals_title), style = TitleStyle, color = c.text, modifier = Modifier.weight(1f))
-                PillButton(stringResource(R.string.goals_new), onNew)
+                AddButton(stringResource(R.string.goal_new_title), onNew)
             }
         }
         if (s.goals.isEmpty()) {
