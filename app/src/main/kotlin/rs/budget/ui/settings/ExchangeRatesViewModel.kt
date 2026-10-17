@@ -4,9 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import rs.budget.data.rates.RateRepository
@@ -18,7 +16,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ExchangeRatesViewModel @Inject constructor(private val repo: RateRepository, private val refresher: RateRefresh) : ViewModel() {
-    val snapshot = repo.snapshots.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    private val load = Loadable(viewModelScope, repo.snapshots)
+    val snapshot = load.state
+    val loadFailed = load.failed
+    fun retryLoad() = load.retry()
     val refreshState = refresher.state
     val writes = WriteOperation(viewModelScope)
     private val drafts = MutableStateFlow<Map<Currency, String>>(emptyMap())

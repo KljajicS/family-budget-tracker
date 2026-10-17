@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="loan_not_found">This loan no longer exists.</string>
+</resources>

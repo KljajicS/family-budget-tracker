@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recovery_color_indigo">Indigo</string>
+    <string name="recovery_color_orange">Orange</string>
+    <string name="recovery_color_teal">Teal</string>
+    <string name="recovery_color_purple">Purple</string>
+    <string name="recovery_color_gray">Gray</string>
+    <string name="recovery_color_pink">Pink</string>
+    <string name="recovery_color_mustard">Mustard</string>
+    <string name="recovery_color_blue">Blue</string>
+    <string name="recovery_color_red">Red</string>
+    <string name="recovery_color_green">Green</string>
+    <string name="recovery_color_violet">Violet</string>
+    <string name="recovery_color_navy">Navy</string>
+</resources>

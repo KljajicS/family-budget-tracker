@@ -5,11 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -21,6 +17,7 @@ import rs.budget.data.TransactionAccountStore
 import rs.budget.domain.*
 import rs.budget.ui.WriteOperation
 import rs.budget.ui.parseMoneyInput
+import rs.budget.ui.settings.Loadable
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -38,23 +35,12 @@ enum class LoanIssue(@StringRes val message: Int) {
 /** A value ready to save, or the reason it cannot be saved; both null while the form is simply unfinished. */
 data class Checked<T>(val value: T? = null, val issue: LoanIssue? = null)
 
-@OptIn(ExperimentalCoroutinesApi::class)
-class LoanBookLoader(repo: BudgetRepository, scope: CoroutineScope) {
-    private val attempts = MutableStateFlow(0)
-    val failed = MutableStateFlow(false)
-    val book: StateFlow<LoanBook?> = attempts.flatMapLatest {
-        repo.loans.book.onStart { failed.value = false }.catch { failed.value = true }
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
-
-    fun retry() { attempts.value++ }
-}
-
 @HiltViewModel
 class LoanListViewModel @Inject constructor(repo: BudgetRepository, val clock: Clock) : ViewModel() {
-    private val loader = LoanBookLoader(repo, viewModelScope)
-    val book = loader.book
-    val loadFailed: StateFlow<Boolean> = loader.failed
-    fun retry() = loader.retry()
+    private val load = Loadable(viewModelScope, repo.loans.book)
+    val book: StateFlow<LoanBook?> = load.state
+    val loadFailed: StateFlow<Boolean> = load.failed
+    fun retry() = load.retry()
 }
 
 @Serializable
@@ -77,6 +63,11 @@ data class LoanForm(
     }
 }
 
+/** [loan] is null for a new loan, or when the edited one no longer exists. */
+data class LoanEditorData(val loan: Loan?, val accounts: List<Account>)
+
+data class LoanDetailData(val book: LoanBook, val accounts: List<Account>, val categories: List<Category>)
+
 private const val FORM = "form"
 private const val ACTION = "action"
 private const val ADJUSTMENT = "adjustment"
@@ -96,33 +87,18 @@ class LoanEditorViewModel @Inject constructor(
     private val restored = saved.draft<LoanForm>(FORM)
     private val mutableForm = MutableStateFlow(restored ?: LoanForm(start = clock.today()))
     val form: StateFlow<LoanForm> = mutableForm
-    val loaded = MutableStateFlow(editingId == null)
-    val loadFailed = MutableStateFlow(false)
-    val accounts = repo.accounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    private var original: Loan? = null
+    private var prefilled = restored != null
+    private val editing: Flow<Loan?> = editingId?.let { id -> repo.loans.book.map { book -> book.loans.find { it.id == id } } } ?: flowOf(null)
+    private val load = Loadable(viewModelScope, combine(editing, repo.accounts, ::LoanEditorData).onEach { prefill(it.loan) })
+    val data: StateFlow<LoanEditorData?> = load.state
+    val loadFailed: StateFlow<Boolean> = load.failed
+    fun retry() = load.retry()
 
-    init { load() }
-
-    fun load() {
-        val editing = editingId ?: return
-        loadFailed.value = false
-        viewModelScope.launch {
-            val loan = try {
-                repo.loans.book.first().loans.find { it.id == editing }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                null
-            }
-            if (loan == null) {
-                loadFailed.value = true
-                return@launch
-            }
-            original = loan
-            if (restored == null) mutableForm.value = LoanForm(loan.name, loan.opening.amount.toPlainString(), loan.opening.currency, loan.start,
-                loan.usualPayment?.amount?.toPlainString().orEmpty(), loan.nextDue)
-            loaded.value = true
-        }
+    private fun prefill(loan: Loan?) {
+        if (prefilled || loan == null) return
+        prefilled = true
+        mutableForm.value = LoanForm(loan.name, loan.opening.amount.toPlainString(), loan.opening.currency, loan.start,
+            loan.usualPayment?.amount?.toPlainString().orEmpty(), loan.nextDue)
     }
 
     fun edit(value: LoanForm) {
@@ -131,28 +107,30 @@ class LoanEditorViewModel @Inject constructor(
     }
 
     fun issue(): LoanIssue? = when {
-        original?.archived == true -> LoanIssue.ARCHIVED
+        data.value?.loan?.archived == true -> LoanIssue.ARCHIVED
         form.value.start > clock.today() -> LoanIssue.FUTURE_START
         else -> null
     }
 
     fun canSave(): Boolean {
+        val d = data.value ?: return false
         val s = form.value
         val loan = s.value(id) ?: return false
-        if (!loaded.value || issue() != null) return false
+        if ((editingId != null && d.loan == null) || issue() != null) return false
         if (!s.receiving) return true
-        val account = accounts.value.find { it.id == s.accountId } ?: return false
+        val account = d.accounts.find { it.id == s.accountId } ?: return false
         return !loan.opening.isZero && parseMoneyInput(s.deposit, account.currency)?.let { !it.isZero } == true
     }
 
     fun save() {
         if (!canSave()) return
+        val accounts = data.value?.accounts ?: return
         val s = form.value
         val value = s.value(id) ?: return
         writes.run {
             if (editingId != null) repo.loans.update(value) else {
                 val receipt = if (!s.receiving) null else {
-                    val account = accounts.value.first { it.id == s.accountId }
+                    val account = accounts.first { it.id == s.accountId }
                     Transaction(receiptId, TransactionType.LOAN_RECEIPT, requireNotNull(parseMoneyInput(s.deposit, account.currency)),
                         account.id, null, null, s.start, "", s.name.trim(), requireNotNull(repo.currentMember()).id, TransactionSource.MANUAL)
                 }
@@ -253,11 +231,10 @@ class LoanDetailViewModel @Inject constructor(
 ) : ViewModel() {
     val id: String = requireNotNull(saved["id"])
     val writes = WriteOperation(viewModelScope)
-    private val loader = LoanBookLoader(repo, viewModelScope)
-    val book = loader.book
-    val loadFailed: StateFlow<Boolean> = loader.failed
-    val accounts = repo.allAccounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val categories = repo.categories.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val load = Loadable(viewModelScope, combine(repo.loans.book, repo.allAccounts, repo.categories, ::LoanDetailData))
+    /** Null while loading or after a failed read, so no check or write runs on stale inputs. */
+    val data: StateFlow<LoanDetailData?> = load.state
+    val loadFailed: StateFlow<Boolean> = load.failed
     private val mutableForm = MutableStateFlow(saved.draft<PaymentForm>(FORM) ?: newPayment())
     val form: StateFlow<PaymentForm> = mutableForm
     private val mutableAction = MutableStateFlow(saved.get<String>(ACTION)?.let { name -> LoanAction.entries.find { it.name == name } } ?: LoanAction.NONE)
@@ -266,8 +243,10 @@ class LoanDetailViewModel @Inject constructor(
     val adjustment: StateFlow<AdjustmentForm> = mutableAdjustment
 
     private fun newPayment() = PaymentForm(newId(), newId(), clock.today())
-    fun loan(): Loan? = book.value?.loans?.find { it.id == id }
-    fun retry() = loader.retry()
+    fun loan(): Loan? = data.value?.book?.loans?.find { it.id == id }
+    fun retry() = load.retry()
+
+    private fun PaymentForm.knownCategory(d: LoanDetailData) = copy(categoryId = categoryId?.takeIf { c -> d.categories.any { it.id == c } })
 
     fun editForm(value: PaymentForm) {
         mutableForm.value = value
@@ -287,20 +266,20 @@ class LoanDetailViewModel @Inject constructor(
     fun close() { if (!writes.state.value.busy) setAction(LoanAction.NONE) }
 
     fun begin(mode: LoanAction) {
+        val d = data.value ?: return
         if (writes.state.value.busy) return
-        val active = accounts.value.filterNot { it.archived }
+        val active = d.accounts.filterNot { it.archived }
         val account = active.find { it.id == accountStore.lastUsed(TransactionType.EXPENSE) } ?: active.firstOrNull()
-        val lastCategory = book.value?.let { b ->
-            b.payments.filter { it.loanId == id }.mapNotNull { b.transactionsById[it.transactionId] }.maxByOrNull { it.date }?.categoryId
-        }?.takeIf { cat -> categories.value.any { it.id == cat } }
-        editForm(newPayment().copy(accountId = account?.id, categoryId = lastCategory))
+        val b = d.book
+        val lastCategory = b.payments.filter { it.loanId == id }.mapNotNull { b.transactionsById[it.transactionId] }.maxByOrNull { it.date }?.categoryId
+        editForm(newPayment().copy(accountId = account?.id, categoryId = lastCategory).knownCategory(d))
         editAdjustment(AdjustmentForm(newId()))
         setAction(mode)
     }
 
     fun beginReceipt() {
         if (writes.state.value.busy) return
-        val receipt = book.value?.receipt(id) ?: return
+        val receipt = data.value?.book?.receipt(id) ?: return
         editForm(newPayment().copy(accountId = receipt.accountId, amount = receipt.money.amount.toPlainString()))
         setAction(LoanAction.RECEIPT)
     }
@@ -311,29 +290,28 @@ class LoanDetailViewModel @Inject constructor(
 
     fun editSplit(payment: LoanPayment) {
         if (writes.state.value.busy) return
-        val tx = book.value?.transactionsById?.get(payment.transactionId) ?: return
+        val tx = data.value?.book?.transactionsById?.get(payment.transactionId) ?: return
         editForm(PaymentForm(payment.id, tx.id, tx.date, tx.accountId, tx.money.amount.toPlainString(),
             payment.total.amount.toPlainString(), payment.principal?.amount?.toPlainString().orEmpty(), tx.categoryId, tx))
         setAction(LoanAction.SPLIT)
     }
 
     fun paymentCheck(): Checked<LoanPayment> {
-        val book = book.value ?: return Checked()
+        val d = data.value ?: return Checked()
         val loan = loan() ?: return Checked()
-        val s = form.value
-        val category = s.categoryId?.takeIf { c -> categories.value.any { it.id == c } }
-        return validatePayment(book, loan, s.copy(categoryId = category), action.value, accounts.value, clock.today())
+        return validatePayment(d.book, loan, form.value.knownCategory(d), action.value, d.accounts, clock.today())
     }
 
     fun savePayment() {
+        val d = data.value ?: return
         val payment = paymentCheck().value ?: return
         val loan = loan() ?: return
-        val s = form.value.let { s -> s.copy(categoryId = s.categoryId?.takeIf { c -> categories.value.any { it.id == c } }) }
+        val s = form.value.knownCategory(d)
         val mode = action.value
         writes.run(finish = false) {
             if (mode == LoanAction.SPLIT) repo.loans.split(payment.id, payment.principal) else {
                 val tx = s.linked ?: run {
-                    val account = accounts.value.first { it.id == s.accountId }
+                    val account = d.accounts.first { it.id == s.accountId }
                     requireNotNull(s.transaction(account, loan.name, requireNotNull(repo.currentMember()).id))
                 }
                 repo.loans.record(payment, tx, s.linked != null)
@@ -344,9 +322,9 @@ class LoanDetailViewModel @Inject constructor(
     }
 
     fun adjustmentCheck(): Checked<LoanAdjustment> {
-        val book = book.value ?: return Checked()
+        val d = data.value ?: return Checked()
         val loan = loan() ?: return Checked()
-        return validateAdjustment(book, loan, adjustment.value, clock.today())
+        return validateAdjustment(d.book, loan, adjustment.value, clock.today())
     }
 
     fun adjust() {
@@ -355,8 +333,9 @@ class LoanDetailViewModel @Inject constructor(
     }
 
     fun receiptCheck(): Checked<Transaction> {
+        val d = data.value ?: return Checked()
         val loan = loan() ?: return Checked()
-        return validateReceipt(book.value?.receipt(id), loan, form.value, accounts.value)
+        return validateReceipt(d.book.receipt(id), loan, form.value, d.accounts)
     }
 
     fun correctReceipt() {
@@ -369,5 +348,8 @@ class LoanDetailViewModel @Inject constructor(
         writes.run(finish = false) { repo.loans.removePayment(payment.id, deleteExpense) }
     }
 
-    fun archive() { writes.run { repo.loans.archive(id) } }
+    fun archive() {
+        if (loan()?.archived != false) return
+        writes.run { repo.loans.archive(id) }
+    }
 }

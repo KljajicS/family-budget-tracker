@@ -8,8 +8,6 @@
     <string name="loan_issue_incomplete">Unesite glavnicu za svaku uplatu pre ispravke stanja.</string>
     <string name="loan_issue_archived">Praćenje je uklonjeno. Moguće je još samo ispraviti raspodelu uplata.</string>
     <string name="loan_issue_account">Ovaj račun više nije dostupan. Izaberite drugi.</string>
-    <string name="loan_load_failed">Krediti nisu učitani.</string>
-    <string name="loan_retry">Pokušaj ponovo</string>
     <string name="loan_missing_expense">Povezani trošak više ne postoji. Raskinite vezu da biste ispravili istoriju.</string>
     <string name="loan_correct_receipt">Ispravi primljeni iznos</string>
     <string name="loan_receipt_summary">Primljeno %1$s · %2$s</string>

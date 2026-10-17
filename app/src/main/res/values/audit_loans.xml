@@ -8,8 +8,6 @@
     <string name="loan_issue_incomplete">Enter the principal for every payment before correcting the balance.</string>
     <string name="loan_issue_archived">Tracking was removed. Only payment splits can still be corrected.</string>
     <string name="loan_issue_account">This account is no longer available. Choose another one.</string>
-    <string name="loan_load_failed">Loans could not be loaded.</string>
-    <string name="loan_retry">Try again</string>
     <string name="loan_missing_expense">Linked expense no longer exists. Unlink it to fix the history.</string>
     <string name="loan_correct_receipt">Correct received amount</string>
     <string name="loan_receipt_summary">Received %1$s · %2$s</string>

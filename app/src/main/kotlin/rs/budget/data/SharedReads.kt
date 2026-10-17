@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.flow.shareIn
 
 private data class ReadAttempt<T>(val attempt: Int, val result: Result<T>)
@@ -26,9 +25,9 @@ internal fun <T> Flow<T>.shareReads(scope: CoroutineScope): Flow<T> {
     }.shareIn(scope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
     return flow {
         // A retry must restart the read instead of immediately replaying its cached failure.
-        val attempt = if (shared.replayCache.lastOrNull()?.result?.isFailure == true) {
-            attempts.updateAndGet { it + 1 }
-        } else attempts.value
+        val failed = shared.replayCache.lastOrNull()?.takeIf { it.result.isFailure }
+        if (failed != null) attempts.compareAndSet(failed.attempt, failed.attempt + 1)
+        val attempt = attempts.value
         emitAll(shared.dropWhile { it.attempt < attempt }.map { it.result.getOrThrow() })
     }
 }

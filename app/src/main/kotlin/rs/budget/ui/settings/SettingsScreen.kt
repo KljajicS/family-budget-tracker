@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -49,8 +50,9 @@ fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () 
     ) {
         ScreenHeader(stringResource(R.string.settings_title), onBack)
         FieldBox(stringResource(R.string.settings_name), s.name, vm::setName)
+        if (s.loadFailed) LoadFailedBanner(vm::retryLoad)
         WriteFeedback(vm.writes)
-        PrimaryButton(stringResource(R.string.settings_save_name), enabled = s.name.isNotBlank() && !s.saved && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::saveName)
+        PrimaryButton(stringResource(R.string.settings_save_name), enabled = s.memberId != null && s.name.isNotBlank() && !s.saved && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::saveName)
         Text(stringResource(R.string.settings_theme), style = LabelStyle, color = c.muted)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ThemeMode.entries.forEach { mode ->
@@ -72,6 +74,12 @@ fun ScreenHeader(title: String, onBack: () -> Unit) {
         RoundIconButton(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.add_close), onBack)
         Text(title, style = TitleStyle, color = c.text)
     }
+}
+
+@Composable
+fun LoadFailedBanner(onRetry: () -> Unit) {
+    Text(stringResource(R.string.audit_ui_load_failed), color = LocalColors.current.orange)
+    TextButton(onClick = onRetry) { Text(stringResource(R.string.audit_ui_retry)) }
 }
 
 @Composable

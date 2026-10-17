@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recovery_color_indigo">Indigo</string>
+    <string name="recovery_color_orange">Narandžasta</string>
+    <string name="recovery_color_teal">Tirkizna</string>
+    <string name="recovery_color_purple">Ljubičasta</string>
+    <string name="recovery_color_gray">Siva</string>
+    <string name="recovery_color_pink">Roze</string>
+    <string name="recovery_color_mustard">Oker</string>
+    <string name="recovery_color_blue">Plava</string>
+    <string name="recovery_color_red">Crvena</string>
+    <string name="recovery_color_green">Zelena</string>
+    <string name="recovery_color_violet">Purpurna</string>
+    <string name="recovery_color_navy">Teget</string>
+</resources>

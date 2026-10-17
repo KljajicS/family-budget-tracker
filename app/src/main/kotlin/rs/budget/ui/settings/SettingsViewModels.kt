@@ -10,11 +10,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
@@ -38,22 +36,34 @@ import rs.budget.ui.WriteOperation
 import rs.budget.ui.parseMoneyInput
 import javax.inject.Inject
 
-data class SettingsState(val memberId: String? = null, val name: String = "", val saved: Boolean = false, val theme: ThemeMode = ThemeMode.SYSTEM)
+data class SettingsState(
+    val memberId: String? = null,
+    val name: String = "",
+    val saved: Boolean = false,
+    val theme: ThemeMode = ThemeMode.SYSTEM,
+    val loadFailed: Boolean = false,
+)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(private val repo: BudgetRepository, private val themeStore: ThemeStore) : ViewModel() {
     val writes = WriteOperation(viewModelScope)
     private val _state = MutableStateFlow(SettingsState(theme = themeStore.mode.value))
     val state: StateFlow<SettingsState> = _state
+    private var nameEdited = false
 
-    init {
-        viewModelScope.launch {
-            val m = repo.currentMember()
-            _state.update { it.copy(memberId = m?.id, name = m?.displayName ?: "") }
-        }
+    private val load = EditorLoad(viewModelScope, { _state.update { it.copy(loadFailed = true) } }) {
+        val m = repo.currentMember()
+        _state.update { it.copy(memberId = m?.id, name = if (nameEdited) it.name else m?.displayName ?: "", loadFailed = false) }
     }
 
-    fun setName(name: String) = _state.update { it.copy(name = name, saved = false) }
+    init { load.start() }
+
+    fun retryLoad() = load.start()
+
+    fun setName(name: String) {
+        nameEdited = true
+        _state.update { it.copy(name = name, saved = false) }
+    }
 
     fun setTheme(mode: ThemeMode) {
         themeStore.set(mode)
@@ -73,33 +83,41 @@ class SettingsViewModel @Inject constructor(private val repo: BudgetRepository, 
 
 @HiltViewModel
 class CategoriesViewModel @Inject constructor(repo: BudgetRepository) : ViewModel() {
-    val categories: StateFlow<List<Category>> = repo.categories
-        .map { list -> list.sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val load = Loadable(viewModelScope, repo.categories.map { list -> list.sortedBy(::starterOrder) })
+    val categories: StateFlow<List<Category>?> = load.state
+    val failed: StateFlow<Boolean> = load.failed
+    fun retry() = load.retry()
 }
+
+private fun starterOrder(c: Category) = StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it }
 
 data class EditCategoryState(
     val editing: Boolean = false,
     val id: String? = null,
     val name: String = "",
     val color: String = CategoryPalette.first(),
+    val loaded: Boolean = true,
+    val loadFailed: Boolean = false,
     val done: Boolean = false,
 ) {
-    val canSave: Boolean get() = name.isNotBlank()
+    val canSave: Boolean get() = name.isNotBlank() && loaded
 }
 
 @HiltViewModel
 class EditCategoryViewModel @Inject constructor(private val repo: BudgetRepository, savedState: SavedStateHandle) : ViewModel() {
     val writes = WriteOperation(viewModelScope)
-    private val _state = MutableStateFlow(EditCategoryState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id")))
+    private val _state = MutableStateFlow(savedState.get<String>("id").let { id -> EditCategoryState(editing = id != null, id = id, loaded = id == null) })
     val state: StateFlow<EditCategoryState> = _state
 
-    init {
-        val id = _state.value.id
-        if (id != null) viewModelScope.launch {
-            repo.categories.first().firstOrNull { it.id == id }?.let { c -> _state.update { it.copy(name = c.name, color = c.color) } }
-        }
+    private val load = EditorLoad(viewModelScope, { _state.update { it.copy(loadFailed = true) } }) {
+        val id = requireNotNull(_state.value.id)
+        val c = requireNotNull(repo.categories.first().firstOrNull { it.id == id })
+        _state.update { it.copy(name = c.name, color = c.color, loaded = true, loadFailed = false) }
     }
+
+    init { retryLoad() }
+
+    fun retryLoad() { if (!_state.value.loaded) load.start() }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
     fun setColor(color: String) = _state.update { it.copy(color = color) }
@@ -114,6 +132,7 @@ class EditCategoryViewModel @Inject constructor(private val repo: BudgetReposito
     }
 
     fun delete() {
+        if (!_state.value.loaded) return
         val id = _state.value.id ?: return
         writes.run {
             repo.archiveCategory(id)
@@ -258,38 +277,44 @@ data class EditRecurringState(
     val firstDue: LocalDate,
     val accounts: List<Account> = emptyList(),
     val categories: List<Category> = emptyList(),
+    val loaded: Boolean = true,
+    val loadFailed: Boolean = false,
     val done: Boolean = false,
 ) {
     val currency: Currency? get() = accounts.firstOrNull { it.id == accountId }?.currency
     val amount: Money? get() = currency?.let { c -> parseMoneyInput(amountText, c) }?.takeIf { !it.isZero && !it.isNegative }
-    val canSave: Boolean get() = name.isNotBlank() && amount != null && categoryId != null
+    val canSave: Boolean get() = name.isNotBlank() && amount != null && categoryId != null && loaded
 }
 
 @HiltViewModel
 class EditRecurringViewModel @Inject constructor(private val repo: BudgetRepository, clock: Clock, savedState: SavedStateHandle) : ViewModel() {
     val writes = WriteOperation(viewModelScope)
-    private val _state = MutableStateFlow(EditRecurringState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id"), firstDue = clock.today()))
+    private val _state = MutableStateFlow(EditRecurringState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id"), firstDue = clock.today(), loaded = false))
     val state: StateFlow<EditRecurringState> = _state
 
-    init {
-        viewModelScope.launch {
-            val accounts = repo.accounts.first()
-            val categories = repo.categories.first().sortedBy { c -> StarterCategories.all.indexOfFirst { it.id == c.id }.let { if (it < 0) Int.MAX_VALUE else it } }
-            val existing = _state.value.id?.let { repo.rule(it) }
-            _state.update { s ->
-                s.copy(
-                    accounts = accounts,
-                    categories = categories,
-                    name = existing?.name ?: s.name,
-                    amountText = existing?.money?.amount?.stripTrailingZeros()?.toPlainString() ?: s.amountText,
-                    accountId = existing?.accountId ?: accounts.firstOrNull()?.id,
-                    categoryId = existing?.categoryId ?: categories.firstOrNull { it.id == "cat-bills" }?.id ?: categories.firstOrNull()?.id,
-                    cadence = existing?.cadence ?: s.cadence,
-                    firstDue = existing?.firstDue ?: s.firstDue,
-                )
-            }
+    private val load = EditorLoad(viewModelScope, { _state.update { it.copy(loadFailed = true) } }) {
+        val accounts = repo.accounts.first()
+        val categories = repo.categories.first().sortedBy(::starterOrder)
+        val existing = _state.value.id?.let { requireNotNull(repo.rule(it)) }
+        _state.update { s ->
+            s.copy(
+                accounts = accounts,
+                categories = categories,
+                name = existing?.name ?: s.name,
+                amountText = existing?.money?.amount?.stripTrailingZeros()?.toPlainString() ?: s.amountText,
+                accountId = existing?.accountId ?: accounts.firstOrNull()?.id,
+                categoryId = existing?.categoryId ?: categories.firstOrNull { it.id == "cat-bills" }?.id ?: categories.firstOrNull()?.id,
+                cadence = existing?.cadence ?: s.cadence,
+                firstDue = existing?.firstDue ?: s.firstDue,
+                loaded = true,
+                loadFailed = false,
+            )
         }
     }
+
+    init { retryLoad() }
+
+    fun retryLoad() { if (!_state.value.loaded) load.start() }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
     fun setAccount(id: String) = _state.update { it.copy(accountId = id) }
@@ -312,6 +337,7 @@ class EditRecurringViewModel @Inject constructor(private val repo: BudgetReposit
     }
 
     fun delete() {
+        if (!_state.value.loaded) return
         val id = _state.value.id ?: return
         writes.run {
             repo.archiveRule(id)

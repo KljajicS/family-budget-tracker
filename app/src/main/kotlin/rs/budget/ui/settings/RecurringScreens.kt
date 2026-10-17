@@ -139,6 +139,8 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader(stringResource(if (s.editing) R.string.recurring_edit_title else R.string.recurring_new_title), onClose)
+        if (s.editing && !s.loaded) return@Column rs.budget.ui.theme.LoadingOrError(s.loadFailed, vm::retryLoad)
+        if (s.loadFailed) LoadFailedBanner(vm::retryLoad)
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             FieldBox(stringResource(R.string.recurring_name), s.name, vm::setName)
@@ -199,7 +201,7 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
         PrimaryButton(stringResource(R.string.recurring_save), enabled = s.canSave && !write.busy, onClick = vm::save)
     }
 
-    if (confirming) {
+    if (confirming && s.loaded) {
         ConfirmDialog(stringResource(R.string.audit_ui_delete_title, s.name.trim()), stringResource(R.string.recurring_delete), write.busy, vm::delete, { confirming = false }) {
             Text(stringResource(R.string.recurring_delete_hint), style = sans(14), color = c.text)
             Text(stringResource(R.string.audit_ui_delete_irreversible), style = sans(14), color = c.orange)

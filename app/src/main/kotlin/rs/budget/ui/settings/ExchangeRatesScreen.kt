@@ -28,12 +28,14 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ExchangeRatesScreen(onBack: () -> Unit, vm: ExchangeRatesViewModel = hiltViewModel()) {
     val snapshot by vm.snapshot.collectAsStateWithLifecycle()
+    val failed by vm.loadFailed.collectAsStateWithLifecycle()
     val drafts by vm.inputs.collectAsStateWithLifecycle()
     val refresh by vm.refreshState.collectAsStateWithLifecycle()
     val writes by vm.writes.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
     Column(Modifier.fillMaxSize().background(c.bg).imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         ScreenHeader(stringResource(R.string.rates_title), onBack)
+        if (failed) LoadFailedBanner(vm::retryLoad)
         Text(stringResource(R.string.rates_description), style = CaptionStyle, color = c.muted)
         PrimaryButton(stringResource(if (refresh.busy) R.string.rates_refreshing else R.string.rates_refresh), enabled = !refresh.busy, onClick = vm::refresh)
         if (refresh.failed) Text(stringResource(R.string.rates_refresh_failed), color = c.orange, style = CaptionStyle)

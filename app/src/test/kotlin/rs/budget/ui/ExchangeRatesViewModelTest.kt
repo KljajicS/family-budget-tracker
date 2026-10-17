@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.test.*
 import org.junit.After
 import org.junit.Assert.*
@@ -142,5 +145,27 @@ class ExchangeRatesViewModelTest {
         vm.reset(Currency.EUR)
         vm.writes.state.first { !it.busy && !it.failed }
         assertNull(rates.snapshots.first().rates.rate(Currency.EUR))
+    }
+
+    @Test fun `failed snapshot read can retry without losing rate draft`() = runTest(dispatcher) {
+        rates.setOverride(Currency.EUR, "117")
+        driver.execute(null, "UPDATE exchange_rate_override SET rate = 'invalid'", 0)
+        val attempts = object : RateAttempts { override var lastAttempt: Instant? = null }
+        val vm = ExchangeRatesViewModel(rates, RateRefresh(rates, RateLookup { error("offline") }, attempts, clock))
+        val subscription = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.snapshot.collect() }
+        try {
+            vm.setInput(Currency.EUR, "118,5")
+            vm.loadFailed.first { it }
+            assertNull(vm.snapshot.value)
+            driver.execute(null, "UPDATE exchange_rate_override SET rate = '117'", 0)
+            vm.retryLoad()
+            val recovered = vm.snapshot.filterNotNull().first()
+            assertEquals(BigDecimal("117"), recovered.rates.rate(Currency.EUR))
+            assertFalse(vm.loadFailed.value)
+            assertEquals("118,5", vm.inputs.value[Currency.EUR])
+        } finally {
+            subscription.cancelAndJoin()
+            vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin()
+        }
     }
 }

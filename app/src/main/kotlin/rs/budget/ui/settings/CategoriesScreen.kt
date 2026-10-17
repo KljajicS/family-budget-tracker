@@ -49,6 +49,7 @@ import rs.budget.ui.theme.ConfirmDialog
 import rs.budget.ui.theme.DangerLink
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
+import rs.budget.ui.theme.LoadingOrError
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.PrimaryButton
@@ -57,7 +58,9 @@ import rs.budget.ui.theme.sans
 
 @Composable
 fun CategoriesScreen(onBack: () -> Unit, onNew: () -> Unit, onEdit: (String) -> Unit, vm: CategoriesViewModel = hiltViewModel()) {
-    val categories by vm.categories.collectAsStateWithLifecycle()
+    val state by vm.categories.collectAsStateWithLifecycle()
+    val failed by vm.failed.collectAsStateWithLifecycle()
+    val categories = state ?: return LoadingOrError(failed, vm::retry)
     val c = LocalColors.current
 
     LazyColumn(
@@ -96,20 +99,22 @@ fun EditCategoryScreen(onClose: () -> Unit, vm: EditCategoryViewModel = hiltView
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader(stringResource(if (s.editing) R.string.category_edit_title else R.string.category_new_title), onClose)
+        if (!s.loaded) return@Column LoadingOrError(s.loadFailed, vm::retryLoad)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             FieldBox(stringResource(R.string.category_name), s.name, vm::setName)
             Text(stringResource(R.string.category_color), style = LabelStyle, color = c.muted)
             // 48dp targets with 2dp gaps keep the original 40dp swatch on a 50dp pitch.
             FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                CategoryPalette.forEach { hex ->
+                CategoryPalette.forEachIndexed { index, hex ->
                     val selected = s.color == hex
+                    val name = stringResource(PaletteNames[index])
                     Box(
                         Modifier.selectable(selected = selected, role = Role.RadioButton) { vm.setColor(hex) }
                             .minimumInteractiveComponentSize().size(40.dp).clip(CircleShape)
                             .border(if (selected) 3.dp else 0.dp, if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, CircleShape)
                             .padding(if (selected) 5.dp else 0.dp)
                             .background(colorOf(hex), CircleShape)
-                            .semantics { contentDescription = hex },
+                            .semantics { contentDescription = name },
                     )
                 }
             }
@@ -123,7 +128,7 @@ fun EditCategoryScreen(onClose: () -> Unit, vm: EditCategoryViewModel = hiltView
         PrimaryButton(stringResource(R.string.category_save), enabled = s.canSave && !write.busy, onClick = vm::save)
     }
 
-    if (confirming) {
+    if (confirming && s.loaded) {
         ConfirmDialog(stringResource(R.string.audit_ui_delete_title, categoryDisplayName(s.id.orEmpty(), s.name.trim())), stringResource(R.string.category_delete), write.busy, vm::delete, { confirming = false }) {
             Text(stringResource(R.string.category_delete_hint), style = sans(14), color = c.text)
             Text(stringResource(R.string.audit_ui_delete_irreversible), style = sans(14), color = c.orange)
@@ -131,3 +136,10 @@ fun EditCategoryScreen(onClose: () -> Unit, vm: EditCategoryViewModel = hiltView
         }
     }
 }
+
+/** Spoken names for [CategoryPalette], in the same order. */
+internal val PaletteNames = listOf(
+    R.string.recovery_color_indigo, R.string.recovery_color_orange, R.string.recovery_color_teal, R.string.recovery_color_purple,
+    R.string.recovery_color_gray, R.string.recovery_color_pink, R.string.recovery_color_mustard, R.string.recovery_color_blue,
+    R.string.recovery_color_red, R.string.recovery_color_green, R.string.recovery_color_violet, R.string.recovery_color_navy,
+)

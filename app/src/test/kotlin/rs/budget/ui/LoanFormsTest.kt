@@ -131,21 +131,23 @@ class LoanFormsTest {
         repo.loans.create(loan)
         val editing = SavedStateHandle(mapOf("id" to "l"))
         val first = LoanEditorViewModel(repo, clock, editing).also { models += it }
-        first.loaded.first { it }
+        first.data.first { it?.loan != null }
         assertEquals("Car", first.form.value.name)
         first.edit(first.form.value.copy(name = "Draft"))
         val restored = LoanEditorViewModel(repo, clock, editing).also { models += it }
-        restored.loaded.first { it }
+        restored.data.first { it?.loan != null }
         assertEquals("Draft", restored.form.value.name)
 
         val missing = LoanEditorViewModel(repo, clock, SavedStateHandle(mapOf("id" to "nope"))).also { models += it }
-        missing.loadFailed.first { it }
+        assertNull(missing.data.first { it != null }!!.loan)
+        assertFalse(missing.loadFailed.value)
         assertFalse(missing.canSave())
     }
 
     @Test fun `detail action and drafts survive process recreation`() = runTest(dispatcher) {
         val saved = SavedStateHandle(mapOf("id" to "l"))
         val first = LoanDetailViewModel(repo, clock, saved, accountStore).also { models += it }
+        first.data.first { it != null }
         first.begin(LoanAction.ADJUST)
         first.editAdjustment(first.adjustment.value.copy(amount = "10", reason = "Statement"))
         first.editForm(first.form.value.copy(principal = "200"))

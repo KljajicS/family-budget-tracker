@@ -90,7 +90,7 @@ class LoanRepository(private val db: BudgetDb, private val store: EventStore, pr
         )
         store.appendAll(events, skipIf = { created(loan, receipt) }) {
             require(!loan.archived && loan.start <= clock.today())
-            if (!created(loan, receipt) && receipt != null) {
+            if (receipt != null) {
                 validateCash(receipt)
                 require(receipt.type == TransactionType.LOAN_RECEIPT && receipt.source == TransactionSource.MANUAL && receipt.date == loan.start)
                 require(!loan.opening.isZero)
@@ -124,20 +124,18 @@ class LoanRepository(private val db: BudgetDb, private val store: EventStore, pr
         if (read { recorded(payment, transaction) }) return
         val events = (if (linkExisting) emptyList() else listOf(TransactionAdded(transaction))) + LoanPaymentAdded(payment)
         store.appendAll(events, skipIf = { recorded(payment, transaction) }) {
-            if (!recorded(payment, transaction)) {
-                val target = loan(payment.loanId)
-                require(!target.archived && transaction.type == TransactionType.EXPENSE && transaction.id == payment.transactionId)
-                require(transaction.date >= target.start && transaction.date <= clock.today())
-                requireUnlinked(transaction.id)
-                val book = readBook()
-                val existingTx = book.transactionsById[transaction.id]
-                if (linkExisting) require(existingTx == transaction) else {
-                    require(existingTx == null)
-                    validateCash(transaction)
-                }
-                validateBalance(target, book.copy(payments = book.payments + payment,
-                    transactions = book.transactions.filterNot { it.id == transaction.id } + transaction))
+            val target = loan(payment.loanId)
+            require(!target.archived && transaction.type == TransactionType.EXPENSE && transaction.id == payment.transactionId)
+            require(transaction.date >= target.start && transaction.date <= clock.today())
+            requireUnlinked(transaction.id)
+            val book = readBook()
+            val existingTx = book.transactionsById[transaction.id]
+            if (linkExisting) require(existingTx == transaction) else {
+                require(existingTx == null)
+                validateCash(transaction)
             }
+            validateBalance(target, book.copy(payments = book.payments + payment,
+                transactions = book.transactions.filterNot { it.id == transaction.id } + transaction))
         }
     }
 
@@ -174,13 +172,11 @@ class LoanRepository(private val db: BudgetDb, private val store: EventStore, pr
     suspend fun adjust(adjustment: LoanAdjustment) {
         if (read { adjusted(adjustment) }) return
         store.appendAll(listOf(LoanPrincipalAdjusted(adjustment)), skipIf = { adjusted(adjustment) }) {
-            if (!adjusted(adjustment)) {
-                val target = loan(adjustment.loanId)
-                require(!target.archived && adjustment.date >= target.start && adjustment.date <= clock.today())
-                val current = readBook()
-                require(current.balance(target, clock.today()).complete) { "Complete payment splits first" }
-                validateBalance(target, current.copy(adjustments = current.adjustments + adjustment))
-            }
+            val target = loan(adjustment.loanId)
+            require(!target.archived && adjustment.date >= target.start && adjustment.date <= clock.today())
+            val current = readBook()
+            require(current.balance(target, clock.today()).complete) { "Complete payment splits first" }
+            validateBalance(target, current.copy(adjustments = current.adjustments + adjustment))
         }
     }
 

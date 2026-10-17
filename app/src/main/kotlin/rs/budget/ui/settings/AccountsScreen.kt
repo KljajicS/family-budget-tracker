@@ -132,10 +132,7 @@ fun EditAccountScreen(onClose: () -> Unit, vm: EditAccountViewModel = hiltViewMo
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader(stringResource(if (s.editing) R.string.account_edit_title else R.string.account_new_title), onClose)
-        if (s.loadFailed) {
-            Text(stringResource(R.string.audit_ui_load_failed), color = c.orange)
-            androidx.compose.material3.TextButton(onClick = vm::retryLoad) { Text(stringResource(R.string.audit_ui_retry)) }
-        }
+        if (s.loadFailed) LoadFailedBanner(vm::retryLoad)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             FieldBox(stringResource(R.string.account_name), s.name, vm::setName)
             Text(stringResource(R.string.account_currency), style = LabelStyle, color = c.muted)

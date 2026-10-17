@@ -41,6 +41,7 @@ import rs.budget.ui.theme.ConfirmDialog
 import rs.budget.ui.theme.DangerLink
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
+import rs.budget.ui.theme.LoadingOrError
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.PrimaryButton
@@ -61,6 +62,7 @@ fun EditGoalScreen(onClose: () -> Unit, vm: EditGoalViewModel = hiltViewModel())
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader(stringResource(if (s.editing) R.string.goal_edit_title else R.string.goal_new_title), onClose)
+        if (!s.loaded) return@Column LoadingOrError(s.loadFailed, vm::retryLoad)
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             FieldBox(stringResource(R.string.goal_name), s.name, vm::setName)
@@ -85,7 +87,7 @@ fun EditGoalScreen(onClose: () -> Unit, vm: EditGoalViewModel = hiltViewModel())
         PrimaryButton(stringResource(R.string.goal_save), enabled = s.canSave && !write.busy, onClick = vm::save)
     }
 
-    if (confirming) {
+    if (confirming && s.loaded) {
         ConfirmDialog(stringResource(R.string.audit_ui_delete_title, s.name.trim()), stringResource(R.string.goal_delete), write.busy, vm::delete, { confirming = false }) {
             Text(stringResource(R.string.goal_delete_hint), style = sans(14), color = c.text)
             Text(stringResource(R.string.audit_ui_delete_irreversible), style = sans(14), color = c.orange)

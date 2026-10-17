@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
 import rs.budget.data.Clock
 import rs.budget.domain.Currency
@@ -21,6 +20,7 @@ import rs.budget.domain.newId
 import rs.budget.ui.RateStatus
 import rs.budget.ui.WriteOperation
 import rs.budget.ui.parseMoneyInput
+import rs.budget.ui.settings.EditorLoad
 import rs.budget.ui.settings.Loadable
 import javax.inject.Inject
 
@@ -67,32 +67,37 @@ data class EditGoalState(
     val targetText: String = "",
     val currency: Currency = Currency.RSD,
     val legacyMonthly: Money? = null,
+    val loaded: Boolean = true,
+    val loadFailed: Boolean = false,
     val done: Boolean = false,
 ) {
     val target: Money? get() = parseMoneyInput(targetText, currency)?.takeIf { !it.isZero && !it.isNegative }
-    val canSave: Boolean get() = name.isNotBlank() && target != null
+    val canSave: Boolean get() = name.isNotBlank() && target != null && loaded
 }
 
 @HiltViewModel
 class EditGoalViewModel @Inject constructor(private val repo: BudgetRepository, savedState: SavedStateHandle) : ViewModel() {
     val writes = WriteOperation(viewModelScope)
-    private val _state = MutableStateFlow(EditGoalState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id")))
+    private val _state = MutableStateFlow(savedState.get<String>("id").let { id -> EditGoalState(editing = id != null, id = id, loaded = id == null) })
     val state: StateFlow<EditGoalState> = _state
 
-    init {
-        val id = _state.value.id
-        if (id != null) viewModelScope.launch {
-            val goal = repo.goal(id) ?: return@launch
-            _state.update {
-                it.copy(
-                    name = goal.name,
-                    targetText = goal.target.amount.stripTrailingZeros().toPlainString(),
-                    currency = goal.target.currency,
-                    legacyMonthly = goal.monthly,
-                )
-            }
+    private val load = EditorLoad(viewModelScope, { _state.update { it.copy(loadFailed = true) } }) {
+        val goal = requireNotNull(repo.goal(requireNotNull(_state.value.id)))
+        _state.update {
+            it.copy(
+                name = goal.name,
+                targetText = goal.target.amount.stripTrailingZeros().toPlainString(),
+                currency = goal.target.currency,
+                legacyMonthly = goal.monthly,
+                loaded = true,
+                loadFailed = false,
+            )
         }
     }
+
+    init { retryLoad() }
+
+    fun retryLoad() { if (!_state.value.loaded) load.start() }
 
     fun setName(name: String) = _state.update { it.copy(name = name) }
     fun setCurrency(currency: Currency) = _state.update { it.copy(currency = currency) }
@@ -113,6 +118,7 @@ class EditGoalViewModel @Inject constructor(private val repo: BudgetRepository, 
     }
 
     fun delete() {
+        if (!_state.value.loaded) return
         val id = _state.value.id ?: return
         writes.run {
             repo.archiveGoal(id)
