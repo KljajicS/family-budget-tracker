@@ -43,6 +43,7 @@ import rs.budget.domain.Money
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.ui.RateNotice
+import rs.budget.ui.formatTransactionDate
 import rs.budget.ui.RateStatus
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.formatAmount
@@ -269,14 +270,7 @@ private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("${formatAmount(signed, sign = t.type != TransactionType.TRANSFER)} ${t.money.currency}", style = mono(15), color = if (t.type == TransactionType.INCOME) c.green else c.text)
-            Text(relativeDate(t.date, today), style = CaptionStyle, color = c.muted)
+            Text(formatTransactionDate(t.date, today, stringResource(R.string.home_today), LocalLocale.current.platformLocale), style = CaptionStyle, color = c.muted)
         }
     }
-}
-
-@Composable
-private fun relativeDate(date: LocalDate, today: LocalDate): String = when (date) {
-    today -> stringResource(R.string.home_today)
-    today.minusDays(1) -> stringResource(R.string.home_yesterday)
-    else -> date.format(DateTimeFormatter.ofPattern("d MMM", monthLocale(LocalLocale.current.platformLocale)))
 }

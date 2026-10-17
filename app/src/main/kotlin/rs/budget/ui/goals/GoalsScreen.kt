@@ -16,9 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DragIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,14 +30,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.domain.GoalProgress
 import rs.budget.ui.DragHandle
-import rs.budget.ui.RateNotice
 import rs.budget.ui.ReorderColumn
 import rs.budget.ui.WriteFeedback
 import rs.budget.ui.formatAmount
 import rs.budget.ui.home.PillButton
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.CaptionStyle
-import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.TitleStyle
@@ -66,11 +61,9 @@ fun GoalsScreen(onNew: () -> Unit, onOpen: (String) -> Unit, vm: GoalsViewModel 
                 PillButton(stringResource(R.string.goals_new), onNew)
             }
         }
-        item { RateNotice(s.rateStatus) }
         if (s.goals.isEmpty()) {
             item { Text(stringResource(R.string.goals_empty), style = BodyStyle, color = c.muted) }
         } else {
-            item { ReorderHint(stringResource(R.string.goals_reorder_hint)) }
             item {
                 ReorderColumn(s.goals, { it.goal.id }, s.reorderFailures, vm::reorder, list, spacing = 12.dp) { goal, index, handle, actions ->
                     GoalCard(goal, index, actions, handle) { onOpen(goal.goal.id) }
@@ -78,15 +71,6 @@ fun GoalsScreen(onNew: () -> Unit, onOpen: (String) -> Unit, vm: GoalsViewModel 
             }
             item { WriteFeedback(vm.writes) }
         }
-    }
-}
-
-@Composable
-fun ReorderHint(text: String) {
-    val c = LocalColors.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(Icons.Default.DragIndicator, contentDescription = null, tint = c.muted, modifier = Modifier.size(18.dp))
-        Text(text, style = LabelStyle, color = c.muted)
     }
 }
 
@@ -104,7 +88,7 @@ private fun GoalCard(p: GoalProgress, index: Int, modifier: Modifier, handle: Mo
     val percent = if (p.reached) 100 else ratio?.let { (it * 100).toInt() }
     OutlinedBox(modifier.fillMaxWidth(), radius = 16, padding = PaddingValues(start = 4.dp, top = 12.dp, end = 16.dp, bottom = 14.dp), onClick = onClick) {
         Row(verticalAlignment = Alignment.Top) {
-            DragHandle(handle)
+            DragHandle(handle.align(Alignment.CenterVertically))
             Box(Modifier.padding(top = 10.dp, end = 12.dp).size(28.dp).background(c.surface2, CircleShape), contentAlignment = Alignment.Center) {
                 Text("${index + 1}", style = mono(13, FontWeight.SemiBold), color = c.text)
             }

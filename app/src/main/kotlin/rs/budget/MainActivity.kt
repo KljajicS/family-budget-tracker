@@ -257,9 +257,11 @@ fun BudgetRoot(root: RootViewModel) {
 @Composable
 private fun BottomBar(route: String?, onSelect: (Tab) -> Unit) {
     val c = LocalColors.current
-    Column(Modifier.fillMaxWidth().background(c.bg).navigationBarsPadding()) {
-        HorizontalDivider(color = c.border, thickness = 1.dp)
-        Row(Modifier.fillMaxWidth().height(112.dp).padding(bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
+    Box(Modifier.fillMaxWidth().navigationBarsPadding()) {
+        Column(Modifier.matchParentSize().padding(top = 24.dp).background(c.bg)) {
+            HorizontalDivider(color = c.border, thickness = 1.dp)
+        }
+        Row(Modifier.fillMaxWidth().height(104.dp).padding(bottom = 12.dp), verticalAlignment = Alignment.Bottom) {
             Tab.entries.forEach { tab ->
                 val active = route == tab.route
                 val tint = if (active) c.primary else c.muted

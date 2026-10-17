@@ -5,6 +5,8 @@ import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.time.YearMonth
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -31,6 +33,12 @@ fun formatCompact(m: Money, locale: Locale = Locale.getDefault()): String {
 }
 
 fun monthLocale(locale: Locale): Locale = if (locale.language == "sr") Locale.forLanguageTag("sr-Latn") else locale
+
+fun formatTransactionDate(date: LocalDate, today: LocalDate, todayLabel: String, locale: Locale): String {
+    if (date == today) return todayLabel
+    val pattern = if (date.year in (today.year - 1)..today.year) "d MMM" else "d MMM yyyy"
+    return date.format(DateTimeFormatter.ofPattern(pattern, monthLocale(locale)))
+}
 
 fun monthName(month: YearMonth, locale: Locale, style: TextStyle = TextStyle.FULL_STANDALONE): String =
     month.month.getDisplayName(style, monthLocale(locale)).replaceFirstChar { it.titlecase(monthLocale(locale)) }.trimEnd('.')

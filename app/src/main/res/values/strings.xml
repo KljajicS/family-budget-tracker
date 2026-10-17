@@ -90,7 +90,6 @@
     <string name="accounts_title">Accounts</string>
     <string name="accounts_empty">No accounts. Tap New account to add one.</string>
     <string name="accounts_new">+ New account</string>
-    <string name="accounts_reorder_hint">Drag to reorder. Same order on Home.</string>
     <string name="account_new_title">New account</string>
     <string name="account_edit_title">Edit account</string>
     <string name="account_name">Name</string>
@@ -157,7 +156,6 @@
     <string name="goals_title">Goals</string>
     <string name="goals_new">+ New goal</string>
     <string name="goals_empty">No goals yet. Tap New goal to start saving toward something.</string>
-    <string name="goals_reorder_hint">Drag to change priority. Savings fill goals from top to bottom.</string>
     <string name="goals_funded">Funded</string>
     <string name="goals_to_go">%1$s %2$s to go</string>
     <string name="goals_waiting">Waiting for earlier goals</string>

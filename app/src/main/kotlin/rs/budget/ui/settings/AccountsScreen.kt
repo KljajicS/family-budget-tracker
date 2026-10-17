@@ -47,12 +47,10 @@ import rs.budget.R
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import rs.budget.ui.DragHandle
-import rs.budget.ui.RateNotice
 import rs.budget.ui.ReorderColumn
 import rs.budget.ui.WriteFeedback
 import rs.budget.ui.WriteOperation
 import rs.budget.ui.formatAmount
-import rs.budget.ui.goals.ReorderHint
 import rs.budget.ui.home.PillButton
 import rs.budget.ui.home.accountColor
 import rs.budget.ui.theme.BodyStyle
@@ -85,11 +83,9 @@ fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: AccountsView
                 PillButton(stringResource(R.string.accounts_new), onNew)
             }
         }
-        item { RateNotice(s.rateStatus) }
         if (s.accounts.isEmpty()) {
             item { Text(stringResource(R.string.accounts_empty), style = BodyStyle, color = c.muted) }
         } else {
-            item { ReorderHint(stringResource(R.string.accounts_reorder_hint)) }
             item {
                 OutlinedBox(Modifier.fillMaxWidth(), radius = 18, padding = PaddingValues(vertical = 4.dp)) {
                     ReorderColumn(s.accounts, { it.account.id }, s.reorderFailures, vm::reorder, list) { (account, balance), index, handle, actions ->
@@ -100,7 +96,7 @@ fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: AccountsView
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                DragHandle(handle.padding(start = 6.dp))
+                                DragHandle(handle)
                                 val tint = accountColor(index)
                                 Box(Modifier.size(40.dp).background(tint.copy(alpha = c.tintAlpha), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                                     Icon(Icons.Outlined.AccountBalance, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))

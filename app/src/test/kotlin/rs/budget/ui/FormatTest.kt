@@ -5,8 +5,27 @@ import org.junit.Test
 import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import java.util.Locale
+import java.time.LocalDate
 
 class FormatTest {
+    @Test
+    fun `transaction dates keep today and show calendar dates for every other day`() {
+        val today = LocalDate.of(2026, 1, 1)
+        assertEquals("Today", formatTransactionDate(today, today, "Today", Locale.US))
+        assertEquals("31 Dec", formatTransactionDate(today.minusDays(1), today, "Today", Locale.US))
+        assertEquals("2 Jan", formatTransactionDate(today.plusDays(1), today, "Today", Locale.US))
+        assertEquals("31 Dec 2024", formatTransactionDate(LocalDate.of(2024, 12, 31), today, "Today", Locale.US))
+        assertEquals("1 Jan 2027", formatTransactionDate(LocalDate.of(2027, 1, 1), today, "Today", Locale.US))
+    }
+
+    @Test
+    fun `transaction dates preserve Serbian labels and Latin month names`() {
+        val today = LocalDate.of(2026, 10, 17)
+        val locale = Locale.forLanguageTag("sr")
+        assertEquals("Danas", formatTransactionDate(today, today, "Danas", locale))
+        assertEquals("16 okt", formatTransactionDate(today.minusDays(1), today, "Danas", locale))
+    }
+
     @Test
     fun `groups thousands and drops zero cents`() {
         assertEquals("72,510", formatAmount(Money.of("72510", Currency.RSD), locale = Locale.US))

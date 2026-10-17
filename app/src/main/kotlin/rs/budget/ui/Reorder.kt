@@ -155,7 +155,7 @@ fun <T> ReorderColumn(
 
 @Composable
 fun DragHandle(modifier: Modifier) {
-    Box(modifier.size(width = 28.dp, height = 48.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.size(48.dp), contentAlignment = Alignment.Center) {
         Icon(Icons.Default.DragIndicator, contentDescription = null, tint = LocalColors.current.muted, modifier = Modifier.size(20.dp))
     }
 }

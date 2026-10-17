@@ -90,7 +90,6 @@
     <string name="accounts_title">Računi</string>
     <string name="accounts_empty">Nema računa. Dodirni Novi račun da dodaš.</string>
     <string name="accounts_new">+ Novi račun</string>
-    <string name="accounts_reorder_hint">Prevuci za promenu redosleda. Isti redosled je na početnoj.</string>
     <string name="account_new_title">Novi račun</string>
     <string name="account_edit_title">Izmena računa</string>
     <string name="account_name">Naziv</string>
@@ -157,7 +156,6 @@
     <string name="goals_title">Ciljevi</string>
     <string name="goals_new">+ Novi cilj</string>
     <string name="goals_empty">Još nema ciljeva. Dodirni Novi cilj da počneš da štediš za nešto.</string>
-    <string name="goals_reorder_hint">Prevuci za promenu prioriteta. Štednja puni ciljeve odozgo nadole.</string>
     <string name="goals_funded">Ispunjen</string>
     <string name="goals_to_go">Još %1$s %2$s</string>
     <string name="goals_waiting">Čeka prethodne ciljeve</string>
