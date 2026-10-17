@@ -1,30 +1,44 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+<img src="assets/icon.png" width="64" height="64" alt="Family Budget Tracker wallet icon">
 
 # Family Budget Tracker
 
-Privacy-first, offline-first family budgeting for Android. Financial data currently stays on your device. Planned Google Drive synchronization will use encrypted files.
+A privacy-first Android app for everyday family finances. Track spending, see your savings and plan goals, with financial data stored on your device.
 
-## Status
+[Download APK](https://github.com/KljajicS/family-budget-tracker/releases) · [Roadmap](docs/plans/roadmap.md) · [Report an issue](https://github.com/KljajicS/family-budget-tracker/issues)
 
-Home shows combined active-account savings in EUR and RSD, plus this month's income and spending. Accounts and goals support drag ordering; goals fill sequentially from savings. Budgets and safe-to-spend estimates have been removed.
+## Screenshots
 
-Transaction entry remembers income and expense accounts separately. Recurring bill payment remains under Settings. Insights includes category breakdowns, interactive monthly comparisons and spending changes. Removing an account warns before excluding its balance; past transactions remain in reports.
+<p>
+  <img src="docs/screenshots/home.png" width="240" alt="Home showing total savings and monthly income and spending">
+  <img src="docs/screenshots/accounts.png" width="240" alt="Accounts with balances in different currencies">
+  <img src="docs/screenshots/goals.png" width="240" alt="Savings goals ordered by priority">
+</p>
 
-Exchange rates include cached NBS EUR/USD quotes and manual overrides under Settings. RSD summaries, including older months, are estimates using the latest available rates. Original transaction amounts remain unchanged.
+Screenshots use demo data.
 
-Remaining MVP work: encrypted family sync and recovery, and physical-phone acceptance testing for receipt scanning and performance. Bank statement imports are outside the MVP. See [the roadmap](docs/plans/roadmap.md).
+## Features
+
+- Income, expenses, transfers and recurring bills.
+- Multiple accounts and currencies, with total savings in EUR and RSD.
+- Drag-to-reorder accounts and goals. Savings fill goals in priority order.
+- Monthly insights, spending categories and transaction history.
+- Serbian fiscal receipt QR scanning and manual loan repayment tracking.
+- English and Serbian, with light, dark and AMOLED themes.
+
+## Privacy and status
+
+Core tracking works offline, without an app account or dedicated backend. Receipt verification and exchange-rate updates require internet. Converted totals use the latest available rates and are estimates.
+
+Under active development. Family synchronization, end-to-end encrypted sync, and data export/recovery are not available yet. Bank statement import is planned beyond the MVP.
 
 ## Build
 
-Requires JDK 17 and the Android SDK (platform 37).
+Requires JDK 17, Android SDK platform 37 and Make. Runs on Android 8.0 or newer.
 
 ```bash
-make check   # JVM tests and lint
-make run     # install on the connected device or emulator and screenshot
+make check   # lint and JVM tests
+make build   # debug APK
+make run     # install and launch on a connected device or emulator
 ```
 
-## Docs
-
-- `docs/specs/` product and technical design
-- `docs/decisions/` architecture decision records
-- `docs/design/` UI mockups
+See [release signing](docs/releasing.md), [architecture decisions](docs/decisions/) and [product specifications](docs/specs/).
