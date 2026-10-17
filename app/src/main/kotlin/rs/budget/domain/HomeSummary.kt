@@ -6,8 +6,9 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
- * Savings totals are null when an active balance has no exchange rate: a partial sum would read as the real figure.
+ * Savings totals are null when a nonzero active balance has no exchange rate: a partial sum would read as the real figure.
  * Month figures skip unconvertible amounts and set [monthPartial] instead.
+ * [savingsPoolRsd] is the unrounded RSD total: goals spend it so a foreign balance fully funds a goal of the same amount.
  */
 data class HomeSummary(
     val savingsRsd: Money?,
@@ -16,6 +17,7 @@ data class HomeSummary(
     val spent: Money,
     val monthPartial: Boolean,
     val balances: Map<String, Money>,
+    val savingsPoolRsd: BigDecimal? = savingsRsd?.amount,
 ) {
     val difference: Money get() = income - spent
 }
@@ -27,9 +29,10 @@ object HomeCalculator {
         val posted = transactions.filter { it.date <= today }
         val balances = balances(accounts.filterNot { it.archived }, posted)
 
-        fun total(currency: Currency): Money? {
+        fun total(currency: Currency): BigDecimal? {
             val grouped = balances.values.groupBy { it.currency }
                 .mapValues { (_, amounts) -> amounts.fold(BigDecimal.ZERO) { sum, m -> sum + m.amount } }
+                .filterValues { it.signum() != 0 }
             var native = BigDecimal.ZERO
             var foreignRsd = BigDecimal.ZERO
             for ((source, amount) in grouped) {
@@ -37,9 +40,10 @@ object HomeCalculator {
                 else foreignRsd += amount.multiply(rates.rate(source) ?: return null)
             }
             if (grouped.keys.any { it != currency }) {
-                native += foreignRsd.divide(rates.rate(currency) ?: return null, Money.SCALE, RoundingMode.HALF_UP)
+                native += if (currency == Currency.RSD) foreignRsd
+                else foreignRsd.divide(rates.rate(currency) ?: return null, Money.SCALE, RoundingMode.HALF_UP)
             }
-            return Money.of(native, currency)
+            return native
         }
 
         var partial = false
@@ -50,7 +54,11 @@ object HomeCalculator {
         }
         val income = sum(TransactionType.INCOME)
         val spent = sum(TransactionType.EXPENSE)
-        return HomeSummary(total(Currency.RSD), total(Currency.EUR), income, spent, partial, balances)
+        val poolRsd = total(Currency.RSD)
+        return HomeSummary(
+            poolRsd?.let { Money.of(it, Currency.RSD) }, total(Currency.EUR)?.let { Money.of(it, Currency.EUR) },
+            income, spent, partial, balances, poolRsd,
+        )
     }
 
     fun balances(accounts: List<Account>, transactions: List<Transaction>): Map<String, Money> {

@@ -1,6 +1,8 @@
 package rs.budget.data
 
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
@@ -32,6 +34,18 @@ class LoanRepositoryTest {
         assertEquals(eur("6600"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
         store.rebuild()
         assertEquals(eur("6600"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
+    }
+
+    @Test fun `concurrent identical loan commands append each event batch once`() = runTest {
+        repo.addAccount(Account("a", "Bank", Currency.EUR))
+        List(8) { async { loans.create(loan) } }.awaitAll()
+        assertEquals(2L, db.eventQueries.count().executeAsOne())
+        List(8) { async { loans.record(payment(), tx("t")) } }.awaitAll()
+        assertEquals(4L, db.eventQueries.count().executeAsOne())
+        val adjustment = LoanAdjustment("correction", "l", eur("-100"), clock.today(), "Statement")
+        List(8) { async { loans.adjust(adjustment) } }.awaitAll()
+        assertEquals(5L, db.eventQueries.count().executeAsOne())
+        assertEquals(eur("6500"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
     }
 
     @Test fun `new borrowing increases cash but is excluded from income`() = runTest {
@@ -146,6 +160,105 @@ class LoanRepositoryTest {
         loans.archive("l")
         assertTrue(runCatching { loans.update(loan.copy(name = "Again")) }.isFailure)
         assertTrue(runCatching { loans.adjust(correction.copy(id = "j2")) }.isFailure)
+    }
+
+    private fun events() = db.eventQueries.count().executeAsOne()
+
+    @Test fun `retries with stable IDs append no duplicate events`() = runTest {
+        repo.addAccount(Account("a", "Bank", Currency.EUR))
+        val credit = tx("credit", TransactionType.LOAN_RECEIPT)
+        val start = events()
+        loans.create(loan, credit)
+        val afterCreate = events()
+        loans.create(loan, credit)
+        loans.record(payment(null), tx("t"))
+        val afterRecord = events()
+        loans.record(payment(null), tx("t"))
+        loans.split("p", eur("200"))
+        val afterSplit = events()
+        loans.split("p", eur("200"))
+        val correction = LoanAdjustment("j", "l", eur("-10"), clock.today(), "Correction")
+        loans.adjust(correction)
+        val afterAdjust = events()
+        loans.adjust(correction)
+        loans.update(loan.copy(name = "Renamed"))
+        val afterUpdate = events()
+        loans.update(loan.copy(name = "Renamed"))
+        loans.correctReceipt("l", "a", eur("240"))
+        val afterReceipt = events()
+        loans.correctReceipt("l", "a", eur("240"))
+        loans.removePayment("p", false)
+        val afterRemove = events()
+        loans.removePayment("p", false)
+        loans.archive("l")
+        val afterArchive = events()
+        loans.archive("l")
+        assertEquals(listOf(3L, 5L, 6L, 7L, 8L, 9L, 10L, 11L),
+            listOf(afterCreate, afterRecord, afterSplit, afterAdjust, afterUpdate, afterReceipt, afterRemove, afterArchive).map { it - start })
+        assertEquals(afterArchive, events())
+        assertEquals(eur("6790"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
+    }
+
+    @Test fun `archived loan keeps payment links and only allows split corrections`() = runTest {
+        setup()
+        loans.record(payment(null), tx("t"))
+        loans.archive("l")
+        assertTrue(runCatching { loans.removePayment("p", false) }.isFailure)
+        assertTrue(runCatching { loans.removePayment("p", true) }.isFailure)
+        loans.split("p", eur("200"))
+        assertEquals(1, repo.transactions.first().size)
+        assertEquals(eur("200"), loans.book.first().payments.single().principal)
+    }
+
+    @Test fun `link to an expense deleted elsewhere is flagged and can still be removed`() = runTest {
+        setup()
+        loans.record(payment(), tx("t"))
+        loans.record(LoanPayment("p2", "l", "t2", eur("250"), eur("100")), tx("t2"))
+        store.append(TransactionDeleted("t"))
+        store.append(TransactionDeleted("t2"))
+        assertTrue(loans.book.first().balance(loan, clock.today()).invalidHistory)
+        assertTrue(runCatching { loans.split("p", eur("150")) }.isFailure)
+        loans.removePayment("p", false)
+        assertTrue(loans.book.first().balance(loan, clock.today()).invalidHistory)
+        loans.removePayment("p2", false)
+        val balance = loans.book.first().balance(loan, clock.today())
+        assertTrue(balance.complete)
+        assertEquals(eur("6800"), balance.beforeUnknownPayments)
+    }
+
+    @Test fun `receipt correction moves the credit atomically and never touches opening principal`() = runTest {
+        repo.addAccount(Account("a", "Bank", Currency.EUR))
+        repo.addAccount(Account("b", "Other bank", Currency.EUR))
+        repo.addAccount(Account("r", "Dinars", Currency.RSD))
+        loans.create(loan, tx("credit", TransactionType.LOAN_RECEIPT))
+        loans.correctReceipt("l", "b", eur("6500"))
+        assertTrue(repo.home.first().balances["a"]?.isZero != false)
+        assertEquals(eur("6500"), repo.home.first().balances["b"])
+        assertTrue(repo.home.first().income.isZero)
+        assertEquals(eur("6800"), loans.book.first().loans.single().opening)
+        assertEquals(eur("6800"), loans.book.first().balance(loan, clock.today()).beforeUnknownPayments)
+        assertTrue(runCatching { loans.correctReceipt("l", "r", eur("6500")) }.isFailure)
+        repo.archiveAccount("a")
+        assertTrue(runCatching { loans.correctReceipt("l", "a", eur("6500")) }.isFailure)
+        store.rebuild()
+        assertEquals(eur("6500"), repo.home.first().balances["b"])
+        assertEquals("b", loans.book.first().receipt("l")!!.accountId)
+        loans.archive("l")
+        assertTrue(runCatching { loans.correctReceipt("l", "b", eur("6000")) }.isFailure)
+        assertTrue(runCatching { repo.edit(loans.book.first().receipt("l")!!) }.isFailure)
+        loans.create(loan.copy(id = "existing"))
+        assertTrue(runCatching { loans.correctReceipt("existing", "b", eur("1")) }.isFailure)
+    }
+
+    @Test fun `book history lists vanished links first and link picker excludes linked expenses`() = runTest {
+        setup()
+        repo.add(tx("old").copy(date = clock.today()))
+        loans.record(payment(), tx("t"))
+        loans.record(LoanPayment("p2", "l", "gone", eur("250"), eur("10")), tx("gone"))
+        store.append(TransactionDeleted("gone"))
+        val book = loans.book.first()
+        assertEquals(listOf("p2" to null, "p" to "t"), book.history("l").map { it.first.id to it.second?.id })
+        assertEquals(listOf("old"), book.linkCandidates(loan, clock.today()).map { it.id })
     }
 
     @Test fun `receipt validation rejects stale accounts invalid dates and mismatched retries`() = runTest {

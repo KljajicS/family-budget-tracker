@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audit_finance_edit_title">Edit transaction</string>
+    <string name="audit_finance_save_changes">Save changes</string>
+    <string name="audit_finance_delete">Delete transaction</string>
+    <string name="audit_finance_delete_title">Delete this transaction?</string>
+    <string name="audit_finance_delete_body">Balances, totals and reports change right away. This cannot be undone.</string>
+    <string name="audit_finance_delete_bill">The bill will show as unpaid again.</string>
+    <string name="audit_finance_delete_receipt">The receipt stays recorded, so it cannot be scanned again.</string>
+    <string name="audit_finance_delete_failed">Could not delete. Please try again.</string>
+    <string name="audit_finance_loan_locked">This transaction belongs to a loan. Change it from the loan in Accounts.</string>
+    <string name="audit_finance_missing">This transaction no longer exists.</string>
+    <string name="audit_finance_bill_future">A paid bill cannot be dated in the future.</string>
+    <string name="audit_finance_future_date">Future date: it counts toward balances from that day.</string>
+    <string name="audit_finance_show_older">Show older</string>
+    <string name="audit_finance_load_failed">Could not load your data.</string>
+    <string name="audit_finance_retry">Try again</string>
+    <string name="audit_finance_edit_hint">Tap to edit</string>
+</resources>

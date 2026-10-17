@@ -11,28 +11,34 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +48,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,8 +56,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import rs.budget.R
 import rs.budget.domain.Account
 import rs.budget.domain.Currency
+import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
 import rs.budget.ui.categoryDisplayName
+import rs.budget.ui.formatAmount
+import rs.budget.ui.monthLocale
 import rs.budget.ui.theme.BudgetDatePickerDialog
 import rs.budget.ui.theme.CaptionStyle
 import rs.budget.ui.theme.FieldBox
@@ -61,15 +71,18 @@ import rs.budget.ui.theme.RoundIconButton
 import rs.budget.ui.theme.colorOf
 import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
+import java.text.DecimalFormatSymbols
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
+/** Serves new entries, bill payments and, on the edit route, corrections of an existing transaction. */
 @Composable
 fun AddScreen(onClose: () -> Unit, vm: AddViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     LaunchedEffect(s.saved) { if (s.saved) onClose() }
     AddContent(s, onClose, vm::setType, vm::press, vm::setCategory, vm::setAccount,
-        vm::setToAccount, vm::setDate, vm::setMerchant, vm::skip, vm::save)
+        vm::setToAccount, vm::setDate, vm::setMerchant, vm::skip, vm::save, vm::delete, vm::retryLoad)
 }
 
 @Composable
@@ -77,90 +90,151 @@ fun AddContent(
     s: AddState, onClose: () -> Unit, onType: (TransactionType) -> Unit, onKey: (Char) -> Unit,
     onCategory: (String?) -> Unit, onAccount: (String) -> Unit, onToAccount: (String) -> Unit,
     onDate: (LocalDate) -> Unit, onMerchant: (String) -> Unit, onSkip: () -> Unit, onSave: () -> Unit,
+    onDelete: () -> Unit = {}, onRetry: () -> Unit = {},
 ) {
     val c = LocalColors.current
+    val locale = LocalLocale.current.platformLocale
+    val separator = DecimalFormatSymbols(locale).decimalSeparator
+    val readOnly = s.missing || s.loanLocked
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     Column(
-        Modifier.fillMaxSize().background(c.bg).padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 24.dp),
+        Modifier.fillMaxSize().background(c.bg).imePadding().padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             RoundIconButton(Icons.Default.Close, stringResource(R.string.add_close), { if (!s.saving) onClose() })
-            if (s.receipt != null) Text(stringResource(R.string.scan_review), style = sans(15, FontWeight.Medium), color = c.text)
-            else if (s.bill == null) TypeSwitch(s.type, onType)
-            else Text(stringResource(R.string.add_bill_title), style = sans(15, FontWeight.Medium), color = c.text)
+            val title = when {
+                s.receipt != null -> R.string.scan_review
+                s.bill != null -> R.string.add_bill_title
+                s.editing != null && s.typeLocked || readOnly -> R.string.audit_finance_edit_title
+                else -> null
+            }
+            if (title != null) Text(stringResource(title), style = sans(15, FontWeight.Medium), color = c.text)
+            else TypeSwitch(s.type, onType, Modifier.padding(start = 12.dp).weight(1f, fill = false))
         }
 
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(s.amount.text.ifEmpty { "0" }, style = mono(48, FontWeight.SemiBold, (-0.03).em), color = c.text)
-                Text(s.currency.name, style = sans(18, FontWeight.Medium), color = c.muted, modifier = Modifier.padding(bottom = 8.dp))
+            if (s.loadFailed) {
+                Text(stringResource(R.string.audit_finance_load_failed), style = sans(13), color = c.orange)
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.audit_finance_retry)) }
+            }
+            when {
+                s.missing -> Text(stringResource(R.string.audit_finance_missing), style = sans(15), color = c.orange)
+                s.loanLocked -> Text(stringResource(R.string.audit_finance_loan_locked), style = sans(15), color = c.orange)
+                else -> Fields(s, locale, separator, onCategory, onAccount, onToAccount, onDate, onMerchant, onSkip) { confirmDelete = true }
             }
         }
 
-        if (s.type == TransactionType.EXPENSE) CategoryGrid(s.categories, s.categoryId, onCategory)
-
-        if (s.type == TransactionType.TRANSFER) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AccountBox(stringResource(R.string.add_account), s.accounts, s.accountId, onAccount, Modifier.weight(1f))
-                AccountBox(stringResource(R.string.add_to_account), s.accounts, s.toAccountId, onToAccount, Modifier.weight(1f))
+        if (!readOnly) {
+            Keypad(separator, onKey = onKey)
+            val account = s.accounts.firstOrNull { it.id == s.accountId }
+            val saveLabel = when {
+                s.editing != null -> stringResource(R.string.audit_finance_save_changes)
+                account == null || s.type == TransactionType.TRANSFER -> stringResource(s.type.saveLabel())
+                s.type == TransactionType.INCOME -> stringResource(R.string.add_save_income_into, account.name)
+                else -> stringResource(R.string.add_save_expense_from, account.name)
             }
-        } else {
-            AccountBox(
-                stringResource(if (s.type == TransactionType.INCOME) R.string.add_deposit_into else R.string.add_pay_from),
-                s.accounts.filter { !it.archived && (s.receipt == null || it.currency == Currency.RSD) },
-                s.accountId, onAccount, Modifier.fillMaxWidth(),
-            )
-            DateBox(s.date, onDate, Modifier.fillMaxWidth(), enabled = s.bill == null)
+            PrimaryButton(saveLabel, enabled = s.canSave, onClick = onSave)
         }
-        s.error?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
-        s.saveError?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
-        if (s.receipt != null && s.accounts.none { it.id == s.accountId && it.currency == Currency.RSD }) {
-            Text(stringResource(R.string.scan_rsd_account), style = sans(13), color = c.orange)
-        } else if (s.accounts.none { it.id == s.accountId && it.currency == s.currency }) {
-            Text(stringResource(R.string.add_account_unavailable), style = sans(13), color = c.orange)
-        }
-        if (s.type == TransactionType.EXPENSE && s.categoryId != null && s.categories.none { it.id == s.categoryId }) {
-            Text(stringResource(R.string.scan_category_changed), style = sans(13), color = c.orange)
-        }
+    }
 
-        FieldBox(stringResource(R.string.add_merchant), s.merchant, onMerchant)
-        s.receipt?.let { receipt ->
-            Text(stringResource(R.string.scan_original, receipt.total.amount.toPlainString(), receipt.items.size), style = sans(12), color = c.muted)
-        }
-        if (s.bill != null) {
-            Text(
-                stringResource(R.string.add_skip_bill),
-                style = sans(14, FontWeight.Medium), color = c.orange,
-                modifier = Modifier.clickable(role = Role.Button, onClick = onSkip).padding(vertical = 6.dp),
-            )
-        }
-        }
-
-        Keypad(onKey = onKey)
-        val account = s.accounts.firstOrNull { it.id == s.accountId }
-        val saveLabel = when {
-            account == null || s.type == TransactionType.TRANSFER -> stringResource(s.type.saveLabel())
-            s.type == TransactionType.INCOME -> stringResource(R.string.add_save_income_into, account.name)
-            else -> stringResource(R.string.add_save_expense_from, account.name)
-        }
-        PrimaryButton(saveLabel, enabled = s.canSave, onClick = onSave)
+    val editing = s.editing
+    if (confirmDelete && editing != null && !readOnly) {
+        DeleteDialog(editing.source, s.saving, onDismiss = { confirmDelete = false }) { confirmDelete = false; onDelete() }
     }
 }
 
 @Composable
-private fun TypeSwitch(selected: TransactionType, onSelect: (TransactionType) -> Unit) {
+private fun Fields(
+    s: AddState, locale: Locale, separator: Char,
+    onCategory: (String?) -> Unit, onAccount: (String) -> Unit, onToAccount: (String) -> Unit,
+    onDate: (LocalDate) -> Unit, onMerchant: (String) -> Unit, onSkip: () -> Unit, onDelete: () -> Unit,
+) {
     val c = LocalColors.current
-    Row(Modifier.width(270.dp).background(c.surface2, RoundedCornerShape(14.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(s.amount.text.ifEmpty { "0" }.replace('.', separator), style = mono(48, FontWeight.SemiBold, (-0.03).em), color = c.text, maxLines = 1)
+            Text(s.currency.name, style = sans(18, FontWeight.Medium), color = c.muted, modifier = Modifier.padding(bottom = 8.dp))
+        }
+    }
+
+    if (s.type == TransactionType.EXPENSE) CategoryGrid(s.categories, s.categoryId, onCategory)
+
+    if (s.type == TransactionType.TRANSFER) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AccountBox(stringResource(R.string.add_account), s.accounts, s.accountId, onAccount, Modifier.weight(1f))
+            AccountBox(stringResource(R.string.add_to_account), s.accounts, s.toAccountId, onToAccount, Modifier.weight(1f))
+        }
+    } else {
+        AccountBox(
+            stringResource(if (s.type == TransactionType.INCOME) R.string.add_deposit_into else R.string.add_pay_from),
+            s.accounts.filter { !it.archived && (!s.rsdOnly || it.currency == Currency.RSD) },
+            s.accountId, onAccount, Modifier.fillMaxWidth(),
+        )
+    }
+    DateBox(s.date, onDate, Modifier.fillMaxWidth(), enabled = s.bill == null)
+    if (s.billInFuture) Text(stringResource(R.string.audit_finance_bill_future), style = sans(13), color = c.orange)
+    else if (s.date > s.today) Text(stringResource(R.string.audit_finance_future_date), style = sans(13), color = c.muted)
+    s.error?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
+    s.saveError?.let { Text(stringResource(it), style = sans(13), color = c.orange) }
+    if (s.rsdOnly && s.accounts.none { it.id == s.accountId && it.currency == Currency.RSD }) {
+        Text(stringResource(R.string.scan_rsd_account), style = sans(13), color = c.orange)
+    } else if (s.accounts.none { it.id == s.accountId && it.currency == s.currency } ||
+        s.type == TransactionType.TRANSFER && s.toAccountId != null && s.accounts.none { it.id == s.toAccountId }) {
+        Text(stringResource(R.string.add_account_unavailable), style = sans(13), color = c.orange)
+    }
+    if (s.type == TransactionType.EXPENSE && s.categoryId != null && s.categories.none { it.id == s.categoryId }) {
+        Text(stringResource(R.string.scan_category_changed), style = sans(13), color = c.orange)
+    }
+
+    FieldBox(stringResource(R.string.add_merchant), s.merchant, onMerchant)
+    s.receipt?.let { receipt ->
+        Text(stringResource(R.string.scan_original, formatAmount(receipt.total, locale = locale), receipt.items.size), style = sans(12), color = c.muted)
+    }
+    if (s.bill != null) {
+        rs.budget.ui.theme.DangerLink(stringResource(R.string.add_skip_bill), onClick = onSkip)
+    }
+    if (s.editing != null) {
+        rs.budget.ui.theme.DangerLink(stringResource(R.string.audit_finance_delete), enabled = !s.saving, onClick = onDelete)
+    }
+}
+
+@Composable
+private fun DeleteDialog(source: TransactionSource, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val c = LocalColors.current
+    val body = listOfNotNull(
+        stringResource(R.string.audit_finance_delete_body),
+        when (source) {
+            TransactionSource.RECURRING -> stringResource(R.string.audit_finance_delete_bill)
+            TransactionSource.RECEIPT -> stringResource(R.string.audit_finance_delete_receipt)
+            TransactionSource.MANUAL -> null
+        },
+    ).joinToString("\n\n")
+    rs.budget.ui.theme.ConfirmDialog(stringResource(R.string.audit_finance_delete_title),
+        stringResource(R.string.audit_finance_delete), busy, onConfirm, onDismiss) {
+        Text(body, style = sans(14), color = c.text)
+    }
+}
+
+@Composable
+private fun TypeSwitch(selected: TransactionType, onSelect: (TransactionType) -> Unit, modifier: Modifier) {
+    val c = LocalColors.current
+    Row(modifier.widthIn(max = 270.dp).background(c.surface2, RoundedCornerShape(14.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER).forEach { t ->
             val active = t == selected
             Box(
-                Modifier.weight(1f).height(36.dp)
+                Modifier.weight(1f).heightIn(min = 36.dp)
                     .background(if (active) (if (c.dark) c.track else c.bg) else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(10.dp))
-                    .clickable(role = Role.Tab) { onSelect(t) },
+                    .selectable(selected = active, role = Role.Tab) { onSelect(t) }
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
-            ) { Text(stringResource(t.label()), style = sans(14, FontWeight.Medium), color = if (active) c.text else c.muted) }
+            ) {
+                Text(
+                    stringResource(t.label()), style = sans(14, FontWeight.Medium), color = if (active) c.text else c.muted,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -219,7 +293,7 @@ fun AccountBox(label: String, accounts: List<Account>, selectedId: String?, onSe
 @Composable
 fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier, label: String = stringResource(R.string.add_date), enabled: Boolean = true) {
     val c = LocalColors.current
-    val locale = LocalLocale.current.platformLocale
+    val locale = monthLocale(LocalLocale.current.platformLocale)
     val today = LocalDate.now()
     val formatted = date.format(DateTimeFormatter.ofPattern("d MMM", locale))
     val value = when (date) {
@@ -240,8 +314,9 @@ fun DateBox(date: LocalDate, onPick: (LocalDate) -> Unit, modifier: Modifier, la
     if (open) BudgetDatePickerDialog(date, onDismiss = { open = false }, onPick = { onPick(it); open = false })
 }
 
+/** The decimal key shows the locale separator but always sends '.', the only separator [AmountInput] stores. */
 @Composable
-private fun Keypad(onKey: (Char) -> Unit) {
+private fun Keypad(separator: Char, onKey: (Char) -> Unit) {
     val c = LocalColors.current
     val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "<")
     val backspace = stringResource(R.string.add_backspace)
@@ -250,11 +325,16 @@ private fun Keypad(onKey: (Char) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { k ->
                     val semantics = if (k == "<") Modifier.semantics { contentDescription = backspace } else Modifier
+                    val shown = when (k) {
+                        "<" -> "⌫"
+                        "." -> separator.toString()
+                        else -> k
+                    }
                     Box(
                         Modifier.weight(1f).height(52.dp).background(c.surface2, RoundedCornerShape(14.dp))
                             .clickable(role = Role.Button) { onKey(k[0]) }.then(semantics),
                         contentAlignment = Alignment.Center,
-                    ) { Text(if (k == "<") "⌫" else k, style = mono(22), color = c.text) }
+                    ) { Text(shown, style = mono(22), color = c.text) }
                 }
             }
         }

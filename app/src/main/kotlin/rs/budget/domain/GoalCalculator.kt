@@ -16,8 +16,12 @@ data class GoalProgress(
 
 object GoalCalculator {
 
-    fun progress(goals: List<Goal>, savingsRsd: Money?, rates: Rates): List<GoalProgress> {
-        var pool: BigDecimal? = savingsRsd?.amount?.max(BigDecimal.ZERO)
+    fun progress(goals: List<Goal>, home: HomeSummary, rates: Rates): List<GoalProgress> = fromPool(goals, home.savingsPoolRsd, rates)
+
+    fun progress(goals: List<Goal>, savingsRsd: Money?, rates: Rates): List<GoalProgress> = fromPool(goals, savingsRsd?.amount, rates)
+
+    private fun fromPool(goals: List<Goal>, savingsRsd: BigDecimal?, rates: Rates): List<GoalProgress> {
+        var pool: BigDecimal? = savingsRsd?.max(BigDecimal.ZERO)
         var earlierOpen = false
         val result = mutableListOf<GoalProgress>()
         for (goal in goals.filterNot { it.archived }) {

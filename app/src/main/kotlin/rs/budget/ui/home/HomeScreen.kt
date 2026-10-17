@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -67,10 +68,18 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun HomeScreen(onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit, vm: HomeViewModel = hiltViewModel()) {
+fun HomeScreen(
+    onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit,
+    onEditTransaction: (String) -> Unit = {}, vm: HomeViewModel = hiltViewModel(),
+) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val s = state ?: return
+    val failed by vm.failed.collectAsStateWithLifecycle()
     val c = LocalColors.current
+    val s = state
+    if (s == null) {
+        if (failed) Box(Modifier.fillMaxSize().background(c.bg), contentAlignment = Alignment.Center) { LoadFailed(vm::retry) }
+        return
+    }
     val locale = LocalLocale.current.platformLocale
 
     LazyColumn(
@@ -94,6 +103,7 @@ fun HomeScreen(onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit
                 AddButton(stringResource(R.string.home_add), onAdd)
             }
         }
+        if (failed) item { LoadFailed(vm::retry) }
         item { RateNotice(s.rateStatus) }
         item { SavingsCard(s, locale) }
         item { MonthSection(s, locale) }
@@ -104,7 +114,22 @@ fun HomeScreen(onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit
                 if (s.recent.isEmpty()) Text(stringResource(R.string.home_empty), style = BodyStyle, color = c.muted)
             }
         }
-        items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.accountNames, s.currentMemberId, s.today) }
+        items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.accountNames, s.currentMemberId, s.today, onEditTransaction) }
+        if (s.hasOlder) item {
+            Text(
+                stringResource(R.string.audit_finance_show_older), style = sans(14), color = c.primary,
+                modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = vm::showOlder).padding(vertical = 10.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoadFailed(onRetry: () -> Unit) {
+    val c = LocalColors.current
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.audit_finance_load_failed), style = BodyStyle, color = c.orange)
+        TextButton(onClick = onRetry) { Text(stringResource(R.string.audit_finance_retry)) }
     }
 }
 
@@ -229,7 +254,7 @@ private fun AccountsSection(accounts: List<AccountBalance>, onAccounts: () -> Un
 }
 
 @Composable
-private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String?, today: LocalDate) {
+private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String?, today: LocalDate, onEdit: (String) -> Unit) {
     val c = LocalColors.current
     val t = r.transaction
     val category = t.categoryId?.let { id -> categoryDisplayName(id, r.categoryName) }
@@ -252,7 +277,11 @@ private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String
         TransactionType.INCOME -> c.green
         else -> StarterCategories.all.firstOrNull { it.id == t.categoryId }?.let { colorOf(it.color) } ?: c.muted
     }
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.audit_finance_edit_hint)) { onEdit(t.id) },
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Box(Modifier.size(40.dp).background(accent.copy(alpha = c.tintAlpha), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
             Text(title.take(1).uppercase(), style = sans(15, FontWeight.SemiBold), color = accent)
         }
@@ -261,7 +290,7 @@ private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String
             Text(listOfNotNull(category, account, who.ifBlank { null }, stringResource(source)).joinToString(" · "), style = LabelStyle, color = c.muted, maxLines = 1)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("${formatAmount(signed, sign = t.type != TransactionType.TRANSFER)} ${t.money.currency}", style = mono(15), color = if (t.type == TransactionType.INCOME) c.green else c.text)
+            Text("${formatAmount(signed, sign = t.type != TransactionType.TRANSFER, locale = LocalLocale.current.platformLocale)} ${t.money.currency}", style = mono(15), color = if (t.type == TransactionType.INCOME) c.green else c.text)
             Text(formatTransactionDate(t.date, today, stringResource(R.string.home_today), LocalLocale.current.platformLocale), style = CaptionStyle, color = c.muted)
         }
     }

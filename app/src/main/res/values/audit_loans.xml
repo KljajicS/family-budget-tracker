@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="loan_issue_date">Choose a date between the tracking start and today.</string>
+    <string name="loan_issue_future_start">Tracking cannot start in the future.</string>
+    <string name="loan_issue_principal_total">Principal repaid cannot be more than the payment.</string>
+    <string name="loan_issue_exceeds">This would take the principal below zero. Check the principal amount.</string>
+    <string name="loan_issue_conflict">Loan history needs correction first. Fix the split or remove the conflicting payment.</string>
+    <string name="loan_issue_incomplete">Enter the principal for every payment before correcting the balance.</string>
+    <string name="loan_issue_archived">Tracking was removed. Only payment splits can still be corrected.</string>
+    <string name="loan_issue_account">This account is no longer available. Choose another one.</string>
+    <string name="loan_load_failed">Loans could not be loaded.</string>
+    <string name="loan_retry">Try again</string>
+    <string name="loan_missing_expense">Linked expense no longer exists. Unlink it to fix the history.</string>
+    <string name="loan_correct_receipt">Correct received amount</string>
+    <string name="loan_receipt_summary">Received %1$s · %2$s</string>
+    <string name="loan_receipt_hint">Corrects only the account and amount credited. Opening principal stays as entered; if it was also wrong, use a principal correction.</string>
+</resources>

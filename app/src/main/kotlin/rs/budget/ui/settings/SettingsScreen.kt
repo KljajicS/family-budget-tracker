@@ -1,21 +1,14 @@
 package rs.budget.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.semantics.Role
 import rs.budget.data.ThemeMode
 import rs.budget.ui.theme.LabelStyle
 import androidx.compose.foundation.rememberScrollState
@@ -41,6 +34,7 @@ import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.PrimaryButton
 import rs.budget.ui.theme.RoundIconButton
+import rs.budget.ui.theme.SelectPill
 import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.sans
 
@@ -61,7 +55,7 @@ fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ThemeMode.entries.forEach { mode ->
                 val label = stringResource(when (mode) { ThemeMode.SYSTEM -> R.string.theme_system; ThemeMode.LIGHT -> R.string.theme_light; ThemeMode.DARK -> R.string.theme_dark })
-                ThemePill(label, s.theme == mode) { vm.setTheme(mode) }
+                SelectPill(label, s.theme == mode, { vm.setTheme(mode) })
             }
         }
         SettingsRow(stringResource(R.string.settings_categories), onCategories)
@@ -78,20 +72,6 @@ fun ScreenHeader(title: String, onBack: () -> Unit) {
         RoundIconButton(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.add_close), onBack)
         Text(title, style = TitleStyle, color = c.text)
     }
-}
-
-@Composable
-private fun ThemePill(label: String, selected: Boolean, onClick: () -> Unit) {
-    val c = LocalColors.current
-    val shape = RoundedCornerShape(17.dp)
-    Box(
-        Modifier.widthIn(min = 64.dp).height(34.dp)
-            .background(if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, shape)
-            .border(1.dp, if (selected) c.text else c.border, shape)
-            .clickable(onClick = onClick, role = Role.RadioButton)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(label, style = sans(13, FontWeight.Medium), color = if (selected) c.bg else c.muted) }
 }
 
 @Composable

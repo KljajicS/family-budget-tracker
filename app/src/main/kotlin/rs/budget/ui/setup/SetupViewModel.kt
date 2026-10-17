@@ -1,11 +1,13 @@
 package rs.budget.ui.setup
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import rs.budget.R
 import rs.budget.data.BudgetRepository
 import rs.budget.domain.Account
 import rs.budget.domain.Currency
@@ -13,14 +15,15 @@ import rs.budget.domain.newId
 import rs.budget.ui.WriteOperation
 import javax.inject.Inject
 
-data class SetupAccount(val name: String, val currency: Currency, val enabled: Boolean)
+/** Starter accounts carry a [label] so the saved name follows the app language; [name] is only their fallback. */
+data class SetupAccount(val name: String, val currency: Currency, val enabled: Boolean, @StringRes val label: Int? = null)
 
 data class SetupState(
     val name: String = "",
     val accounts: List<SetupAccount> = listOf(
-        SetupAccount("Cash", Currency.RSD, enabled = true),
-        SetupAccount("Card", Currency.RSD, enabled = true),
-        SetupAccount("Savings", Currency.RSD, enabled = false),
+        SetupAccount("Cash", Currency.RSD, enabled = true, label = R.string.setup_account_cash),
+        SetupAccount("Card", Currency.RSD, enabled = true, label = R.string.setup_account_card),
+        SetupAccount("Savings", Currency.RSD, enabled = false, label = R.string.audit_ui_account_savings),
     ),
     val done: Boolean = false,
 ) {
@@ -43,13 +46,13 @@ class SetupViewModel @Inject constructor(private val repo: BudgetRepository) : V
         if (name.isBlank()) s else s.copy(accounts = s.accounts + SetupAccount(name.trim(), currency, enabled = true))
     }
 
-    fun finish() {
+    fun finish(localize: (Int) -> String? = { null }) {
         val s = _state.value
         if (!s.canFinish) return
         writes.run {
             repo.setUp(
                 s.name.trim(),
-                s.accounts.filter { it.enabled }.map { Account(newId(), it.name, it.currency) },
+                s.accounts.filter { it.enabled }.map { a -> Account(newId(), a.label?.let(localize) ?: a.name, a.currency) },
             )
             _state.update { it.copy(done = true) }
         }

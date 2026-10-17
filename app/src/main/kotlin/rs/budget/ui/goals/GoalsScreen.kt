@@ -36,6 +36,7 @@ import rs.budget.ui.formatAmount
 import rs.budget.ui.theme.AddButton
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.CaptionStyle
+import rs.budget.ui.theme.LoadingOrError
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.TitleStyle
@@ -45,7 +46,8 @@ import rs.budget.ui.theme.sans
 @Composable
 fun GoalsScreen(onNew: () -> Unit, onOpen: (String) -> Unit, vm: GoalsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val s = state ?: return
+    val failed by vm.loadFailed.collectAsStateWithLifecycle()
+    val s = state ?: return LoadingOrError(failed, vm::retryLoad)
     val c = LocalColors.current
     val list = rememberLazyListState()
 

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="loan_issue_date">Izaberite datum između početka praćenja i danas.</string>
+    <string name="loan_issue_future_start">Praćenje ne može početi u budućnosti.</string>
+    <string name="loan_issue_principal_total">Otplaćena glavnica ne može biti veća od uplate.</string>
+    <string name="loan_issue_exceeds">Ovim bi glavnica pala ispod nule. Proverite iznos glavnice.</string>
+    <string name="loan_issue_conflict">Prvo ispravite istoriju kredita. Ispravite raspodelu ili uklonite spornu uplatu.</string>
+    <string name="loan_issue_incomplete">Unesite glavnicu za svaku uplatu pre ispravke stanja.</string>
+    <string name="loan_issue_archived">Praćenje je uklonjeno. Moguće je još samo ispraviti raspodelu uplata.</string>
+    <string name="loan_issue_account">Ovaj račun više nije dostupan. Izaberite drugi.</string>
+    <string name="loan_load_failed">Krediti nisu učitani.</string>
+    <string name="loan_retry">Pokušaj ponovo</string>
+    <string name="loan_missing_expense">Povezani trošak više ne postoji. Raskinite vezu da biste ispravili istoriju.</string>
+    <string name="loan_correct_receipt">Ispravi primljeni iznos</string>
+    <string name="loan_receipt_summary">Primljeno %1$s · %2$s</string>
+    <string name="loan_receipt_hint">Ispravlja samo račun i uplaćeni iznos. Početna glavnica ostaje kako je uneta; ako je i ona pogrešna, koristite ispravku glavnice.</string>
+</resources>

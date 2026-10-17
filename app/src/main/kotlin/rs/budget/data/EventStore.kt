@@ -20,11 +20,12 @@ class EventStore(
 ) {
     private val writeLock = Any()
 
-    suspend fun append(event: Event, validate: () -> Unit = {}): EventRecord = appendAll(listOf(event), validate).single()
+    suspend fun append(event: Event, validate: () -> Unit = {}): EventRecord = appendAll(listOf(event), validate = validate).single()
 
-    suspend fun appendAll(events: List<Event>, validate: () -> Unit = {}): List<EventRecord> = withContext(Dispatchers.IO) {
+    suspend fun appendAll(events: List<Event>, skipIf: () -> Boolean = { false }, validate: () -> Unit = {}): List<EventRecord> = withContext(Dispatchers.IO) {
         synchronized(writeLock) {
             db.transactionWithResult {
+                if (skipIf()) return@transactionWithResult emptyList()
                 validate()
                 events.map { event ->
                     val seq = (db.eventQueries.lastSeq(deviceId).executeAsOne().max_seq ?: 0L) + 1

@@ -1,5 +1,9 @@
 package rs.budget.ui.insights
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterNotNull
@@ -39,7 +43,11 @@ class InsightsViewModelTest {
     private val repo = BudgetRepository(db, EventStore(db, "dev-1", clock, Projector(db)), clock, "dev-1")
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
-    @After fun tearDown() = Dispatchers.resetMain()
+    private val models = mutableListOf<InsightsViewModel>()
+    @After fun tearDown() {
+        runTest(dispatcher) { models.forEach { it.viewModelScope.coroutineContext[Job]?.cancelAndJoin() } }
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun `month arrows stop at the first transaction and at today, archived categories keep their name`() = runTest(dispatcher) {
@@ -48,7 +56,7 @@ class InsightsViewModelTest {
         repo.add(Transaction("t1", TransactionType.EXPENSE, Money.of("500", Currency.RSD), "cash", null, "cat-fun", LocalDate.of(2026, 8, 3), "", "", m, TransactionSource.MANUAL))
         repo.archiveCategory("cat-fun")
 
-        val vm = InsightsViewModel(repo, clock)
+        val vm = InsightsViewModel(repo, clock).also { models += it }
         var s = vm.state.filterNotNull().first { it.hasData }
         assertEquals(YearMonth.of(2026, 10), s.summary.month)
         assertTrue(s.canGoBack)

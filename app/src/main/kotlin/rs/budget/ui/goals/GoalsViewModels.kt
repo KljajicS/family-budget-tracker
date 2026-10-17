@@ -7,10 +7,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import rs.budget.data.BudgetRepository
@@ -23,6 +21,7 @@ import rs.budget.domain.newId
 import rs.budget.ui.RateStatus
 import rs.budget.ui.WriteOperation
 import rs.budget.ui.parseMoneyInput
+import rs.budget.ui.settings.Loadable
 import javax.inject.Inject
 
 data class GoalsState(
@@ -36,9 +35,13 @@ class GoalsViewModel @Inject constructor(private val repo: BudgetRepository, clo
     val writes = WriteOperation(viewModelScope)
     private val failures = MutableStateFlow(0)
 
-    val state: StateFlow<GoalsState?> = combine(repo.financial, failures) { financial, failed ->
+    private val load = Loadable(viewModelScope, combine(repo.financial, failures) { financial, failed ->
         GoalsState(financial.goals, RateStatus.from(financial), failed)
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default))
+    val state: StateFlow<GoalsState?> = load.state
+    val loadFailed: StateFlow<Boolean> = load.failed
+
+    fun retryLoad() = load.retry()
 
     /** A drop while the previous order is still saving is undone rather than silently lost. */
     fun reorder(ids: List<String>) {

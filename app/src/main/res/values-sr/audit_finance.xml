@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audit_finance_edit_title">Izmena transakcije</string>
+    <string name="audit_finance_save_changes">Sačuvaj izmene</string>
+    <string name="audit_finance_delete">Obriši transakciju</string>
+    <string name="audit_finance_delete_title">Obrisati ovu transakciju?</string>
+    <string name="audit_finance_delete_body">Stanja, zbirovi i izveštaji se odmah menjaju. Ovo ne može da se poništi.</string>
+    <string name="audit_finance_delete_bill">Račun će ponovo biti prikazan kao neplaćen.</string>
+    <string name="audit_finance_delete_receipt">Fiskalni račun ostaje zabeležen, pa ne može ponovo da se skenira.</string>
+    <string name="audit_finance_delete_failed">Brisanje nije uspelo. Pokušaj ponovo.</string>
+    <string name="audit_finance_loan_locked">Ova transakcija pripada kreditu. Izmeni je preko kredita u Računima.</string>
+    <string name="audit_finance_missing">Ova transakcija više ne postoji.</string>
+    <string name="audit_finance_bill_future">Plaćen račun ne može imati budući datum.</string>
+    <string name="audit_finance_future_date">Budući datum: računa se u stanja od tog dana.</string>
+    <string name="audit_finance_show_older">Prikaži starije</string>
+    <string name="audit_finance_load_failed">Učitavanje podataka nije uspelo.</string>
+    <string name="audit_finance_retry">Pokušaj ponovo</string>
+    <string name="audit_finance_edit_hint">Dodirni za izmenu</string>
+</resources>

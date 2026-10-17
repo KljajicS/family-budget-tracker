@@ -39,4 +39,12 @@ class LoanCalculatorTest {
         assertEquals(eur("6800"), LoanCalculator.balance(loan, listOf(payment("200")), emptyList(), listOf(tx(date = day.plusDays(1))), day).beforeUnknownPayments)
         assertEquals(eur("6800"), LoanCalculator.balance(loan, listOf(payment("200")), emptyList(), emptyList(), day).beforeUnknownPayments)
     }
+
+    @Test fun `link to a vanished expense is flagged instead of showing a complete debt`() {
+        val dangling = LoanCalculator.balance(loan, listOf(payment("200"), payment("100", id = "p2", tx = "gone")), emptyList(), listOf(tx()), day)
+        assertTrue(dangling.invalidHistory)
+        assertFalse(dangling.complete)
+        assertFalse(LoanCalculator.balance(loan.copy(opening = eur("200")), listOf(payment("200"), payment("0", id = "p2", tx = "gone")),
+            emptyList(), listOf(tx()), day).paidOff)
+    }
 }

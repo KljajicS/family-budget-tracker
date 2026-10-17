@@ -1,8 +1,6 @@
 package rs.budget.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,15 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -27,12 +22,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalLocale
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -47,18 +44,21 @@ import rs.budget.ui.add.AccountBox
 import rs.budget.ui.add.DateBox
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.formatAmount
+import rs.budget.ui.formatDate
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.AddButton
 import rs.budget.ui.theme.CaptionStyle
+import rs.budget.ui.theme.ConfirmDialog
+import rs.budget.ui.theme.DangerLink
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.PrimaryButton
+import rs.budget.ui.theme.SelectPill
 import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 @Composable
 fun RecurringScreen(
@@ -68,9 +68,12 @@ fun RecurringScreen(
     onPay: (String, LocalDate) -> Unit,
     vm: RecurringViewModel = hiltViewModel(),
 ) {
-    val rules by vm.rules.collectAsStateWithLifecycle()
-    val accounts by vm.accounts.collectAsStateWithLifecycle()
-    val bills by vm.bills.collectAsStateWithLifecycle()
+    val state by vm.state.collectAsStateWithLifecycle()
+    val failed by vm.failed.collectAsStateWithLifecycle()
+    val data = state ?: return rs.budget.ui.theme.LoadingOrError(failed, vm::retry)
+    val rules = data.rules
+    val accounts = data.accounts
+    val bills = data.bills
     val c = LocalColors.current
     val locale = LocalLocale.current.platformLocale
 
@@ -98,10 +101,10 @@ fun RecurringScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(bill.rule.name, style = sans(15, FontWeight.Medium), color = c.text)
-                            Text(bill.dueDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale)), style = CaptionStyle, color = c.muted)
+                            Text(formatDate(bill.dueDate, locale), style = CaptionStyle, color = c.muted)
                             Text(stringResource(if (bill.overdue) R.string.bills_overdue else R.string.bills_from, account), style = CaptionStyle, color = if (bill.overdue) c.orange else c.muted)
                         }
-                        Text("${formatAmount(bill.rule.money)} ${bill.rule.money.currency}", style = mono(13), color = c.text)
+                        Text("${formatAmount(bill.rule.money, locale = locale)} ${bill.rule.money.currency}", style = mono(13), color = c.text)
                     }
                 }
             }
@@ -116,7 +119,7 @@ fun RecurringScreen(
                         Text(r.name, style = sans(15, FontWeight.Medium), color = c.text)
                         Text("$cadence · $account", style = CaptionStyle, color = c.muted)
                     }
-                    Text("${formatAmount(r.money)} ${r.money.currency}", style = mono(13), color = c.text)
+                    Text("${formatAmount(r.money, locale = locale)} ${r.money.currency}", style = mono(13), color = c.text)
                 }
             }
         }
@@ -126,7 +129,9 @@ fun RecurringScreen(
 @Composable
 fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val write by vm.writes.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
+    var confirming by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(s.done) { if (s.done) onClose() }
 
     Column(
@@ -146,7 +151,7 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
                         value = s.amountText,
                         onValueChange = vm::setAmount,
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         textStyle = mono(22).copy(color = c.text),
                         cursorBrush = SolidColor(c.primary),
                         modifier = Modifier.weight(1f).semantics { contentDescription = label },
@@ -162,7 +167,7 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     s.categories.chunked(3).forEach { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            row.forEach { cat -> Pill(categoryDisplayName(cat.id, cat.name), s.categoryId == cat.id) { vm.setCategory(cat.id) } }
+                            row.forEach { cat -> SelectPill(categoryDisplayName(cat.id, cat.name), s.categoryId == cat.id, { vm.setCategory(cat.id) }) }
                         }
                     }
                 }
@@ -175,8 +180,8 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
                 Text(stringResource(R.string.recurring_schedule_locked), style = LabelStyle, color = c.muted)
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Pill(stringResource(R.string.recurring_monthly), s.cadence == Cadence.MONTHLY) { vm.setCadence(Cadence.MONTHLY) }
-                    Pill(stringResource(R.string.recurring_yearly), s.cadence == Cadence.YEARLY) { vm.setCadence(Cadence.YEARLY) }
+                    SelectPill(stringResource(R.string.recurring_monthly), s.cadence == Cadence.MONTHLY, { vm.setCadence(Cadence.MONTHLY) })
+                    SelectPill(stringResource(R.string.recurring_yearly), s.cadence == Cadence.YEARLY, { vm.setCadence(Cadence.YEARLY) })
                 }
                 DateBox(s.firstDue, vm::setFirstDue, Modifier.fillMaxWidth(), label = stringResource(R.string.recurring_first_due))
                 Text(stringResource(R.string.recurring_first_due_hint), style = LabelStyle, color = c.muted)
@@ -185,30 +190,20 @@ fun EditRecurringScreen(onClose: () -> Unit, vm: EditRecurringViewModel = hiltVi
             if (s.editing) {
                 Spacer(Modifier.size(6.dp))
                 Text(stringResource(R.string.recurring_delete_hint), style = LabelStyle, color = c.muted)
-                Text(
-                    stringResource(R.string.recurring_delete),
-                    style = sans(14, FontWeight.Medium), color = c.orange,
-                    modifier = Modifier.clickable(role = Role.Button, onClick = vm::delete).padding(vertical = 10.dp),
-                )
+                DangerLink(stringResource(R.string.recurring_delete), enabled = !write.busy) { confirming = true }
             }
         }
 
         WriteFeedback(vm.writes)
 
-        PrimaryButton(stringResource(R.string.recurring_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
+        PrimaryButton(stringResource(R.string.recurring_save), enabled = s.canSave && !write.busy, onClick = vm::save)
     }
-}
 
-@Composable
-private fun Pill(label: String, selected: Boolean, onClick: () -> Unit) {
-    val c = LocalColors.current
-    val shape = RoundedCornerShape(17.dp)
-    Box(
-        Modifier.widthIn(min = 64.dp).height(34.dp)
-            .background(if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, shape)
-            .border(1.dp, if (selected) c.text else c.border, shape)
-            .clickable(onClick = onClick, role = Role.RadioButton)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(label, style = sans(13, FontWeight.Medium), color = if (selected) c.bg else c.muted) }
+    if (confirming) {
+        ConfirmDialog(stringResource(R.string.audit_ui_delete_title, s.name.trim()), stringResource(R.string.recurring_delete), write.busy, vm::delete, { confirming = false }) {
+            Text(stringResource(R.string.recurring_delete_hint), style = sans(14), color = c.text)
+            Text(stringResource(R.string.audit_ui_delete_irreversible), style = sans(14), color = c.orange)
+            WriteFeedback(vm.writes)
+        }
+    }
 }

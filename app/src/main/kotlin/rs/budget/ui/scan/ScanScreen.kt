@@ -66,7 +66,10 @@ fun ScanScreen(onClose: () -> Unit, onSaved: () -> Unit, onManual: () -> Unit, o
     var granted by remember { mutableStateOf(cameraGranted()) }
     var requested by rememberSaveable { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
-    var editing by remember { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(draft.receipt, s.stage) {
+        if (draft.receipt == null && s.stage != ScanStage.REVIEW) editing = false
+    }
     DisposableEffect(editing) {
         onEditingChanged(editing)
         onDispose { onEditingChanged(false) }
@@ -97,7 +100,7 @@ fun ScanScreen(onClose: () -> Unit, onSaved: () -> Unit, onManual: () -> Unit, o
 
     if (editing && draft.receipt != null) {
         AddContent(draft, { editing = false }, add::setType, add::press, add::setCategory, add::setAccount,
-            add::setToAccount, add::setDate, add::setMerchant, add::skip, { save(false) })
+            add::setToAccount, add::setDate, add::setMerchant, add::skip, { save(false) }, onRetry = add::retryLoad)
         return
     }
 
@@ -106,6 +109,10 @@ fun ScanScreen(onClose: () -> Unit, onSaved: () -> Unit, onManual: () -> Unit, o
         if (s.stage == ScanStage.CAPTURING && granted) ReceiptCamera(Modifier.fillMaxSize(), vm::scanned, vm::cameraFailed)
     }) {
             if (s.stage == ScanStage.REVIEW && draft.receipt != null) {
+                if (draft.loadFailed) {
+                    Text(stringResource(R.string.audit_ui_load_failed), color = c.orange)
+                    TextButton(onClick = add::retryLoad) { Text(stringResource(R.string.audit_ui_retry)) }
+                }
                 ReceiptReview(draft, add::setCategory, add::setAccount, { editing = true },
                     { save(true) }, { save(false) })
             } else {

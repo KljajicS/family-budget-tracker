@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audit_ui_account_savings">Savings</string>
+    <string name="audit_ui_delete_title">Delete %1$s?</string>
+    <string name="audit_ui_delete_irreversible">This cannot be undone.</string>
+    <string name="audit_ui_account_bills">Recurring bills still paid from this account: %1$s. Move them to another account first, or they will point to a removed account.</string>
+    <string name="audit_ui_load_failed">Could not load data.</string>
+    <string name="audit_ui_retry">Try again</string>
+</resources>

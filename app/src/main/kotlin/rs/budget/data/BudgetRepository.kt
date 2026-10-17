@@ -96,7 +96,7 @@ class BudgetRepository(
 
     val transactions: Flow<List<Transaction>> =
         db.txQueries.all().asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toDomain() } }.flowOn(Dispatchers.Default)
-            .let { source -> if (sharingScope == null) source else source.shareIn(sharingScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1) }
+            .let { source -> if (sharingScope == null) source else source.shareReads(sharingScope) }
 
     fun recent(limit: Int): Flow<List<RecentTx>> =
         db.txQueries.recent(limit.toLong()).asFlow().mapToList(Dispatchers.IO).map { rows -> rows.map { it.toRecent() } }.flowOn(Dispatchers.Default)
@@ -130,12 +130,14 @@ class BudgetRepository(
         val active = allAccs.filterNot { it.archived }
         val bills = BillCalculator.upcoming(day, commitments.rules, active.map { it.id }.toSet(), txs, commitments.skips)
         val home = HomeCalculator.summarize(day, allAccs, txs, rates)
-        val goals = GoalCalculator.progress(commitments.goals, home.savingsRsd, rates)
-        val missing = (active.map { it.currency } + txs.map { it.money.currency } + bills.map { it.rule.money.currency } +
+        val goals = GoalCalculator.progress(commitments.goals, home, rates)
+        val balanceCurrencies = home.balances.values.groupBy { it.currency }
+            .filterValues { amounts -> amounts.sumOf { it.amount }.signum() != 0 }.keys
+        val missing = (balanceCurrencies + txs.map { it.money.currency } + bills.map { it.rule.money.currency } +
             commitments.goals.map { it.target.currency }).filter { rates.rate(it) == null }.toSet()
         FinancialSnapshot(day, allAccs, txs, bills, goals, home, exchange, missing)
     }.flowOn(Dispatchers.Default).let { source ->
-        if (sharingScope == null) source else source.shareIn(sharingScope, SharingStarted.WhileSubscribed(5_000, replayExpirationMillis = 0), replay = 1)
+        if (sharingScope == null) source else source.shareReads(sharingScope)
     }
 
     val home: Flow<HomeSummary> = financial.map { it.home }
@@ -222,7 +224,28 @@ class BudgetRepository(
             }
         }
     }
-    suspend fun edit(t: Transaction) { store.append(TransactionEdited(t)) { loans.requireUnlinked(t.id); require(t.type != TransactionType.LOAN_RECEIPT); validateTransaction(t) } }
+    suspend fun transaction(id: String): Transaction? = withContext(Dispatchers.IO) {
+        db.txQueries.all().executeAsList().firstOrNull { it.id == id }?.toDomain()
+    }
+
+    suspend fun isLoanLinked(id: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching { loans.requireUnlinked(id) }.isFailure
+    }
+
+    /** Corrections keep the identity a receipt or paid bill is matched by, so neither can be recorded twice. */
+    suspend fun edit(t: Transaction) {
+        store.append(TransactionEdited(t)) {
+            loans.requireUnlinked(t.id)
+            require(t.type != TransactionType.LOAN_RECEIPT)
+            val previous = requireNotNull(db.txQueries.all().executeAsList().firstOrNull { it.id == t.id }?.toDomain()) { "Transaction no longer exists" }
+            require(previous.type != TransactionType.LOAN_RECEIPT && previous.source == t.source && previous.paidBy == t.paidBy)
+            if (t.source != TransactionSource.MANUAL) require(t.type == TransactionType.EXPENSE)
+            if (t.source == TransactionSource.RECEIPT) require(t.money.currency == Currency.RSD)
+            // A future-dated bill payment reads as unpaid, and paying it again would be dropped as the same transaction.
+            if (t.source == TransactionSource.RECURRING) require(t.date <= clock.today()) { "Paid bill cannot move into the future" }
+            validateTransaction(t)
+        }
+    }
 
     private fun validateTransaction(t: Transaction) {
         val account = db.accountQueries.byId(t.accountId).executeAsOneOrNull()

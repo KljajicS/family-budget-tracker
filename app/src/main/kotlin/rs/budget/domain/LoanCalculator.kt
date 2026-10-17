@@ -4,14 +4,17 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 object LoanCalculator {
-    fun balance(loan: Loan, payments: List<LoanPayment>, adjustments: List<LoanAdjustment>, transactions: List<Transaction>, today: LocalDate): LoanBalance {
-        val txs = transactions.associateBy { it.id }
+    fun balance(loan: Loan, payments: List<LoanPayment>, adjustments: List<LoanAdjustment>, transactions: List<Transaction>, today: LocalDate): LoanBalance =
+        balance(loan, payments, adjustments, transactions.associateBy { it.id }, today)
+
+    fun balance(loan: Loan, payments: List<LoanPayment>, adjustments: List<LoanAdjustment>, txs: Map<String, Transaction>, today: LocalDate): LoanBalance {
         val changes = mutableMapOf<LocalDate, BigDecimal>()
         var incomplete = 0
         var invalid = false
         val used = mutableSetOf<String>()
         payments.filter { it.loanId == loan.id }.forEach { payment ->
-            val tx = txs[payment.transactionId] ?: return@forEach
+            // A link whose expense vanished (deleted on another device) would otherwise read as a complete, too-high debt.
+            val tx = txs[payment.transactionId] ?: run { invalid = true; return@forEach }
             if (tx.date > today) return@forEach
             if (!used.add(tx.id) || tx.type != TransactionType.EXPENSE || tx.date < loan.start ||
                 payment.total.currency != loan.opening.currency ||

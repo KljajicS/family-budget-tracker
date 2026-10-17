@@ -1,5 +1,9 @@
 package rs.budget.ui.goals
 
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,7 +42,11 @@ class GoalsViewModelTest {
     private val repo = BudgetRepository(db, EventStore(db, "dev-1", clock, Projector(db)), clock, "dev-1")
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
-    @After fun tearDown() = Dispatchers.resetMain()
+    private val models = mutableListOf<GoalsViewModel>()
+    @After fun tearDown() {
+        runTest(dispatcher) { models.forEach { it.viewModelScope.coroutineContext[Job]?.cancelAndJoin() } }
+        Dispatchers.resetMain()
+    }
 
     private fun rsd(s: String) = Money.of(s, Currency.RSD)
 
@@ -51,7 +59,7 @@ class GoalsViewModelTest {
         repo.setGoal(Goal("fund", "Fund", rsd("80000")))
         repo.setGoal(Goal("trip", "Trip", rsd("50000")))
 
-        val vm = GoalsViewModel(repo, clock)
+        val vm = GoalsViewModel(repo, clock).also { models += it }
         val s = vm.state.filterNotNull().first { it.goals.size == 2 }
         assertEquals(listOf("fund", "trip"), s.goals.map { it.goal.id })
         assertEquals(listOf(rsd("80000"), rsd("20000")), s.goals.map { it.funded })
@@ -65,7 +73,7 @@ class GoalsViewModelTest {
     fun `failed reorder keeps stored order and bumps the reset key`() = runTest(dispatcher) {
         repo.setGoal(Goal("a", "A", rsd("1")))
         repo.setGoal(Goal("b", "B", rsd("1")))
-        val vm = GoalsViewModel(repo, clock)
+        val vm = GoalsViewModel(repo, clock).also { models += it }
         vm.state.filterNotNull().first { it.goals.size == 2 }
         driver.execute(null, "CREATE TRIGGER fail_order BEFORE INSERT ON event BEGIN SELECT RAISE(ABORT, 'disk full'); END", 0)
         vm.reorder(listOf("b", "a"))

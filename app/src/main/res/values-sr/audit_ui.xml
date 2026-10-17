@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="audit_ui_account_savings">Štednja</string>
+    <string name="audit_ui_delete_title">Obrisati %1$s?</string>
+    <string name="audit_ui_delete_irreversible">Ovo ne može da se poništi.</string>
+    <string name="audit_ui_account_bills">Redovni računi se i dalje plaćaju sa ovog računa: %1$s. Prvo ih prebacite na drugi račun, inače će ostati vezani za uklonjen račun.</string>
+    <string name="audit_ui_load_failed">Učitavanje podataka nije uspelo.</string>
+    <string name="audit_ui_retry">Pokušaj ponovo</string>
+</resources>

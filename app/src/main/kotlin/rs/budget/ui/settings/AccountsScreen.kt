@@ -1,7 +1,6 @@
 package rs.budget.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,28 +10,26 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,11 +51,15 @@ import rs.budget.ui.formatAmount
 import rs.budget.ui.theme.AddButton
 import rs.budget.ui.home.accountColor
 import rs.budget.ui.theme.BodyStyle
+import rs.budget.ui.theme.ConfirmDialog
+import rs.budget.ui.theme.DangerLink
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
+import rs.budget.ui.theme.LoadingOrError
 import rs.budget.ui.theme.LocalColors
 import rs.budget.ui.theme.OutlinedBox
 import rs.budget.ui.theme.PrimaryButton
+import rs.budget.ui.theme.SelectPill
 import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
@@ -66,7 +67,8 @@ import rs.budget.ui.theme.sans
 @Composable
 fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, onNewLoan: () -> Unit, onLoan: (String) -> Unit, vm: AccountsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val s = state ?: return
+    val failed by vm.loadFailed.collectAsStateWithLifecycle()
+    val s = state ?: return LoadingOrError(failed, vm::retryLoad)
     val c = LocalColors.current
     val locale = LocalLocale.current.platformLocale
     val list = rememberLazyListState()
@@ -120,7 +122,7 @@ fun EditAccountScreen(onClose: () -> Unit, vm: EditAccountViewModel = hiltViewMo
     val s by vm.state.collectAsStateWithLifecycle()
     val write by vm.writes.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
-    var confirming by remember { mutableStateOf(false) }
+    var confirming by rememberSaveable { mutableStateOf(false) }
     // The warning must name the balance being dropped, and a busy save would silently swallow the archive.
     val canRemove = s.balance != null && !write.busy
     LaunchedEffect(s.done) { if (s.done) onClose() }
@@ -130,26 +132,27 @@ fun EditAccountScreen(onClose: () -> Unit, vm: EditAccountViewModel = hiltViewMo
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader(stringResource(if (s.editing) R.string.account_edit_title else R.string.account_new_title), onClose)
-        FieldBox(stringResource(R.string.account_name), s.name, vm::setName)
-        Text(stringResource(R.string.account_currency), style = LabelStyle, color = c.muted)
-        if (s.currencyLocked) {
-            Text(s.currency.name, style = mono(15), color = c.text)
-            Text(stringResource(R.string.account_currency_locked), style = LabelStyle, color = c.muted)
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Currency.entries.forEach { cur -> Pill(cur.name, s.currency == cur) { vm.setCurrency(cur) } }
+        if (s.loadFailed) {
+            Text(stringResource(R.string.audit_ui_load_failed), color = c.orange)
+            androidx.compose.material3.TextButton(onClick = vm::retryLoad) { Text(stringResource(R.string.audit_ui_retry)) }
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            FieldBox(stringResource(R.string.account_name), s.name, vm::setName)
+            Text(stringResource(R.string.account_currency), style = LabelStyle, color = c.muted)
+            if (s.currencyLocked) {
+                Text(s.currency.name, style = mono(15), color = c.text)
+                Text(stringResource(R.string.account_currency_locked), style = LabelStyle, color = c.muted)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Currency.entries.forEach { cur -> SelectPill(cur.name, s.currency == cur, { vm.setCurrency(cur) }, style = mono(13)) }
+                }
+            }
+            if (s.editing) {
+                Spacer(Modifier.size(6.dp))
+                Text(stringResource(R.string.account_delete_hint), style = LabelStyle, color = c.muted)
+                DangerLink(stringResource(R.string.account_delete), enabled = canRemove) { confirming = true }
             }
         }
-        if (s.editing) {
-            Spacer(Modifier.size(6.dp))
-            Text(stringResource(R.string.account_delete_hint), style = LabelStyle, color = c.muted)
-            Text(
-                stringResource(R.string.account_delete),
-                style = sans(14, FontWeight.Medium), color = if (canRemove) c.orange else c.muted,
-                modifier = Modifier.clickable(enabled = canRemove, role = Role.Button) { confirming = true }.padding(vertical = 10.dp),
-            )
-        }
-        Spacer(Modifier.weight(1f))
         WriteFeedback(vm.writes)
         PrimaryButton(stringResource(R.string.account_save), enabled = s.canSave && !write.busy, onClick = vm::save)
     }
@@ -166,50 +169,24 @@ private fun ArchiveDialog(s: EditAccountState, balance: Money, writes: WriteOper
     val c = LocalColors.current
     val locale = LocalLocale.current.platformLocale
     val rsd = s.balanceRsd
-    AlertDialog(
-        onDismissRequest = { if (!busy) onDismiss() },
-        containerColor = c.bg,
-        title = { Text(stringResource(R.string.account_archive_title, s.name), style = sans(18, FontWeight.SemiBold), color = c.text) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                val approx = if (balance.currency != Currency.RSD && rsd != null) " (≈ ${formatAmount(rsd, locale = locale)} RSD)" else ""
-                Text(
-                    stringResource(R.string.account_archive_balance, "${formatAmount(balance, locale = locale)} ${balance.currency}$approx"),
-                    style = mono(14), color = c.text,
-                )
-                Text(
-                    stringResource(
-                        when {
-                            balance.isZero -> R.string.account_archive_zero
-                            balance.isNegative -> R.string.account_archive_rise
-                            else -> R.string.account_archive_drop
-                        },
-                    ),
-                    style = sans(14), color = if (!balance.isZero && !balance.isNegative) c.orange else c.text,
-                )
-                Text(stringResource(R.string.account_archive_history), style = sans(14), color = c.muted)
-                WriteFeedback(writes)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !busy) { Text(stringResource(R.string.account_archive_confirm), color = if (busy) c.muted else c.orange) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.dialog_cancel), color = if (busy) c.muted else c.text) }
-        },
-    )
-}
-
-@Composable
-private fun Pill(label: String, selected: Boolean, onClick: () -> Unit) {
-    val c = LocalColors.current
-    val shape = RoundedCornerShape(17.dp)
-    Box(
-        Modifier.widthIn(min = 64.dp).height(34.dp)
-            .background(if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, shape)
-            .border(1.dp, if (selected) c.text else c.border, shape)
-            .clickable(onClick = onClick, role = Role.RadioButton)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(label, style = mono(13), color = if (selected) c.bg else c.muted) }
+    ConfirmDialog(stringResource(R.string.account_archive_title, s.name), stringResource(R.string.account_archive_confirm), busy, onConfirm, onDismiss) {
+        val approx = if (balance.currency != Currency.RSD && rsd != null) " (≈ ${formatAmount(rsd, locale = locale)} RSD)" else ""
+        Text(
+            stringResource(R.string.account_archive_balance, "${formatAmount(balance, locale = locale)} ${balance.currency}$approx"),
+            style = mono(14), color = c.text,
+        )
+        Text(
+            stringResource(
+                when {
+                    balance.isZero -> R.string.account_archive_zero
+                    balance.isNegative -> R.string.account_archive_rise
+                    else -> R.string.account_archive_drop
+                },
+            ),
+            style = sans(14), color = if (!balance.isZero && !balance.isNegative) c.orange else c.text,
+        )
+        if (s.bills.isNotEmpty()) Text(stringResource(R.string.audit_ui_account_bills, s.bills.joinToString(", ")), style = sans(14), color = c.orange)
+        Text(stringResource(R.string.account_archive_history), style = sans(14), color = c.muted)
+        WriteFeedback(writes)
+    }
 }

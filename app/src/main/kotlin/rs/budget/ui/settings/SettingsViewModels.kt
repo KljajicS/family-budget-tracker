@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
@@ -131,13 +133,17 @@ class AccountsViewModel @Inject constructor(private val repo: BudgetRepository) 
     val writes = WriteOperation(viewModelScope)
     private val failures = MutableStateFlow(0)
 
-    val state: StateFlow<AccountsState?> = combine(repo.financial, failures) { financial, failed ->
+    private val load = Loadable(viewModelScope, combine(repo.financial, failures) { financial, failed ->
         AccountsState(
             financial.activeAccounts.mapNotNull { a -> financial.home.balances[a.id]?.let { AccountBalance(a, it) } },
             RateStatus.from(financial),
             failed,
         )
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default))
+    val state: StateFlow<AccountsState?> = load.state
+    val loadFailed: StateFlow<Boolean> = load.failed
+
+    fun retryLoad() = load.retry()
 
     /** A drop while the previous order is still saving is undone rather than silently lost. */
     fun reorder(ids: List<String>) {
@@ -156,7 +162,7 @@ class AccountsViewModel @Inject constructor(private val repo: BudgetRepository) 
     }
 }
 
-/** [balanceRsd] is null without a rate; [kind] is legacy and only carried through edits. */
+/** [balanceRsd] is null without a rate; [kind] is legacy and only carried through edits; [bills] names active rules paid from this account. */
 data class EditAccountState(
     val editing: Boolean = false,
     val id: String? = null,
@@ -166,9 +172,11 @@ data class EditAccountState(
     val currencyLocked: Boolean = false,
     val balance: Money? = null,
     val balanceRsd: Money? = null,
+    val bills: List<String> = emptyList(),
+    val loadFailed: Boolean = false,
     val done: Boolean = false,
 ) {
-    val canSave: Boolean get() = name.isNotBlank()
+    val canSave: Boolean get() = name.isNotBlank() && !loadFailed
 }
 
 @HiltViewModel
@@ -177,16 +185,30 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
     private val _state = MutableStateFlow(EditAccountState(editing = savedState.get<String>("id") != null, id = savedState.get<String>("id")))
     val state: StateFlow<EditAccountState> = _state
 
-    init {
-        val id = _state.value.id
-        if (id != null) viewModelScope.launch {
-            val used = repo.accountInUse(id)
-            repo.accounts.first().firstOrNull { it.id == id }?.let { a -> _state.update { it.copy(name = a.name, currency = a.currency, kind = a.kind, currencyLocked = used) } }
-        }
-        if (id != null) viewModelScope.launch {
-            repo.financial.collect { f ->
-                val balance = f.home.balances[id]
-                _state.update { it.copy(balance = balance, balanceRsd = balance?.let { f.exchange.rates.convert(it) }) }
+    private var loading: Job? = null
+    private var initialized = false
+    init { retryLoad() }
+
+    fun retryLoad() {
+        val id = _state.value.id ?: return
+        loading?.cancel()
+        loading = viewModelScope.launch {
+            try {
+                if (!initialized) {
+                    val used = repo.accountInUse(id)
+                    val a = requireNotNull(repo.accounts.first().firstOrNull { it.id == id })
+                    _state.update { it.copy(name = a.name, currency = a.currency, kind = a.kind, currencyLocked = used) }
+                    initialized = true
+                }
+                combine(repo.financial, repo.rules) { financial, rules -> financial to rules }.collect { (f, rules) ->
+                    val balance = f.home.balances[id]
+                    _state.update { it.copy(balance = balance, balanceRsd = balance?.let { f.exchange.rates.convert(it) },
+                        bills = rules.filter { it.accountId == id }.map { it.name }, loadFailed = false) }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _state.update { it.copy(loadFailed = true, balance = null, balanceRsd = null) }
             }
         }
     }
@@ -215,10 +237,15 @@ class EditAccountViewModel @Inject constructor(private val repo: BudgetRepositor
 
 @HiltViewModel
 class RecurringViewModel @Inject constructor(repo: BudgetRepository) : ViewModel() {
-    val bills = repo.upcomingBills.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val rules: StateFlow<List<RecurringRule>> = repo.rules.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val accounts: StateFlow<List<Account>> = repo.accounts.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val load = Loadable(viewModelScope, combine(repo.upcomingBills, repo.rules, repo.accounts) { bills, rules, accounts ->
+        RecurringState(bills, rules, accounts)
+    })
+    val state = load.state
+    val failed = load.failed
+    fun retry() = load.retry()
 }
+
+data class RecurringState(val bills: List<rs.budget.domain.Bill>, val rules: List<RecurringRule>, val accounts: List<Account>)
 
 data class EditRecurringState(
     val editing: Boolean = false,

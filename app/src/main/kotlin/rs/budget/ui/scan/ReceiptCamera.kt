@@ -117,7 +117,7 @@ fun ReceiptCamera(modifier: Modifier, onCode: (String) -> Unit, onError: () -> U
 
 @Composable
 internal fun CameraButton(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp).background(Color(0xFF303234), CircleShape)
+    Box(Modifier.size(48.dp).background(Color(0xFF303234), CircleShape)
         .clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, label, tint = Color.White, modifier = Modifier.size(22.dp))
     }

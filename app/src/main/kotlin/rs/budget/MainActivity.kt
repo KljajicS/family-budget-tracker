@@ -28,8 +28,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +49,6 @@ import rs.budget.data.rates.RateRefresh
 import rs.budget.ui.settings.ExchangeRatesScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -168,7 +167,7 @@ fun BudgetRoot(root: RootViewModel) {
     }
     val backStack by nav.currentBackStackEntryAsState()
     val route = backStack?.destination?.route
-    var scanEditing by remember { mutableStateOf(false) }
+    var scanEditing by rememberSaveable { mutableStateOf(false) }
     val cameraSurface = route == Tab.SCAN.route && !scanEditing
     val showBar = route != Tab.SCAN.route && Tab.entries.any { it.route == route }
     val activity = LocalActivity.current
@@ -181,7 +180,7 @@ fun BudgetRoot(root: RootViewModel) {
         bottomBar = {
             if (showBar) BottomBar(route) { tab ->
                 nav.navigate(tab.route) {
-                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                    popUpTo(Tab.HOME.route) { saveState = true }
                     launchSingleTop = true
                     restoreState = true
                 }
@@ -194,6 +193,7 @@ fun BudgetRoot(root: RootViewModel) {
                     onAdd = { nav.navigate(Routes.add()) },
                     onAccounts = { nav.navigate(Tab.ACCOUNTS.route) { launchSingleTop = true } },
                     onSettings = { nav.navigate(Routes.SETTINGS) },
+                    onEditTransaction = { nav.navigate(Routes.editTransaction(it)) },
                 )
             }
             composable(Routes.SETTINGS) {
@@ -246,6 +246,7 @@ fun BudgetRoot(root: RootViewModel) {
             }
             composable(Routes.NEW_GOAL) { EditGoalScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_GOAL) { EditGoalScreen(onClose = { nav.popBackStack() }) }
+            composable(Routes.EDIT_TRANSACTION) { AddScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.SETUP) {
                 SetupScreen(onDone = { nav.navigate(Tab.HOME.route) { popUpTo(Routes.SETUP) { inclusive = true } } })
             }

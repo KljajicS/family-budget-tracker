@@ -19,6 +19,7 @@ import rs.budget.domain.InsightsSummary
 import rs.budget.domain.Slice
 import rs.budget.domain.Transaction
 import rs.budget.ui.RateStatus
+import rs.budget.ui.settings.Loadable
 import java.time.YearMonth
 import javax.inject.Inject
 
@@ -42,7 +43,7 @@ class InsightsViewModel @Inject constructor(repo: BudgetRepository, private val 
     private val month = MutableStateFlow(YearMonth.from(clock.today()))
     private val selection = MutableStateFlow<Selection?>(null)
 
-    val state: StateFlow<InsightsState?> = combine(
+    private val load = Loadable(viewModelScope, combine(
         month, selection, repo.financial, repo.allCategories,
     ) { m, chosen, financial, categories ->
         val summary = InsightsCalculator.summarize(financial.day, m, financial.transactions, financial.exchange.rates)
@@ -56,7 +57,11 @@ class InsightsViewModel @Inject constructor(repo: BudgetRepository, private val 
             accountNames = financial.accounts.associate { it.id to it.name },
             rateStatus = RateStatus.from(financial),
         )
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.flowOn(Dispatchers.Default))
+    val state: StateFlow<InsightsState?> = load.state
+    val loadFailed: StateFlow<Boolean> = load.failed
+
+    fun retryLoad() = load.retry()
 
     fun previousMonth() = step(-1)
     fun nextMonth() = step(1)

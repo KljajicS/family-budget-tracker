@@ -10,7 +10,9 @@ Savings still means all active account balances, including borrowed cash. Goals 
 
 LoanRepository shares BudgetRepository's EventStore and lock. Transaction and payment events append in one database transaction. IDs remain stable across retries. Unique active links prevent counting one expense against multiple loans. Removed payment links retain tombstones; edits cannot resurrect them. Replay is deterministic and invalid histories are marked for correction rather than crashing startup.
 
-Linking an existing expense never creates another debit. Unlinking preserves its expense; deleting removes the expense too. Deleting a recurring expense makes its bill unpaid again. Split-only corrections remain possible after removing an account or loan tracking. Account/date/amount corrections use removal and re-entry rather than a general transaction editor.
+Linking an existing expense never creates another debit. Unlinking preserves its expense; deleting removes the expense too. Deleting a recurring expense makes its bill unpaid again. Split-only corrections remain possible after removing an account or loan tracking. Linked payment account/date/amount corrections use removal and re-entry. Ordinary transactions have a separate editor that cannot mutate loan-linked entries.
+
+The original borrowing credit can be corrected from the loan detail screen while tracking is active. This changes the actual credited amount or account atomically without changing opening principal. A principal mistake requires a separate balance correction.
 
 Balance corrections affect principal only, require a reason, and are blocked until all payment splits are complete. Corrections are for recording mistakes, not extra borrowing or interest capitalization. Daily net principal cannot become negative. The supported scope excludes refinancing, additional drawdowns, automatic interest schedules, bank imports, notifications and payment execution. Optional due dates and installment amounts are informational and updated manually.
 

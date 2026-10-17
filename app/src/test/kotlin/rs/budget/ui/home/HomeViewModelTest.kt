@@ -1,5 +1,10 @@
 package rs.budget.ui.home
 
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterNotNull
@@ -36,7 +41,11 @@ class HomeViewModelTest {
     private val repo = BudgetRepository(db, EventStore(db, "dev-1", clock, Projector(db)), clock, "dev-1")
 
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
-    @After fun tearDown() = Dispatchers.resetMain()
+    private val models = mutableListOf<ViewModel>()
+    @After fun tearDown() {
+        runTest(dispatcher) { models.forEach { it.viewModelScope.coroutineContext[Job]?.cancelAndJoin() } }
+        Dispatchers.resetMain()
+    }
 
     @Test
     fun `state reflects repository`() = runTest(dispatcher) {
@@ -46,7 +55,7 @@ class HomeViewModelTest {
         repo.add(Transaction("t2", TransactionType.EXPENSE, Money.of("250", Currency.RSD), "cash", null, "cat-fun", LocalDate.of(2026, 10, 14), "", "Cinema", m, TransactionSource.MANUAL))
         repo.reorderAccounts(listOf("card", "old", "cash"))
         repo.archiveAccount("old")
-        val vm = HomeViewModel(repo, clock)
+        val vm = HomeViewModel(repo, clock).also { models += it }
         val s = vm.state.filterNotNull().first()
         assertEquals(Money.of("750", Currency.RSD), s.summary.savingsRsd)
         assertEquals(Money.of("750", Currency.RSD), s.summary.difference)

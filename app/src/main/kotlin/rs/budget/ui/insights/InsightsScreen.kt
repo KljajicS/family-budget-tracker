@@ -70,7 +70,8 @@ import java.util.Locale
 @Composable
 fun InsightsScreen(vm: InsightsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val s = state ?: return
+    val failed by vm.loadFailed.collectAsStateWithLifecycle()
+    val s = state ?: return rs.budget.ui.theme.LoadingOrError(failed, vm::retryLoad)
     val c = LocalColors.current
     val locale = LocalLocale.current.platformLocale
     val sum = s.summary

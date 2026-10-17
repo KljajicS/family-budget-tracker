@@ -2,7 +2,6 @@ package rs.budget.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,11 +16,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +45,8 @@ import rs.budget.ui.CategoryPalette
 import rs.budget.ui.categoryDisplayName
 import rs.budget.ui.theme.BodyStyle
 import rs.budget.ui.theme.AddButton
+import rs.budget.ui.theme.ConfirmDialog
+import rs.budget.ui.theme.DangerLink
 import rs.budget.ui.theme.FieldBox
 import rs.budget.ui.theme.LabelStyle
 import rs.budget.ui.theme.LocalColors
@@ -78,7 +86,9 @@ fun CategoriesScreen(onBack: () -> Unit, onNew: () -> Unit, onEdit: (String) -> 
 @Composable
 fun EditCategoryScreen(onClose: () -> Unit, vm: EditCategoryViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
+    val write by vm.writes.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
+    var confirming by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(s.done) { if (s.done) onClose() }
 
     Column(
@@ -86,32 +96,38 @@ fun EditCategoryScreen(onClose: () -> Unit, vm: EditCategoryViewModel = hiltView
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenHeader(stringResource(if (s.editing) R.string.category_edit_title else R.string.category_new_title), onClose)
-        FieldBox(stringResource(R.string.category_name), s.name, vm::setName)
-        Text(stringResource(R.string.category_color), style = LabelStyle, color = c.muted)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            CategoryPalette.forEach { hex ->
-                val selected = s.color == hex
-                Box(
-                    Modifier.size(40.dp).clip(CircleShape)
-                        .border(if (selected) 3.dp else 0.dp, if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, CircleShape)
-                        .padding(if (selected) 5.dp else 0.dp)
-                        .background(colorOf(hex), CircleShape)
-                        .clickable(role = Role.RadioButton) { vm.setColor(hex) }
-                        .semantics { contentDescription = hex },
-                )
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            FieldBox(stringResource(R.string.category_name), s.name, vm::setName)
+            Text(stringResource(R.string.category_color), style = LabelStyle, color = c.muted)
+            // 48dp targets with 2dp gaps keep the original 40dp swatch on a 50dp pitch.
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                CategoryPalette.forEach { hex ->
+                    val selected = s.color == hex
+                    Box(
+                        Modifier.selectable(selected = selected, role = Role.RadioButton) { vm.setColor(hex) }
+                            .minimumInteractiveComponentSize().size(40.dp).clip(CircleShape)
+                            .border(if (selected) 3.dp else 0.dp, if (selected) c.text else androidx.compose.ui.graphics.Color.Transparent, CircleShape)
+                            .padding(if (selected) 5.dp else 0.dp)
+                            .background(colorOf(hex), CircleShape)
+                            .semantics { contentDescription = hex },
+                    )
+                }
+            }
+            if (s.editing) {
+                Spacer(Modifier.size(6.dp))
+                Text(stringResource(R.string.category_delete_hint), style = LabelStyle, color = c.muted)
+                DangerLink(stringResource(R.string.category_delete), enabled = !write.busy) { confirming = true }
             }
         }
-        if (s.editing) {
-            Spacer(Modifier.size(6.dp))
-            Text(stringResource(R.string.category_delete_hint), style = LabelStyle, color = c.muted)
-            Text(
-                stringResource(R.string.category_delete),
-                style = sans(14, FontWeight.Medium), color = c.orange,
-                modifier = Modifier.clickable(role = Role.Button, onClick = vm::delete).padding(vertical = 10.dp),
-            )
-        }
-        Spacer(Modifier.weight(1f))
         WriteFeedback(vm.writes)
-        PrimaryButton(stringResource(R.string.category_save), enabled = s.canSave && !vm.writes.state.collectAsStateWithLifecycle().value.busy, onClick = vm::save)
+        PrimaryButton(stringResource(R.string.category_save), enabled = s.canSave && !write.busy, onClick = vm::save)
+    }
+
+    if (confirming) {
+        ConfirmDialog(stringResource(R.string.audit_ui_delete_title, categoryDisplayName(s.id.orEmpty(), s.name.trim())), stringResource(R.string.category_delete), write.busy, vm::delete, { confirming = false }) {
+            Text(stringResource(R.string.category_delete_hint), style = sans(14), color = c.text)
+            Text(stringResource(R.string.audit_ui_delete_irreversible), style = sans(14), color = c.orange)
+            WriteFeedback(vm.writes)
+        }
     }
 }

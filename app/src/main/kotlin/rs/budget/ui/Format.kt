@@ -40,5 +40,8 @@ fun formatTransactionDate(date: LocalDate, today: LocalDate, todayLabel: String,
     return date.format(DateTimeFormatter.ofPattern(pattern, monthLocale(locale)))
 }
 
+fun formatDate(date: LocalDate, locale: Locale): String =
+    date.format(DateTimeFormatter.ofPattern("d MMM yyyy", monthLocale(locale)))
+
 fun monthName(month: YearMonth, locale: Locale, style: TextStyle = TextStyle.FULL_STANDALONE): String =
     month.month.getDisplayName(style, monthLocale(locale)).replaceFirstChar { it.titlecase(monthLocale(locale)) }.trimEnd('.')
