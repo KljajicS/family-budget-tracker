@@ -82,4 +82,37 @@ class LoanRepositoryTest {
         assertTrue(loans.book.first().payments.isEmpty())
         assertTrue(runCatching { loans.record(payment(), tx("t").copy(date = clock.today().plusDays(1))) }.isFailure)
     }
+
+    @Test fun `linked recurring payment deletion makes bill due again`() = runTest {
+        setup()
+        val rule = RecurringRule("rule", "Car", eur("250"), "a", "category", Cadence.MONTHLY, clock.today())
+        repo.setRule(rule)
+        val bill = repo.upcomingBills.first().single()
+        val transaction = tx(bill.txId).copy(source = TransactionSource.RECURRING)
+        repo.add(transaction)
+        loans.record(payment().copy(transactionId = transaction.id), transaction, true)
+        assertTrue(repo.upcomingBills.first().isEmpty())
+        loans.removePayment("p", true)
+        assertEquals(bill.txId, repo.upcomingBills.first().single().txId)
+    }
+
+    @Test fun `repayment flows to savings goals and monthly spending once`() = runTest {
+        repo.addAccount(Account("a", "Cash", Currency.RSD))
+        fun rsd(value: String) = Money.of(value, Currency.RSD)
+        val target = loan.copy(opening = rsd("6800"))
+        loans.create(target)
+        repo.add(tx("income", TransactionType.INCOME).copy(money = rsd("1000")))
+        repo.setGoal(Goal("g", "Reserve", rsd("1000")))
+        val payment = LoanPayment("p", "l", "t", rsd("250"), rsd("200"))
+        loans.record(payment, tx("t").copy(money = rsd("250")))
+        val financial = repo.financial.first()
+        assertEquals(rsd("750"), financial.home.savingsRsd)
+        assertEquals(rsd("250"), financial.home.spent)
+        assertEquals(rsd("750"), financial.goals.single().funded)
+        val insights = InsightsCalculator.summarize(clock.today(), java.time.YearMonth.from(clock.today()), financial.transactions, Rates.EMPTY)
+        assertEquals(rsd("250"), insights.spent)
+        loans.archive("l")
+        assertEquals(rsd("750"), repo.home.first().savingsRsd)
+        assertEquals(rsd("6600"), loans.book.first().balance(target, clock.today()).beforeUnknownPayments)
+    }
 }
