@@ -9,7 +9,7 @@ lint:
 	./gradlew --quiet :app:lintDebug :app:checkDomainPurity
 
 test:
-	./gradlew --quiet :app:testDebugUnitTest
+	./gradlew :app:testDebugUnitTest
 
 build:
 	./gradlew --quiet :app:assembleDebug

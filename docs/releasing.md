@@ -2,7 +2,7 @@
 
 Tagged releases publish a signed release APK. Every release must use the same retained signing key. CI fails when signing configuration is missing instead of publishing an APK signed with a temporary debug key.
 
-Main pushes, pull requests and manual runs validate workflow syntax, lint, JVM tests and the debug build without signing secrets. Only creation of a version tag on GitHub runs the separate signed-release job. Manual runs and updates to existing tags do not publish releases. Use tags such as `v0.3.0`; the release title strips the leading `v`, giving `0.3.0`. Run `make lint-workflows` before changing workflows; it uses installed actionlint or downloads a checksum-pinned Linux x86-64 binary to temporary storage.
+The workflow runs on version-tag pushes only. New tags run workflow validation, lint, JVM tests and the debug build, followed by the signed-release job. Branch pushes and pull requests do not trigger it; updates to existing tags skip both jobs. The workflow creates the GitHub release itself. Use tags such as `v0.3.0`; the release title strips the leading `v`, giving `0.3.0`. Run `make lint-workflows` before changing workflows; it uses installed actionlint or downloads a checksum-pinned Linux x86-64 binary to temporary storage.
 
 Configure repository Actions secrets:
 
