@@ -222,7 +222,13 @@ fun BudgetRoot(root: RootViewModel) {
             composable(Routes.NEW_CATEGORY) { EditCategoryScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_CATEGORY) { EditCategoryScreen(onClose = { nav.popBackStack() }) }
             composable(Tab.ACCOUNTS.route) {
-                AccountsScreen(onNew = { nav.navigate(Routes.NEW_ACCOUNT) }, onEdit = { nav.navigate(Routes.editAccount(it)) })
+                AccountsScreen(onNew = { nav.navigate(Routes.NEW_ACCOUNT) }, onEdit = { nav.navigate(Routes.editAccount(it)) },
+                    onNewLoan = { nav.navigate(Routes.NEW_LOAN) }, onLoan = { nav.navigate(Routes.loan(it)) })
+            }
+            composable(Routes.NEW_LOAN) { rs.budget.ui.loans.LoanEditorScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.EDIT_LOAN) { rs.budget.ui.loans.LoanEditorScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.LOAN) {
+                rs.budget.ui.loans.LoanDetailScreen(onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.editLoan(it)) })
             }
             composable(Routes.NEW_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }
             composable(Routes.EDIT_ACCOUNT) { EditAccountScreen(onClose = { nav.popBackStack() }) }

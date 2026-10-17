@@ -19,6 +19,11 @@ enum class Tab(val route: String, @StringRes val label: Int, val icon: ImageVect
 }
 
 object Routes {
+    const val NEW_LOAN = "loans/new"
+    const val LOAN = "loans/{id}"
+    const val EDIT_LOAN = "loans/{id}/edit"
+    fun loan(id: String) = "loans/$id"
+    fun editLoan(id: String) = "loans/$id/edit"
     const val SETUP = "setup"
     const val ADD = "add?rule={rule}&due={due}"
     fun add() = "add"

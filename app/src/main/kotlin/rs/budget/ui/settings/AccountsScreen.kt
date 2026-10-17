@@ -64,7 +64,7 @@ import rs.budget.ui.theme.mono
 import rs.budget.ui.theme.sans
 
 @Composable
-fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: AccountsViewModel = hiltViewModel()) {
+fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, onNewLoan: () -> Unit, onLoan: (String) -> Unit, vm: AccountsViewModel = hiltViewModel()) {
     val state by vm.state.collectAsStateWithLifecycle()
     val s = state ?: return
     val c = LocalColors.current
@@ -111,6 +111,7 @@ fun AccountsScreen(onNew: () -> Unit, onEdit: (String) -> Unit, vm: AccountsView
             }
             item { WriteFeedback(vm.writes) }
         }
+        item { rs.budget.ui.loans.LoansSection(onNewLoan, onLoan) }
     }
 }
 
