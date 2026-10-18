@@ -1,4 +1,16 @@
 <resources>
+    <string name="activity_title">Aktivnosti</string>
+    <string name="activity_date_range">Period</string>
+    <string name="activity_all_dates">Svi datumi</string>
+    <plurals name="activity_count">
+        <item quantity="one">%d aktivnost</item>
+        <item quantity="few">%d aktivnosti</item>
+        <item quantity="other">%d aktivnosti</item>
+    </plurals>
+    <string name="activity_type">Tip</string>
+    <string name="activity_all">Sve</string>
+    <string name="activity_clear">Obriši filtere</string>
+    <string name="activity_empty">Nema odgovarajućih aktivnosti.</string>
     <string name="loans_title">Krediti</string>
     <string name="loan_new">Dodaj kredit</string>
     <string name="loan_edit">Izmeni kredit</string>

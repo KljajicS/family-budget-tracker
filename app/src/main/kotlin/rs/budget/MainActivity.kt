@@ -191,10 +191,14 @@ fun BudgetRoot(root: RootViewModel) {
             composable(Tab.HOME.route) {
                 HomeScreen(
                     onAdd = { nav.navigate(Routes.add()) },
-                    onAccounts = { nav.navigate(Tab.ACCOUNTS.route) { launchSingleTop = true } },
+                    onActivity = { nav.navigate(Routes.ACTIVITY) },
+                    onGoal = { nav.navigate(Routes.editGoal(it)) },
                     onSettings = { nav.navigate(Routes.SETTINGS) },
                     onEditTransaction = { nav.navigate(Routes.editTransaction(it)) },
                 )
+            }
+            composable(Routes.ACTIVITY, arguments = listOf(navArgument("activity") { defaultValue = true })) {
+                rs.budget.ui.home.ActivityScreen(onBack = { nav.popBackStack() }, onEdit = { nav.navigate(Routes.editTransaction(it)) })
             }
             composable(Routes.SETTINGS) {
                 SettingsScreen(
@@ -274,7 +278,7 @@ private fun BottomBar(route: String?, onSelect: (Tab) -> Unit) {
                 val tint = if (active) c.primary else c.muted
                 Column(
                     Modifier.weight(1f).fillMaxHeight().semantics { selected = active }
-                        .clickable(role = Role.Tab) { onSelect(tab) },
+                        .clickable(interactionSource = null, indication = null, role = Role.Tab) { onSelect(tab) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.Bottom),
                 ) {

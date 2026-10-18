@@ -24,6 +24,7 @@ import rs.budget.data.RecentTx
 import rs.budget.domain.Account
 import rs.budget.domain.HomeSummary
 import rs.budget.domain.Money
+import rs.budget.domain.GoalProgress
 import rs.budget.ui.RateStatus
 import java.time.LocalDate
 import javax.inject.Inject
@@ -40,19 +41,20 @@ data class HomeState(
     val memberName: String = "",
     val rateStatus: RateStatus = RateStatus(),
     val hasOlder: Boolean = false,
+    val topGoal: GoalProgress? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock, private val saved: SavedStateHandle = SavedStateHandle()) : ViewModel() {
-    private val limit = MutableStateFlow(saved.get<Int>("historyLimit")?.coerceAtLeast(PAGE) ?: PAGE)
+    private val limit = if (saved.get<Boolean>("activity") == true) Int.MAX_VALUE - 1 else 5
     private val attempt = MutableStateFlow(0)
     private val failure = MutableStateFlow(false)
     /** A failed read keeps the last good screen and offers [retry] instead of crashing the app. */
     val failed: StateFlow<Boolean> = failure
 
     // One extra row tells whether older transactions exist without a separate count query.
-    private val recent = limit.flatMapLatest { n -> repo.recent(n + 1).map { rows -> rows.take(n) to (rows.size > n) } }
+    private val recent = repo.recent(limit + 1).map { rows -> rows.take(limit) to (rows.size > limit) }
 
     val state: StateFlow<HomeState?> = attempt.flatMapLatest {
         combine(
@@ -71,6 +73,7 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock, pr
                 memberName = members.firstOrNull { it.id == member }?.displayName ?: "",
                 rateStatus = RateStatus.from(financial),
                 hasOlder = hasOlder,
+                topGoal = financial.goals.firstOrNull(),
             )
         }
             .onEach { failure.value = false }
@@ -79,12 +82,5 @@ class HomeViewModel @Inject constructor(repo: BudgetRepository, clock: Clock, pr
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun showOlder() {
-        limit.value += PAGE
-        saved["historyLimit"] = limit.value
-    }
-
     fun retry() = attempt.update { it + 1 }
-
-    private companion object { const val PAGE = 20 }
 }

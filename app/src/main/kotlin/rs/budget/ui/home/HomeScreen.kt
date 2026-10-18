@@ -44,7 +44,6 @@ import rs.budget.domain.Currency
 import rs.budget.domain.Money
 import rs.budget.domain.TransactionSource
 import rs.budget.domain.TransactionType
-import rs.budget.ui.RateNotice
 import rs.budget.ui.formatTransactionDate
 import rs.budget.ui.RateStatus
 import rs.budget.ui.categoryDisplayName
@@ -69,7 +68,8 @@ import java.util.Locale
 
 @Composable
 fun HomeScreen(
-    onAdd: () -> Unit, onAccounts: () -> Unit, onSettings: () -> Unit,
+    onAdd: () -> Unit, onActivity: () -> Unit, onSettings: () -> Unit,
+    onGoal: (String) -> Unit,
     onEditTransaction: (String) -> Unit = {}, vm: HomeViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -104,23 +104,19 @@ fun HomeScreen(
             }
         }
         if (failed) item { LoadFailed(vm::retry) }
-        item { RateNotice(s.rateStatus) }
         item { SavingsCard(s, locale) }
         item { MonthSection(s, locale) }
-        item { AccountsSection(s.accounts, onAccounts, locale) }
+        s.topGoal?.let { goal -> item { HomeGoal(goal) { onGoal(goal.goal.id) } } }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.home_recent), style = SectionStyle, color = c.text, modifier = Modifier.padding(bottom = 6.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.home_recent), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onActivity) { Text(stringResource(R.string.home_see_all), color = c.primary) }
+                }
                 if (s.recent.isEmpty()) Text(stringResource(R.string.home_empty), style = BodyStyle, color = c.muted)
             }
         }
         items(s.recent, key = { it.transaction.id }) { RecentRow(it, s.accountNames, s.currentMemberId, s.today, onEditTransaction) }
-        if (s.hasOlder) item {
-            Text(
-                stringResource(R.string.audit_finance_show_older), style = sans(14), color = c.primary,
-                modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button, onClick = vm::showOlder).padding(vertical = 10.dp),
-            )
-        }
     }
 }
 
@@ -227,34 +223,30 @@ private fun AmountText(value: Money, sign: Boolean, color: Color, locale: Locale
     }
 }
 
+
 @Composable
-private fun AccountsSection(accounts: List<AccountBalance>, onAccounts: () -> Unit, locale: Locale) {
+private fun HomeGoal(p: rs.budget.domain.GoalProgress, onClick: () -> Unit) {
     val c = LocalColors.current
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val locale = LocalLocale.current.platformLocale
+    val ratio = p.ratio?.toFloat()?.coerceIn(0f, 1f)
+    OutlinedBox(Modifier.fillMaxWidth(), radius = 18, padding = PaddingValues(16.dp), onClick = onClick) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.home_accounts), style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
-            Text(
-                stringResource(R.string.home_see_all), style = sans(14), color = c.primary,
-                modifier = Modifier.clickable(role = Role.Button, onClick = onAccounts).padding(vertical = 10.dp),
-            )
+            Text(p.goal.name, style = SectionStyle, color = c.text, modifier = Modifier.weight(1f))
+            Text(ratio?.let { "${(it * 100).toInt()}%" } ?: "-", style = mono(16), color = c.primary)
         }
-        if (accounts.isEmpty()) {
-            Text(stringResource(R.string.accounts_empty), style = BodyStyle, color = c.muted)
-        } else OutlinedBox(Modifier.fillMaxWidth(), radius = 18, padding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)) {
-            accounts.forEachIndexed { i, (account, balance) ->
-                if (i > 0) HorizontalDivider(color = c.border, thickness = 1.dp)
-                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AccountTile(account.name, accountColor(i))
-                    Text(account.name, style = sans(15), color = c.text, maxLines = 1, modifier = Modifier.weight(1f))
-                    Text("${formatAmount(balance, locale = locale)} ${balance.currency}", style = mono(14), color = if (balance.isNegative) c.orange else c.text)
-                }
-            }
-        }
+        Spacer(Modifier.size(12.dp))
+        androidx.compose.material3.LinearProgressIndicator(
+            progress = { ratio ?: 0f }, modifier = Modifier.fillMaxWidth(),
+            color = if (p.reached) c.green else c.primary, trackColor = c.track,
+        )
+        Spacer(Modifier.size(8.dp))
+        Text("${p.funded?.let { formatAmount(it, locale = locale) } ?: "?"} / ${formatAmount(p.goal.target, locale = locale)} ${p.goal.target.currency}", style = LabelStyle, color = c.muted)
+        if (ratio == null) Text(stringResource(R.string.goals_unknown), style = CaptionStyle, color = c.orange)
     }
 }
 
 @Composable
-private fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String?, today: LocalDate, onEdit: (String) -> Unit) {
+internal fun RecentRow(r: RecentTx, accountNames: Map<String, String>, me: String?, today: LocalDate, onEdit: (String) -> Unit) {
     val c = LocalColors.current
     val t = r.transaction
     val category = t.categoryId?.let { id -> categoryDisplayName(id, r.categoryName) }

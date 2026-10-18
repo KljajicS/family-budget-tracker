@@ -1,4 +1,15 @@
 <resources>
+    <string name="activity_title">Activity</string>
+    <string name="activity_date_range">Date range</string>
+    <string name="activity_all_dates">All dates</string>
+    <plurals name="activity_count">
+        <item quantity="one">%d activity</item>
+        <item quantity="other">%d activities</item>
+    </plurals>
+    <string name="activity_type">Type</string>
+    <string name="activity_all">All</string>
+    <string name="activity_clear">Clear filters</string>
+    <string name="activity_empty">No matching activity.</string>
     <string name="loans_title">Loans</string>
     <string name="loan_new">Add loan</string>
     <string name="loan_edit">Edit loan</string>

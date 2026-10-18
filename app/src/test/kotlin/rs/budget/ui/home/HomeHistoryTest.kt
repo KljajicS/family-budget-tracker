@@ -63,20 +63,19 @@ class HomeHistoryTest {
         val vm = HomeViewModel(repo, clock).also { models += it }
         backgroundScope.launch { vm.state.collect {} }
         val first = vm.state.filterNotNull().first()
-        assertEquals(20, first.recent.size)
+        assertEquals(5, first.recent.size)
         assertTrue(first.hasOlder)
-        vm.showOlder()
-        vm.showOlder()
-        val all = vm.state.filterNotNull().first { it.recent.size > 40 }
+        val history = HomeViewModel(repo, clock, androidx.lifecycle.SavedStateHandle(mapOf("activity" to true))).also { models += it }
+        val all = history.state.filterNotNull().first()
         assertEquals(45, all.recent.size)
         assertFalse(all.hasOlder)
         assertEquals("t44", all.recent.last().transaction.id)
     }
 
     @Test fun `exactly one page does not offer older rows`() = runTest(dispatcher) {
-        seed(20)
+        seed(5)
         val s = HomeViewModel(repo, clock).also { models += it }.state.filterNotNull().first()
-        assertEquals(20, s.recent.size)
+        assertEquals(5, s.recent.size)
         assertFalse(s.hasOlder)
     }
 

@@ -55,6 +55,9 @@ class HomeViewModelTest {
         repo.add(Transaction("t2", TransactionType.EXPENSE, Money.of("250", Currency.RSD), "cash", null, "cat-fun", LocalDate.of(2026, 10, 14), "", "Cinema", m, TransactionSource.MANUAL))
         repo.reorderAccounts(listOf("card", "old", "cash"))
         repo.archiveAccount("old")
+        repo.setGoal(rs.budget.domain.Goal("first", "First", Money.of("500", Currency.RSD), Money.zero(Currency.RSD)))
+        repo.setGoal(rs.budget.domain.Goal("top", "Top", Money.of("1000", Currency.RSD), Money.zero(Currency.RSD)))
+        repo.reorderGoals(listOf("top", "first"))
         val vm = HomeViewModel(repo, clock).also { models += it }
         val s = vm.state.filterNotNull().first()
         assertEquals(Money.of("750", Currency.RSD), s.summary.savingsRsd)
@@ -63,5 +66,7 @@ class HomeViewModelTest {
         assertEquals("Old", s.accountNames["old"])
         assertEquals("Cinema", s.recent.first().transaction.merchant)
         assertEquals(m, s.currentMemberId)
+        assertEquals("top", s.topGoal?.goal?.id)
+        assertEquals(Money.of("750", Currency.RSD), s.topGoal?.funded)
     }
 }
