@@ -23,7 +23,7 @@ Screenshots use demo data.
 - Drag-to-reorder accounts and goals. Savings fill goals in priority order.
 - Monthly insights, spending categories and transaction history.
 - Serbian fiscal receipt QR scanning and manual loan repayment tracking.
-- English and Serbian, with light, dark and AMOLED themes.
+- English and Serbian Latin, selectable in Settings, with light, dark and AMOLED themes.
 
 ## Privacy and status
 

@@ -16,6 +16,7 @@ sqliteJdbc = "3.53.4.0"
 junit = "4.13.2"
 
 [libraries]
+appcompat = { module = "androidx.appcompat:appcompat", version = "1.7.1" }
 camera-camera2 = { module = "androidx.camera:camera-camera2", version = "1.6.2" }
 camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version = "1.6.2" }
 camera-view = { module = "androidx.camera:camera-view", version = "1.6.2" }

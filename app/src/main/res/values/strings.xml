@@ -1,4 +1,8 @@
 <resources>
+    <string name="settings_language">Language</string>
+    <string name="language_system">System default</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_serbian" translatable="false">Srpski (latinica)</string>
     <string name="activity_title">Activity</string>
     <string name="activity_date_range">Date range</string>
     <string name="activity_all_dates">All dates</string>
