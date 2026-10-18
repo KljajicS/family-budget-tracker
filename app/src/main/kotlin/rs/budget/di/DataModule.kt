@@ -20,6 +20,7 @@ import rs.budget.data.ThemeStore
 import rs.budget.data.TransactionAccountStore
 import rs.budget.data.db.BudgetDb
 import rs.budget.data.deviceId
+import rs.budget.data.security.AppLock
 import rs.budget.data.receipt.FiscalReceiptClient
 import rs.budget.data.receipt.ReceiptLookup
 import rs.budget.data.rates.RateRepository
@@ -60,6 +61,9 @@ object DataModule {
 
     @Provides @Singleton
     fun themeStore(@ApplicationContext context: Context): ThemeStore = ThemeStore.fromPreferences(context)
+
+    @Provides @Singleton
+    fun appLock(@ApplicationContext context: Context): AppLock = AppLock.fromPreferences(context)
 
     @Provides @Singleton
     fun transactionAccountStore(@ApplicationContext context: Context): TransactionAccountStore = TransactionAccountStore.fromPreferences(context)

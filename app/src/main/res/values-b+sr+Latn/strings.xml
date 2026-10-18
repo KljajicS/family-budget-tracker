@@ -296,4 +296,19 @@
     <string name="rates_input">RSD za 1 %1$s (do 8 decimala)</string>
     <string name="rates_save">Sačuvaj ručni kurs</string>
     <string name="rates_reset">Koristi automatski kurs</string>
+    <string name="settings_app_lock">Zaključavanje aplikacije</string>
+    <string name="settings_app_lock_hint">Traži otisak prsta ili zaključavanje ekrana telefona za otvaranje aplikacije</string>
+    <string name="lock_title">Family Budget Tracker je zaključan</string>
+    <string name="lock_hint">Otključajte otiskom prsta ili PIN-om, šablonom ili lozinkom telefona.</string>
+    <string name="lock_unlock">Otključaj</string>
+    <string name="lock_prompt_unlock">Otključaj Family Budget Tracker</string>
+    <string name="lock_prompt_enable">Uključi zaključavanje aplikacije</string>
+    <string name="lock_prompt_disable">Isključi zaključavanje aplikacije</string>
+    <string name="lock_prompt_subtitle">Koristite otisak prsta ili zaključavanje ekrana telefona</string>
+    <string name="lock_use_credential">Koristi PIN, šablon ili lozinku</string>
+    <string name="lock_credential_description">Potvrdite PIN, šablon ili lozinku telefona</string>
+    <string name="lock_cancelled">Potvrda identiteta je otkazana.</string>
+    <string name="lock_unavailable">Zaključavanje aplikacije zahteva zaključavanje ekrana telefona. Podesite PIN, šablon ili lozinku u podešavanjima telefona, pa pokušajte ponovo.</string>
+    <string name="lock_error">Identitet nije potvrđen. Pokušajte ponovo.</string>
+    <string name="lock_save_failed">Podešavanje zaključavanja nije sačuvano. Pokušajte ponovo.</string>
 </resources>

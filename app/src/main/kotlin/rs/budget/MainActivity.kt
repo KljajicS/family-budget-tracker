@@ -1,6 +1,21 @@
 package rs.budget
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
+import android.view.WindowManager
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import rs.budget.data.security.AppLock
+import rs.budget.data.security.LockPurpose
+import rs.budget.ui.security.LockPrompter
+import rs.budget.ui.security.LockScreen
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.LocalActivity
@@ -92,8 +107,25 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    @Inject lateinit var appLock: AppLock
+    private lateinit var prompter: LockPrompter
+    private val screenOff = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            appLock.onScreenOff()
+            prompter.cancel()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Main.immediate collects synchronously, so FLAG_SECURE is set before the first frame.
+        lifecycleScope.launch {
+            appLock.state.map { it.enabled }.distinctUntilChanged().collect { secure ->
+                if (secure) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            }
+        }
+        prompter = LockPrompter(this, appLock)
+        ContextCompat.registerReceiver(this, screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED)
         enableEdgeToEdge()
         setContent {
             val root: RootViewModel = hiltViewModel()
@@ -103,8 +135,37 @@ class MainActivity : AppCompatActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            BudgetTheme(dark) { BudgetRoot(root) }
+            // Observe lock changes without waiting for the lifecycle-aware collector to restart.
+            val lock by appLock.state.collectAsState()
+            val screens = rememberSaveableStateHolder()
+            BudgetTheme(dark) {
+                if (lock.locked) LockScreen(lock) { appLock.request(LockPurpose.UNLOCK) }
+                else screens.SaveableStateProvider("budget") { BudgetRoot(root) }
+            }
         }
+    }
+
+    override fun onStart() {
+        appLock.onForeground()
+        super.onStart()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appLock.consumeAutoPrompt()
+    }
+
+    override fun onStop() {
+        if (!isChangingConfigurations) {
+            appLock.onBackground()
+            prompter.cancel()
+        }
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(screenOff)
+        super.onDestroy()
     }
 }
 

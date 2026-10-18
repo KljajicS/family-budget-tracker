@@ -29,6 +29,8 @@ Screenshots use demo data.
 
 Core tracking works offline, without an app account or dedicated backend. Receipt verification and exchange-rate updates require internet. Converted totals use the latest available rates and are estimates.
 
+Optional app lock asks for a fingerprint or the phone screen lock to open the app. It gates access only: data stays in an unencrypted local database protected by the Android app sandbox. See [security](docs/security.md).
+
 Under active development. Family synchronization, end-to-end encrypted sync, and data export/recovery are not available yet. Bank statement import is planned beyond the MVP.
 
 ## Build

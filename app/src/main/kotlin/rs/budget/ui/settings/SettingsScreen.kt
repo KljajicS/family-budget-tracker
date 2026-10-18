@@ -37,6 +37,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import rs.budget.data.security.LockPurpose
+import rs.budget.ui.security.message
 import rs.budget.ui.WriteFeedback
 import rs.budget.R
 import rs.budget.ui.theme.FieldBox
@@ -49,7 +57,7 @@ import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.sans
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () -> Unit, onRecurring: () -> Unit, onRates: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () -> Unit, onRecurring: () -> Unit, onRates: () -> Unit, vm: SettingsViewModel = hiltViewModel(), lockVm: AppLockViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
 
@@ -70,6 +78,7 @@ fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () 
             }
         }
         LanguagePicker()
+        AppLockRow(lockVm)
         SettingsRow(stringResource(R.string.settings_categories), onCategories)
         SettingsRow(stringResource(R.string.settings_accounts), onAccounts)
         SettingsRow(stringResource(R.string.settings_recurring), onRecurring)
@@ -107,6 +116,35 @@ private fun LanguagePicker() {
             }
         }
     }
+}
+
+@Composable
+private fun AppLockRow(vm: AppLockViewModel) {
+    val c = LocalColors.current
+    val s by vm.state.collectAsStateWithLifecycle()
+    val idle = s.operation == null
+    OutlinedBox(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).toggleable(s.enabled, enabled = idle, role = Role.Switch) { vm.toggle() },
+        radius = 14,
+        padding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings_app_lock), style = sans(15, FontWeight.Medium), color = c.text)
+                Text(stringResource(R.string.settings_app_lock_hint), style = rs.budget.ui.theme.CaptionStyle, color = c.muted)
+            }
+            Switch(
+                checked = s.enabled,
+                onCheckedChange = null,
+                enabled = idle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = c.onPrimary, checkedTrackColor = c.primary,
+                    uncheckedThumbColor = c.muted, uncheckedTrackColor = c.surface2, uncheckedBorderColor = c.border,
+                ),
+            )
+        }
+    }
+    s.error?.takeIf { it.purpose != LockPurpose.UNLOCK }?.let { Text(stringResource(it.failure.message), color = c.orange) }
 }
 
 @Composable

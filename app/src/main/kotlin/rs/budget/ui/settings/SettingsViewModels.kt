@@ -20,6 +20,9 @@ import rs.budget.data.Clock
 import rs.budget.data.StarterCategories
 import rs.budget.data.ThemeMode
 import rs.budget.data.ThemeStore
+import rs.budget.data.security.AppLock
+import rs.budget.data.security.LockPurpose
+import rs.budget.data.security.LockState
 import rs.budget.domain.Account
 import rs.budget.domain.AccountKind
 import rs.budget.domain.Cadence
@@ -78,6 +81,15 @@ class SettingsViewModel @Inject constructor(private val repo: BudgetRepository, 
             repo.renameMember(id, s.name)
             _state.update { it.copy(saved = true) }
         }
+    }
+}
+
+@HiltViewModel
+class AppLockViewModel @Inject constructor(private val lock: AppLock) : ViewModel() {
+    val state: StateFlow<LockState> = lock.state
+
+    fun toggle() {
+        lock.request(if (lock.state.value.enabled) LockPurpose.DISABLE else LockPurpose.ENABLE)
     }
 }
 
