@@ -10,7 +10,7 @@ The app requests only `https://www.googleapis.com/auth/drive.file`. There is no 
 `drive`, `drive.readonly`, or any other broad scope. If the spike shows `drive.file` cannot see
 peer files, the design changes; the scope does not.
 
-Code lives in `app/src/main/kotlin/rs/budget/data/sync/drive/`:
+Code lives in `app/src/main/kotlin/app/kinjar/data/sync/drive/`:
 
 - `DriveAuthorizer`: Play services `AuthorizationClient` wrapper (picker request, silent token,
   clear, revoke). Implements `DriveTokenSource`.
@@ -34,9 +34,9 @@ Library: `com.google.android.gms:play-services-auth:22.0.0`, the version listed 
      listed as a non-sensitive scope, but check the current verification criteria in the Cloud
      console before publishing; do not publish just for the spike.
 4. Data Access: add only the `.../auth/drive.file` scope.
-5. Clients: create an **Android** OAuth client for the test APK, package name `rs.budget.synctest`.
+5. Clients: create an **Android** OAuth client for the test APK, package name `app.kinjar.synctest`.
    The test app installs beside the production app and has separate data. The production client
-   later uses package name `rs.budget` and its release signing certificate.
+   later uses package name `app.kinjar` and its release signing certificate.
    - Debug SHA-1: `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android`
    - Release SHA-1: `./gradlew :app:signingReport` with the `BUDGET_*` signing variables set
      (see `docs/releasing.md`). If the app is ever distributed through Play App Signing, add the
@@ -48,8 +48,9 @@ Library: `com.google.android.gms:play-services-auth:22.0.0`, the version listed 
 
 ## Current test APK
 
-The 2026-10-18 test build is named **Family Budget Sync Test** and installs separately from the
-regular app. Use package `rs.budget.synctest` and this APK signing certificate SHA-1:
+The 2026-10-20 test build `app/build/outputs/apk/debug/kinjar-debug.apk` is named
+**kinjar sync test** and installs separately from the regular app. Use package
+`app.kinjar.synctest` and this APK signing certificate SHA-1:
 
 ```text
 A4:28:2C:74:D6:8D:17:5B:A4:00:08:3B:F5:D6:08:70:C3:F5:3E:7B
@@ -62,7 +63,7 @@ After Google Cloud setup:
    Use your own account on the first phone and your wife's account on the second.
 3. First phone: **Create test folder (first phone)**, enter the other Google email, then
    **Share test folder** and **Write test file**.
-4. Second phone: **Choose shared test folder**, select the `fbt-sync-test-...` folder, then
+4. Second phone: **Choose shared test folder**, select the `kinjar-sync-test-...` folder, then
    **Read both phones' test files** and **Write test file**.
 5. First phone: read both files. Use **Write a new test file** on each phone, then read on the
    other phone without selecting the folder again.
@@ -138,7 +139,7 @@ user profiles. Use only synthetic placeholder files such as `spike-A-001.bin` co
    without a new pick.
 8. A: `updateFile` on `spike-A-001.bin`. B: same ID, new content, new `version`.
 9. Token expiry: wait more than 60 minutes (or force a 401), then call the transport from a
-    background path with no UI. Then `adb shell am force-stop rs.budget.synctest`, relaunch, repeat.
+    background path with no UI. Then `adb shell am force-stop app.kinjar.synctest`, relaunch, repeat.
 10. Revoke: B removes the app at <https://myaccount.google.com/connections>, then calls the
     transport. Also test `DriveAuthorizer.revoke(account)` on A.
 11. Cancel: start the picker and press Back; separately cancel on the consent screen.

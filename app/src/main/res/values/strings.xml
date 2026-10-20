@@ -73,7 +73,7 @@
     <string name="loan_save_payment">Save payment</string>
     <string name="loan_record_hint">Records a payment already made. No bank transfer is initiated.</string>
     <string name="loan_received">Loan received</string>
-    <string name="app_name">Family Budget Tracker</string>
+    <string name="app_name">kinjar</string>
     <string name="tab_home">Home</string>
     <string name="tab_insights">Insights</string>
     <string name="tab_scan">Scan</string>
@@ -299,10 +299,10 @@
     <string name="rates_reset">Use automatic rate</string>
     <string name="settings_app_lock">App lock</string>
     <string name="settings_app_lock_hint">Require fingerprint or phone screen lock to open the app</string>
-    <string name="lock_title">Family Budget Tracker is locked</string>
+    <string name="lock_title">kinjar is locked</string>
     <string name="lock_hint">Unlock with your fingerprint or phone PIN, pattern or password.</string>
     <string name="lock_unlock">Unlock</string>
-    <string name="lock_prompt_unlock">Unlock Family Budget Tracker</string>
+    <string name="lock_prompt_unlock">Unlock kinjar</string>
     <string name="lock_prompt_enable">Turn on app lock</string>
     <string name="lock_prompt_disable">Turn off app lock</string>
     <string name="lock_prompt_subtitle">Use your fingerprint or phone screen lock</string>

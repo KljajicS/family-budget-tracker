@@ -39,6 +39,6 @@ Run on a real phone, ideally one on Android 11+ and one on Android 8 to 10.
 6. Turn the screen off and on while the app is open: the app is locked.
 7. Rotate the phone and switch the language in Settings while unlocked: the app stays unlocked. Rotate while the prompt is open: the prompt stays usable.
 8. Android 8 to 10: tap "Use PIN, pattern or password", press Home on the credential screen, reopen and cancel: the app stays locked.
-9. Force stop the app (or `adb shell am kill rs.budget` while in the background) and reopen: the app is locked.
+9. Force stop the app (or `adb shell am kill app.kinjar` while in the background) and reopen: the app is locked.
 10. Settings, turn App lock off: authentication is required, and cancelling keeps it on. On Android 8 to 10, cancelling the separate credential screen also leaves the app locked.
 11. With App lock on, remove the phone screen lock in phone settings, reopen the app: it stays locked with a message to set a screen lock.

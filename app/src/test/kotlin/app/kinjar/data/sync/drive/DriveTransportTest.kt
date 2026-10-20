@@ -1,0 +1,191 @@
+package app.kinjar.data.sync.drive
+
+import kotlinx.coroutines.test.runTest
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
+import org.junit.After
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.IOException
+
+class DriveTransportTest {
+    private val server = MockWebServer().apply { start() }
+    private val tokens = FakeTokens()
+    private val drive = DriveTransport(tokens, DriveTransport.defaultClient(), server.url("/"))
+
+    @After fun stop() = server.shutdown()
+
+    @Test fun `create folder posts drive file metadata with bearer token`() = runTest {
+        server.enqueue(json("""{"id":"folder_1","name":"Family budget","mimeType":"${DriveTransport.FOLDER_MIME}","version":"3"}"""))
+        val folder = drive.createFolder("Family budget", parentId = "root_A")
+        assertEquals("folder_1", folder.id)
+        assertEquals(3L, folder.version)
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/drive/v3/files", request.requestUrl!!.encodedPath)
+        assertEquals("Bearer token-1", request.getHeader("Authorization"))
+        val body = request.body.readUtf8()
+        assertTrue(body.contains("\"mimeType\":\"${DriveTransport.FOLDER_MIME}\""))
+        assertTrue(body.contains("\"parents\":[\"root_A\"]"))
+    }
+
+    @Test fun `listing follows every page and encodes the folder query`() = runTest {
+        server.enqueue(json("""{"files":[${file("a")},${file("b")}],"nextPageToken":"page 2/="}"""))
+        server.enqueue(json("""{"files":[${file("c")}]}"""))
+        assertEquals(listOf("a", "b", "c"), drive.listChildren("folder_1").map { it.id })
+        val first = server.takeRequest().requestUrl!!
+        assertEquals("'folder_1' in parents and trashed = false", first.queryParameter("q"))
+        assertNull(first.queryParameter("pageToken"))
+        assertEquals("page 2/=", server.takeRequest().requestUrl!!.queryParameter("pageToken"))
+    }
+
+    @Test fun `failure on a later page fails the whole listing`() = runTest {
+        server.enqueue(json("""{"files":[${file("a")}],"nextPageToken":"p2"}"""))
+        server.enqueue(MockResponse().setResponseCode(503))
+        val error = failure<DriveException.Http> { drive.listChildren("folder_1") }
+        assertEquals(503, error.code)
+        assertTrue(error.retryable)
+    }
+
+    @Test fun `listing rejects too many files and repeated page tokens`() = runTest {
+        server.enqueue(json("""{"files":[${file("a")},${file("b")}],"nextPageToken":"p2"}"""))
+        failure<DriveException.TooLarge> { drive.listChildren("folder_1", maxFiles = 1) }
+        server.enqueue(json("""{"files":[],"nextPageToken":"same"}"""))
+        server.enqueue(json("""{"files":[],"nextPageToken":"same"}"""))
+        failure<DriveException.Malformed> { drive.listChildren("folder_1") }
+    }
+
+    @Test fun `download is bounded by size`() = runTest {
+        server.enqueue(MockResponse().setBody("12345"))
+        assertArrayEquals("12345".toByteArray(), drive.download("file_1", maxBytes = 5))
+        assertEquals("/drive/v3/files/file_1", server.takeRequest().requestUrl!!.encodedPath)
+        server.enqueue(MockResponse().setBody("123456"))
+        failure<DriveException.TooLarge> { drive.download("file_1", maxBytes = 5) }
+    }
+
+    @Test fun `truncated download surfaces as io failure`() = runTest {
+        server.enqueue(MockResponse().setBody("x".repeat(64 * 1024)).setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY))
+        val error = failure<IOException> { drive.download("file_1", maxBytes = 1024 * 1024) }
+        assertFalse(error is DriveException.TooLarge)
+    }
+
+    @Test fun `create uploads multipart and update keeps the file id`() = runTest {
+        server.enqueue(json(file("pub_1")))
+        assertEquals("pub_1", drive.createFile("publisher-A.bin", "folder_1", byteArrayOf(1, 2, 3)).id)
+        val create = server.takeRequest()
+        assertEquals("/upload/drive/v3/files", create.requestUrl!!.encodedPath)
+        assertEquals("multipart", create.requestUrl!!.queryParameter("uploadType"))
+        assertTrue(create.getHeader("Content-Type")!!.startsWith("multipart/related"))
+
+        server.enqueue(json(file("pub_1")))
+        assertEquals("pub_1", drive.updateFile("pub_1", byteArrayOf(4)).id)
+        val update = server.takeRequest()
+        assertEquals("PATCH", update.method)
+        assertEquals("/upload/drive/v3/files/pub_1", update.requestUrl!!.encodedPath)
+        assertEquals("media", update.requestUrl!!.queryParameter("uploadType"))
+
+        server.enqueue(json(file("other")))
+        failure<DriveException.Malformed> { drive.updateFile("pub_1", byteArrayOf(4)) }
+    }
+
+    @Test fun `oversized upload is rejected before any request`() = runTest {
+        failure<DriveException.TooLarge> { drive.updateFile("pub_1", ByteArray(DriveTransport.MAX_UPLOAD_BYTES.toInt() + 1)) }
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test fun `expired token is cleared and retried once`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(json(file("f")))
+        assertEquals("f", drive.metadata("f").id)
+        assertEquals(listOf("token-1"), tokens.invalidated)
+        server.takeRequest()
+        assertEquals("Bearer token-2", server.takeRequest().getHeader("Authorization"))
+    }
+
+    @Test fun `repeated unauthorized and pending consent report auth required`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse().setResponseCode(401))
+        failure<DriveException.AuthRequired> { drive.metadata("f") }
+        assertEquals(listOf("token-1", "token-2"), tokens.invalidated)
+        tokens.pending = true
+        failure<DriveException.AuthRequired> { drive.metadata("f") }
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun `redirects are not followed`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", server.url("/elsewhere")))
+        assertEquals(302, failure<DriveException.Http> { drive.metadata("f") }.code)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun `unsafe ids are rejected before any request`() = runTest {
+        for (id in listOf("../x", "a/b", "a?b", "", "a b", "%2e%2e")) {
+            failure<IllegalArgumentException> { drive.download(id, 10) }
+        }
+        server.enqueue(json(file("../evil")))
+        failure<DriveException.Malformed> { drive.metadata("f") }
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun `share posts a writer permission for the email`() = runTest {
+        server.enqueue(json("""{"id":"perm_9"}"""))
+        assertEquals("perm_9", drive.shareWithEmail("folder_1", "peer@example.com"))
+        val request = server.takeRequest()
+        assertEquals("/drive/v3/files/folder_1/permissions", request.requestUrl!!.encodedPath)
+        assertEquals("true", request.requestUrl!!.queryParameter("sendNotificationEmail"))
+        assertEquals("""{"type":"user","role":"writer","emailAddress":"peer@example.com"}""", request.body.readUtf8())
+        failure<IllegalArgumentException> { drive.shareWithEmail("folder_1", "not an email") }
+    }
+
+    @Test fun `forbidden reasons distinguish rate limits from missing file access`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(403).setBody(errorBody("userRateLimitExceeded")))
+        assertTrue(failure<DriveException.Http> { drive.metadata("f") }.retryable)
+        server.enqueue(MockResponse().setResponseCode(403).setBody(errorBody("appNotAuthorizedToFile")))
+        val denied = failure<DriveException.Http> { drive.metadata("f") }
+        assertEquals("appNotAuthorizedToFile", denied.reason)
+        assertFalse(denied.retryable)
+        server.enqueue(MockResponse().setResponseCode(404).setBody(errorBody("peer@example.com")))
+        assertNull(failure<DriveException.Http> { drive.metadata("f") }.reason)
+        server.enqueue(MockResponse().setResponseCode(500).setBody("x".repeat(200 * 1024)))
+        assertEquals(500, failure<DriveException.Http> { drive.metadata("f") }.code)
+    }
+
+    @Test fun `malformed metadata is reported`() = runTest {
+        server.enqueue(json("""{"name":"no id"}"""))
+        failure<DriveException.Malformed> { drive.metadata("f") }
+    }
+
+    @Test fun `picked file ids are split and validated`() {
+        assertEquals(listOf("a", "b_2"), DriveAuthorizer.parsePickedFileIds(" a, b_2 ,"))
+        assertEquals(emptyList<String>(), DriveAuthorizer.parsePickedFileIds(null))
+        assertTrue(runCatching { DriveAuthorizer.parsePickedFileIds("a,../b") }.exceptionOrNull() is DriveException.Malformed)
+    }
+
+    private fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
+    private fun file(id: String) = """{"id":"$id","name":"$id.bin","mimeType":"application/octet-stream","size":"3"}"""
+    private fun errorBody(reason: String) = """{"error":{"code":403,"errors":[{"reason":"$reason"}]}}"""
+
+    private suspend inline fun <reified T : Throwable> failure(crossinline block: suspend () -> Unit): T {
+        val error = runCatching { block() }.exceptionOrNull()
+        assertTrue("expected ${T::class.simpleName}, got $error", error is T)
+        return error as T
+    }
+
+    private class FakeTokens : DriveTokenSource {
+        private var issued = 0
+        var pending = false
+        val invalidated = mutableListOf<String>()
+        override suspend fun accessToken(): String {
+            if (pending) throw DriveException.AuthRequired("consent pending")
+            return "token-${++issued}"
+        }
+        override suspend fun invalidate(token: String) {
+            invalidated += token
+        }
+    }
+}
