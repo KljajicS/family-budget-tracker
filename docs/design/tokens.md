@@ -1,6 +1,6 @@
 # Design tokens
 
-Extracted from `screens.html` (the Claude Design export). Compose code in `app/src/main/kotlin/rs/budget/ui/theme` mirrors these values; change them here and there together.
+Extracted from `screens.html` (the Claude Design export). Compose code in `app/src/main/kotlin/app/kinjar/ui/theme` mirrors these values; change them here and there together.
 
 ## Fonts
 

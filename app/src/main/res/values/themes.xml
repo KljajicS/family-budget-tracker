@@ -1,3 +1,3 @@
 <resources>
-    <style name="Theme.Budget" parent="Theme.AppCompat.DayNight.NoActionBar" />
+    <style name="Theme.Kinjar" parent="Theme.AppCompat.DayNight.NoActionBar" />
 </resources>

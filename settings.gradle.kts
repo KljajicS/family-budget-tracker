@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "family-budget-tracker"
+rootProject.name = "kinjar"
 include(":app")

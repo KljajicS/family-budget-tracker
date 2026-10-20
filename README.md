@@ -1,10 +1,10 @@
-<img src="assets/icon.png" width="64" height="64" alt="Family Budget Tracker wallet icon">
+<img src="assets/icon.png" width="64" height="64" alt="kinjar wallet icon">
 
-# Family Budget Tracker
+# kinjar
 
-A privacy-first Android app for everyday family finances. Track spending, see your savings and plan goals, with financial data stored on your device.
+Privacy-first Android app for family finances. Track spending, see savings and plan goals, with financial data stored on your device.
 
-[Download APK](https://github.com/KljajicS/family-budget-tracker/releases) · [Roadmap](docs/plans/roadmap.md) · [Report an issue](https://github.com/KljajicS/family-budget-tracker/issues)
+[Download APK](https://github.com/KljajicS/kinjar/releases) · [Roadmap](docs/plans/roadmap.md) · [Report an issue](https://github.com/KljajicS/kinjar/issues)
 
 ## Screenshots
 
@@ -32,6 +32,8 @@ Core tracking works offline, without an app account or dedicated backend. Receip
 Optional app lock asks for a fingerprint or the phone screen lock to open the app. It gates access only: data stays in an unencrypted local database protected by the Android app sandbox. See [security](docs/security.md).
 
 Under active development. Family synchronization, end-to-end encrypted sync, and data export/recovery are not available yet. Bank statement import is planned beyond the MVP.
+
+kinjar was previously called Family Budget Tracker. Releases up to 0.3.3 use application ID `rs.budget`; kinjar installs as a separate app and does not migrate their data.
 
 ## Build
 

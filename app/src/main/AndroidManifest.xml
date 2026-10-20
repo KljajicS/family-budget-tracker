@@ -5,10 +5,10 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application
-        android:name=".BudgetApp"
+        android:name=".KinjarApp"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.Budget"
+        android:theme="@style/Theme.Kinjar"
         android:allowBackup="false"
         android:localeConfig="@xml/locales_config"
         android:usesCleartextTraffic="false"

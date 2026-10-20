@@ -7,12 +7,16 @@ plugins {
     alias(libs.plugins.sqldelight)
 }
 
+base {
+    archivesName = "kinjar"
+}
+
 android {
-    namespace = "rs.budget"
+    namespace = "app.kinjar"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "rs.budget"
+        applicationId = "app.kinjar"
         minSdk = 26
         targetSdk = 36
         versionCode = 6
@@ -58,8 +62,8 @@ android {
 
 sqldelight {
     databases {
-        create("BudgetDb") {
-            packageName.set("rs.budget.data.db")
+        create("KinjarDb") {
+            packageName.set("app.kinjar.data.db")
             // Migrations live next to the .sq files; the version is derived from the highest N.sqm plus one.
             verifyMigrations.set(true)
         }
@@ -103,8 +107,8 @@ dependencies {
 }
 
 tasks.register("checkDomainPurity") {
-    description = "Fails if rs.budget.domain imports Android classes"
-    val domainDir = layout.projectDirectory.dir("src/main/kotlin/rs/budget/domain")
+    description = "Fails if app.kinjar.domain imports Android classes"
+    val domainDir = layout.projectDirectory.dir("src/main/kotlin/app/kinjar/domain")
     inputs.dir(domainDir)
     doLast {
         val offenders = domainDir.asFileTree.files.filter { file ->
