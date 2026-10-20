@@ -38,10 +38,10 @@ data class LoanBook(
 
 class LoanRepository(private val db: BudgetDb, private val store: EventStore, private val clock: Clock) {
     val book: Flow<LoanBook> = db.loanQueries.observe().asFlow().map {
-        db.transactionWithResult { readBook() }
+        store.readConsistently { readBook() }
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun <T> read(block: () -> T): T = withContext(Dispatchers.IO) { db.transactionWithResult { block() } }
+    private suspend fun <T> read(block: () -> T): T = withContext(Dispatchers.IO) { store.readConsistently(block) }
 
     private fun readBook() = LoanBook(
         db.loanQueries.all().executeAsList().map { EventJson.decodeFromString<Loan>(it.payload).copy(archived = it.archived != 0L) },

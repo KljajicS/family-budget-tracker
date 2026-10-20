@@ -76,6 +76,7 @@ class ExchangeRatesViewModelTest {
         val accounts = AccountsViewModel(repo)
         val goals = GoalsViewModel(repo, clock)
         val insights = InsightsViewModel(repo, clock)
+        try {
         fun <T : Any> observe(state: StateFlow<T?>, verify: (T) -> Unit): Channel<T> {
             val channel = Channel<T>(Channel.UNLIMITED)
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -123,12 +124,16 @@ class ExchangeRatesViewModelTest {
         val historical = insights.state.first { it?.rateStatus?.snapshot?.rates?.rate(Currency.EUR) == BigDecimal("125") }!!
         assertEquals(Money.of("375", Currency.RSD), historical.summary.spent)
         assertEquals(original, db.txQueries.all().executeAsList())
+        } finally {
+            listOf(home, accounts, goals, insights).forEach { it.viewModelScope.coroutineContext[Job]?.cancelAndJoin() }
+        }
     }
 
     @Test fun `failed manual write retains draft and double tap writes once on retry`() = runTest(dispatcher) {
         val attempts = object : RateAttempts { override var lastAttempt: Instant? = null }
         val refresh = RateRefresh(rates, RateLookup { error("offline") }, attempts, clock)
         val vm = ExchangeRatesViewModel(rates, refresh)
+        try {
         vm.setInput(Currency.EUR, "117,12345678")
         driver.execute(null, "CREATE TRIGGER fail_rate BEFORE INSERT ON exchange_rate_override BEGIN SELECT RAISE(ABORT, 'disk full'); END", 0)
         vm.save(Currency.EUR)
@@ -145,6 +150,9 @@ class ExchangeRatesViewModelTest {
         vm.reset(Currency.EUR)
         vm.writes.state.first { !it.busy && !it.failed }
         assertNull(rates.snapshots.first().rates.rate(Currency.EUR))
+        } finally {
+            vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin()
+        }
     }
 
     @Test fun `failed snapshot read can retry without losing rate draft`() = runTest(dispatcher) {

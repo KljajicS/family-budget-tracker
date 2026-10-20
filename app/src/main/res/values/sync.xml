@@ -1,0 +1,19 @@
+<resources>
+    <string name="sync_test_title">Drive connection test</string>
+    <string name="sync_test_description">Test files only. Financial data stays on this phone. Google Cloud setup is required before connecting.</string>
+    <string name="sync_test_connect">Connect Google account</string>
+    <string name="sync_test_account">Account: %1$s</string>
+    <string name="sync_test_revoke">Revoke test app access</string>
+    <string name="sync_test_new_file">Write a new test file</string>
+    <string name="sync_test_create">Create test folder (first phone)</string>
+    <string name="sync_test_pick">Choose shared test folder</string>
+    <string name="sync_test_folder">Test folder: %1$s</string>
+    <string name="sync_test_email">Other phone’s Google email</string>
+    <string name="sync_test_share">Share test folder</string>
+    <string name="sync_test_shared">Folder shared.</string>
+    <string name="sync_test_write">Write test file</string>
+    <string name="sync_test_read">Read both phones’ test files</string>
+    <string name="sync_test_count">Files read successfully: %1$d</string>
+    <string name="sync_test_busy">Checking Drive…</string>
+    <string name="sync_test_failed">Test failed or cancelled. Check Google Cloud setup, account access and connection, then retry.</string>
+</resources>

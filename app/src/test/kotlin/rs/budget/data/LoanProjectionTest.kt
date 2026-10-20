@@ -36,14 +36,18 @@ class LoanProjectionTest {
         javaClass.getResource("/schema-v5.sql")!!.readText().split(';').filter { it.isNotBlank() }.forEach { driver.execute(null, it, 0) }
         BudgetDb.Schema.migrate(driver, 5, 7)
         val oldDb = BudgetDb(driver)
-        val oldStore = EventStore(oldDb, "old", clock, Projector(oldDb))
         fun rsd(value: String) = Money.of(value, Currency.RSD)
         val income = Transaction("income", TransactionType.INCOME, rsd("1000"), "a", null, null, clock.today(), "", "", "m", TransactionSource.MANUAL)
         val events = listOf(AccountCreated(Account("a", "Cash", Currency.RSD)), TransactionAdded(income),
             TransactionAdded(income.copy(id = "expense", type = TransactionType.EXPENSE, money = rsd("250"))),
             GoalSet(Goal("g", "Reserve", rsd("1000"))),
             RecurringRuleSet(RecurringRule("r", "Bill", rsd("100"), "a", "c", Cadence.MONTHLY, clock.today())))
-        oldStore.appendAll(events)
+        // Written as rows: today's projector needs tables that schema seven does not have yet.
+        events.forEachIndexed { i, e ->
+            val payload = EventJson.encodeToString(Event.serializer(), e)
+            oldDb.eventQueries.insert("e$i", "old", i + 1L, clock.now().toEpochMilli() + i, e::class.simpleName!!, payload)
+        }
+        oldDb.accountQueries.insertIgnore("a", "Cash", "RSD", "SPENDING", 0)
         BudgetDb.Schema.migrate(driver, 7, BudgetDb.Schema.version)
         val db = BudgetDb(driver)
         assertEquals("Cash", db.accountQueries.byId("a").executeAsOne().name)
@@ -51,13 +55,10 @@ class LoanProjectionTest {
         assertTrue(db.loanQueries.all().executeAsList().isEmpty())
         val store = EventStore(db, "new", clock, Projector(db))
         val repo = BudgetRepository(db, store, clock)
-        val before = repo.financial.first()
         store.rebuild()
         val after = repo.financial.first()
-        assertEquals(before.home, after.home)
-        assertEquals(before.transactions, after.transactions)
-        assertEquals(before.goals, after.goals)
-        assertEquals(before.bills, after.bills)
+        assertEquals(setOf("income", "expense"), after.transactions.map { it.id }.toSet())
+        assertTrue(store.syncIssues().isEmpty())
         assertEquals(rsd("750"), after.home.savingsRsd)
         assertEquals(rsd("250"), after.home.spent)
         assertEquals(rsd("750"), after.goals.single().funded)

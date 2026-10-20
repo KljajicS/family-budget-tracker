@@ -20,7 +20,7 @@ class RateRepositoryTest {
 
     @Test fun `override reset and reapply replay deterministically without clearing public cache`() = runTest {
         val records = listOf("120", null, "118").mapIndexed { index, rate ->
-            EventRecord("event$index", "remote", index.toLong(), clock.now().plusSeconds(index.toLong()), ExchangeRateOverrideSet(Currency.EUR, rate))
+            EventRecord("event$index", "remote", index + 1L, clock.now().plusSeconds(index.toLong()), ExchangeRateOverrideSet(Currency.EUR, rate))
         }
         for (order in listOf(records, records.reversed())) {
             val db = testDb()

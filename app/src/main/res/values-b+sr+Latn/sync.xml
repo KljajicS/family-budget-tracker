@@ -1,0 +1,19 @@
+<resources>
+    <string name="sync_test_title">Provera veze sa Drive-om</string>
+    <string name="sync_test_description">Samo probne datoteke. Finansijski podaci ostaju na ovom telefonu. Pre povezivanja podesite Google Cloud.</string>
+    <string name="sync_test_connect">Poveži Google nalog</string>
+    <string name="sync_test_account">Nalog: %1$s</string>
+    <string name="sync_test_revoke">Ukini pristup probnoj aplikaciji</string>
+    <string name="sync_test_new_file">Upiši novu probnu datoteku</string>
+    <string name="sync_test_create">Napravi probnu fasciklu (prvi telefon)</string>
+    <string name="sync_test_pick">Izaberi deljenu probnu fasciklu</string>
+    <string name="sync_test_folder">Probna fascikla: %1$s</string>
+    <string name="sync_test_email">Google imejl drugog telefona</string>
+    <string name="sync_test_share">Podeli probnu fasciklu</string>
+    <string name="sync_test_shared">Fascikla je podeljena.</string>
+    <string name="sync_test_write">Upiši probnu datoteku</string>
+    <string name="sync_test_read">Pročitaj probne datoteke oba telefona</string>
+    <string name="sync_test_count">Uspešno pročitane datoteke: %1$d</string>
+    <string name="sync_test_busy">Provera Drive-a…</string>
+    <string name="sync_test_failed">Provera nije uspela ili je otkazana. Proverite Google Cloud podešavanja, pristup nalogu i vezu, pa pokušajte ponovo.</string>
+</resources>

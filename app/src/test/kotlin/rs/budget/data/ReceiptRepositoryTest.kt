@@ -95,8 +95,10 @@ class ReceiptRepositoryTest {
         javaClass.getResource("/schema-v4.sql")!!.readText().split(';').filter { it.isNotBlank() }
             .forEach { driver.execute(null, it, 0) }
         val old = BudgetDb(driver)
-        val oldStore = EventStore(old, "old", clock, Projector(old))
-        oldStore.append(TransactionAdded(tx().copy(id = "old", source = TransactionSource.MANUAL)))
+        val t = tx().copy(id = "old", source = TransactionSource.MANUAL)
+        old.eventQueries.insert("e", "old", 1, clock.now().toEpochMilli(), "TransactionAdded", EventJson.encodeToString(Event.serializer(), TransactionAdded(t)))
+        old.txQueries.insertIgnore(t.id, t.type.name, t.money.amount.toPlainString(), t.money.currency.name, t.accountId, null, t.categoryId,
+            t.date.toString(), t.note, t.merchant, t.paidBy, t.source.name, clock.now().toEpochMilli())
         BudgetDb.Schema.migrate(driver, 4, 5)
         assertEquals("120.00", old.txQueries.all().executeAsList().single().amount)
         assertEquals(1L, old.eventQueries.count().executeAsOne())

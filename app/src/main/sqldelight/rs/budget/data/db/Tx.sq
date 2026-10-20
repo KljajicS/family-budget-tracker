@@ -27,6 +27,9 @@ WHERE id = ?;
 delete:
 DELETE FROM tx WHERE id = ?;
 
+byId:
+SELECT * FROM tx WHERE id = ?;
+
 recent:
 SELECT tx.*, category.name AS category_name, member.display_name AS paid_by_name
 FROM tx

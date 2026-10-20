@@ -28,3 +28,12 @@ SELECT * FROM event ORDER BY occurred_at, device_id, seq;
 
 countFor:
 SELECT COUNT(*) FROM event WHERE device_id = ? AND seq = ?;
+
+byId:
+SELECT * FROM event WHERE id = ?;
+
+bySeq:
+SELECT * FROM event WHERE device_id = ? AND seq = ?;
+
+deleteAll:
+DELETE FROM event;

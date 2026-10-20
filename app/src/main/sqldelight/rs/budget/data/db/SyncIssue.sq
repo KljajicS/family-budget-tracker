@@ -1,0 +1,27 @@
+-- Projection diagnostics, rebuilt with the other projection tables: one row per event replay could not apply as written.
+CREATE TABLE sync_issue (
+    event_id TEXT NOT NULL PRIMARY KEY,
+    kind TEXT NOT NULL,
+    subject_id TEXT
+);
+
+insert:
+INSERT OR REPLACE INTO sync_issue(event_id, kind, subject_id) VALUES (?, ?, ?);
+
+clearSubject:
+DELETE FROM sync_issue WHERE kind = ? AND subject_id = ?;
+
+all:
+SELECT * FROM sync_issue ORDER BY event_id;
+
+incompatibleCount:
+SELECT COUNT(*) FROM sync_issue WHERE kind = 'INCOMPATIBLE_EVENT';
+
+currencyMismatches:
+SELECT DISTINCT tx.id FROM tx
+JOIN account ON account.id = tx.account_id OR account.id = tx.to_account_id
+WHERE account.currency != tx.currency
+ORDER BY tx.id;
+
+deleteAll:
+DELETE FROM sync_issue;

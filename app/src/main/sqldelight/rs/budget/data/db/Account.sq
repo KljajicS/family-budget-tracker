@@ -31,5 +31,10 @@ SELECT * FROM account ORDER BY position IS NULL, position, name, id;
 byId:
 SELECT * FROM account WHERE id = ?;
 
+-- Same rule as BudgetRepository's local currency guard, so replay decides exactly as the writing phone did.
+inUse:
+SELECT (SELECT COUNT(*) FROM tx WHERE tx.account_id = :id OR tx.to_account_id = :id)
+    + (SELECT COUNT(*) FROM recurring_rule WHERE recurring_rule.archived = 0 AND recurring_rule.account_id = :id);
+
 deleteAll:
 DELETE FROM account;

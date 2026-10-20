@@ -1,0 +1,13 @@
+-- Deleted transaction ids; a later add with the same id stays deleted (bill payments excepted, see Projector).
+CREATE TABLE tx_tombstone (
+    id TEXT NOT NULL PRIMARY KEY
+);
+
+insert:
+INSERT OR IGNORE INTO tx_tombstone(id) VALUES (?);
+
+contains:
+SELECT COUNT(*) FROM tx_tombstone WHERE id = ?;
+
+deleteAll:
+DELETE FROM tx_tombstone;

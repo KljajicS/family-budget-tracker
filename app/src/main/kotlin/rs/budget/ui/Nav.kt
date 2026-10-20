@@ -32,6 +32,7 @@ object Routes {
     const val EDIT_TRANSACTION = "transactions/{id}/edit"
     fun editTransaction(id: String) = "transactions/$id/edit"
     const val SETTINGS = "settings"
+    const val SYNC_TEST = "settings/sync-test"
     const val EXCHANGE_RATES = "settings/exchange-rates"
     const val CATEGORIES = "settings/categories"
     const val NEW_CATEGORY = "settings/categories/new"

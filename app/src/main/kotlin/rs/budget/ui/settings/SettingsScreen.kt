@@ -57,7 +57,7 @@ import rs.budget.ui.theme.TitleStyle
 import rs.budget.ui.theme.sans
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () -> Unit, onRecurring: () -> Unit, onRates: () -> Unit, vm: SettingsViewModel = hiltViewModel(), lockVm: AppLockViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () -> Unit, onRecurring: () -> Unit, onRates: () -> Unit, onSyncTest: () -> Unit = {}, vm: SettingsViewModel = hiltViewModel(), lockVm: AppLockViewModel = hiltViewModel()) {
     val s by vm.state.collectAsStateWithLifecycle()
     val c = LocalColors.current
 
@@ -83,6 +83,10 @@ fun SettingsScreen(onBack: () -> Unit, onCategories: () -> Unit, onAccounts: () 
         SettingsRow(stringResource(R.string.settings_accounts), onAccounts)
         SettingsRow(stringResource(R.string.settings_recurring), onRecurring)
         SettingsRow(stringResource(R.string.rates_title), onRates)
+        val context = androidx.compose.ui.platform.LocalContext.current
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            SettingsRow(stringResource(R.string.sync_test_title), onSyncTest)
+        }
     }
 }
 

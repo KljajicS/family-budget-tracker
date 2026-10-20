@@ -29,6 +29,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".synctest"
+            versionNameSuffix = "-sync-test"
+        }
         release {
             signingConfig = signingConfigs.getByName("distribution")
             isMinifyEnabled = true
@@ -75,6 +79,8 @@ dependencies {
     implementation(libs.zxing)
     implementation(libs.okhttp)
     implementation(libs.jsoup)
+    implementation(libs.play.services.auth)
+    implementation(libs.coroutines.play.services)
     testImplementation(libs.mockwebserver)
     implementation(libs.core.ktx)
     implementation(libs.activity.compose)

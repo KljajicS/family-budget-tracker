@@ -268,7 +268,11 @@ fun BudgetRoot(root: RootViewModel) {
                     onAccounts = { nav.navigate(Tab.ACCOUNTS.route) { launchSingleTop = true } },
                     onRecurring = { nav.navigate(Routes.RECURRING) },
                     onRates = { nav.navigate(Routes.EXCHANGE_RATES) },
+                    onSyncTest = { nav.navigate(Routes.SYNC_TEST) },
                 )
+            }
+            composable(Routes.SYNC_TEST) {
+                rs.budget.ui.sync.DriveTestScreen(onBack = { nav.popBackStack() })
             }
             composable(Routes.RECURRING) {
                 RecurringScreen(
