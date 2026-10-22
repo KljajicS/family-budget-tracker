@@ -29,7 +29,8 @@ interface DriveTokenSource {
 }
 
 sealed class DriveException(message: String) : IOException(message) {
-    class AuthRequired(message: String) : DriveException(message)
+    class AuthRequired(message: String, val reason: String = "APPROVAL_REQUIRED", val statusCode: Int? = null) : DriveException(message)
+    class AuthorizationFailed(val statusCode: Int) : DriveException("Google authorization failed")
     class Cancelled : DriveException("Drive authorization cancelled")
     class Http(val code: Int, val reason: String?) : DriveException("Drive request failed: HTTP $code${reason?.let { " $it" } ?: ""}") {
         val retryable: Boolean get() = code == 429 || code >= 500 ||
@@ -54,6 +55,22 @@ class DriveTransport(
     private val client: OkHttpClient = defaultClient(),
     private val apiBase: HttpUrl = "https://www.googleapis.com/".toHttpUrl(),
 ) {
+    suspend fun authorizedAccountEmail(accessToken: String): String {
+        require(accessToken.isNotBlank()) { "Missing access token" }
+        val url = apiBase.newBuilder().addPathSegments("drive/v3/about")
+            .addQueryParameter("fields", "user(emailAddress)").build()
+        // Use this grant directly: refreshing through the stored account could select a different user.
+        val reply = execute(Request.Builder().url(url).header("Authorization", "Bearer $accessToken").build(), MAX_JSON_BYTES)
+        if (reply.code == 401) {
+            tokens.invalidate(accessToken)
+            throw DriveException.AuthRequired("Drive rejected the authorization token")
+        }
+        if (reply.code !in 200..299) throw DriveException.Http(reply.code, errorReason(reply.body))
+        val email = decode(About.serializer(), reply.body, "account response").user?.emailAddress
+        return email?.takeIf { EMAIL.matches(it) && it.none(Char::isISOControl) }
+            ?: throw DriveException.AuthRequired("Account identity unavailable", "ACCOUNT_IDENTITY_MISSING")
+    }
+
     suspend fun createFolder(name: String, parentId: String? = null): DriveFile {
         val metadata = Metadata(checkName(name), FOLDER_MIME, parentId?.let { listOf(checkId(it)) })
         val request = Request.Builder().url(files().addFields().build())
@@ -172,6 +189,8 @@ class DriveTransport(
     @Serializable private data class Metadata(val name: String, val mimeType: String, val parents: List<String>? = null)
     @Serializable private data class Permission(val type: String, val role: String, val emailAddress: String)
     @Serializable private data class IdOnly(val id: String)
+    @Serializable private data class About(val user: User? = null)
+    @Serializable private data class User(val emailAddress: String? = null)
     @Serializable private data class Page(val files: List<WireFile> = emptyList(), val nextPageToken: String? = null)
 
     // Drive encodes int64 fields such as size and version as JSON strings.

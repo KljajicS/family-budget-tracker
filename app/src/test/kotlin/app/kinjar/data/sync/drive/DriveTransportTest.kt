@@ -20,6 +20,41 @@ class DriveTransportTest {
 
     @After fun stop() = server.shutdown()
 
+    @Test fun `account identity uses exact grant without acquiring another account token`() = runTest {
+        tokens.pending = true
+        server.enqueue(json("""{"user":{"emailAddress":"selected@example.com"}}"""))
+        assertEquals("selected@example.com", drive.authorizedAccountEmail("selected-token"))
+        val request = server.takeRequest()
+        assertEquals("Bearer selected-token", request.getHeader("Authorization"))
+        assertEquals("/drive/v3/about", request.requestUrl!!.encodedPath)
+        assertEquals("user(emailAddress)", request.requestUrl!!.queryParameter("fields"))
+    }
+
+    @Test fun `missing or invalid account identity fails closed`() = runTest {
+        for (body in listOf("{}", """{"user":{}}""", """{"user":{"emailAddress":""}}""", """{"user":{"emailAddress":"invalid"}}""")) {
+            server.enqueue(json(body))
+            assertEquals("ACCOUNT_IDENTITY_MISSING", failure<DriveException.AuthRequired> {
+                drive.authorizedAccountEmail("selected-token")
+            }.reason)
+        }
+        server.enqueue(json("not json"))
+        failure<DriveException.Malformed> { drive.authorizedAccountEmail("selected-token") }
+    }
+
+    @Test fun `rejected identity token is cleared without retrying another account`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(401))
+        failure<DriveException.AuthRequired> { drive.authorizedAccountEmail("selected-token") }
+        assertEquals(listOf("selected-token"), tokens.invalidated)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun `identity lookup preserves safe http errors`() = runTest {
+        server.enqueue(MockResponse().setResponseCode(403).setBody(errorBody("accessNotConfigured")))
+        val error = failure<DriveException.Http> { drive.authorizedAccountEmail("selected-token") }
+        assertEquals(403, error.code)
+        assertEquals("accessNotConfigured", error.reason)
+    }
+
     @Test fun `create folder posts drive file metadata with bearer token`() = runTest {
         server.enqueue(json("""{"id":"folder_1","name":"Family budget","mimeType":"${DriveTransport.FOLDER_MIME}","version":"3"}"""))
         val folder = drive.createFolder("Family budget", parentId = "root_A")

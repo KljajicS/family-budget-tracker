@@ -30,7 +30,7 @@ class DriveAuthorizer(
     constructor(context: Context, account: () -> Account? = { null }) : this(Identity.getAuthorizationClient(context), account)
 
     sealed interface Outcome {
-        class Granted(val accessToken: String, val pickedFileIds: List<String>, val account: Account?) : Outcome
+        class Granted(val accessToken: String, val pickedFileIds: List<String>) : Outcome
         class NeedsResolution(val request: IntentSenderRequest) : Outcome
     }
 
@@ -60,7 +60,7 @@ class DriveAuthorizer(
         val result = try {
             client.authorize(request).await()
         } catch (e: ApiException) {
-            throw IOException("Google authorization failed (status ${e.statusCode})")
+            throw DriveException.AuthorizationFailed(e.statusCode)
         }
         val pending = result.pendingIntent
         return if (result.hasResolution() && pending != null) {
@@ -77,7 +77,7 @@ class DriveAuthorizer(
             client.getAuthorizationResultFromIntent(data)
         } catch (e: ApiException) {
             if (e.statusCode == CommonStatusCodes.CANCELED) throw DriveException.Cancelled()
-            throw DriveException.AuthRequired("Drive authorization failed (status ${e.statusCode})")
+            throw DriveException.AuthRequired("Drive authorization failed", "GOOGLE_RESULT_ERROR", e.statusCode)
         }
         return granted(result)
     }
@@ -108,14 +108,12 @@ class DriveAuthorizer(
 
     private fun granted(result: AuthorizationResult): Outcome.Granted {
         val token = result.accessToken
-        if (token.isNullOrEmpty() || DRIVE_FILE !in result.grantedScopes) {
-            throw DriveException.AuthRequired("Drive file access was not granted")
+        if (token.isNullOrEmpty()) throw DriveException.AuthRequired("No access token returned", "TOKEN_MISSING")
+        if (DRIVE_FILE !in result.grantedScopes) {
+            throw DriveException.AuthRequired("Drive file access was not granted", "DRIVE_SCOPE_MISSING")
         }
         val picked = parsePickedFileIds(result.tokenResponseParams?.getString(PICKED_FILE_IDS))
-        // play-services-auth 22.0.0 exposes the granted account only through this deprecated bridge.
-        @Suppress("DEPRECATION")
-        val account = result.toGoogleSignInAccount()?.account
-        return Outcome.Granted(token, picked, account)
+        return Outcome.Granted(token, picked)
     }
 
     companion object {

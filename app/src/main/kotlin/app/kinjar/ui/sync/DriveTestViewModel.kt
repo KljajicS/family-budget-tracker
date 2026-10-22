@@ -98,7 +98,7 @@ class DriveTestViewModel @Inject constructor(@ApplicationContext context: Contex
         when (outcome) {
             is DriveAuthorizer.Outcome.NeedsResolution -> mutable.update { it.copy(resolution = outcome.request) }
             is DriveAuthorizer.Outcome.Granted -> {
-                val selected = outcome.account ?: throw DriveException.AuthRequired("Account identity unavailable")
+                val selected = Account(drive.authorizedAccountEmail(outcome.accessToken), "com.google")
                 if (account != selected) {
                     probeId = null
                     mutable.update { it.copy(folderId = null, files = emptyList(), shared = false) }
@@ -147,11 +147,17 @@ class DriveTestViewModel @Inject constructor(@ApplicationContext context: Contex
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                val detail = if (e is DriveException.Http) "HTTP ${e.code} ${e.reason.orEmpty()}" else e::class.simpleName ?: "Error"
-                mutable.update { it.copy(error = detail) }
+                mutable.update { it.copy(error = driveTestError(e)) }
             } finally {
                 mutable.update { it.copy(busy = false) }
             }
         }
     }
+}
+
+internal fun driveTestError(error: Exception): String = when (error) {
+    is DriveException.AuthRequired -> "${error.reason}${error.statusCode?.let { " (Google status $it)" }.orEmpty()}"
+    is DriveException.AuthorizationFailed -> "GOOGLE_AUTH_ERROR (Google status ${error.statusCode})"
+    is DriveException.Http -> "HTTP ${error.code} ${error.reason.orEmpty()}"
+    else -> error::class.simpleName ?: "Error"
 }
