@@ -4,9 +4,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
@@ -48,6 +51,9 @@ data class DriveFile(
     val modifiedTime: String?,
     val md5Checksum: String?,
     val version: Long?,
+    val ownedByMe: Boolean? = null,
+    val appProperties: Map<String, String> = emptyMap(),
+    val trashed: Boolean? = null,
 )
 
 class DriveTransport(
@@ -104,22 +110,54 @@ class DriveTransport(
     suspend fun download(fileId: String, maxBytes: Long): ByteArray =
         send(Request.Builder().url(files(checkId(fileId)).addQueryParameter("alt", "media").build()).get(), maxBytes)
 
-    suspend fun createFile(name: String, parentId: String, content: ByteArray): DriveFile {
+    /** One ID from files.generateIds; persist it before [createFile] so a retried create cannot duplicate the file. */
+    suspend fun generateFileId(): String {
+        val url = files().addPathSegment("generateIds").addQueryParameter("count", "1")
+            .addQueryParameter("space", "drive").addQueryParameter("type", "files").addQueryParameter("fields", "ids")
+            .build()
+        val ids = decode(GeneratedIds.serializer(), send(Request.Builder().url(url).get(), MAX_JSON_BYTES), "generated IDs").ids
+        return ids.singleOrNull()?.takeIf { ID.matches(it) } ?: throw DriveException.Malformed("Invalid generated file ID")
+    }
+
+    /** With a pre-generated [id], Drive answers a repeated create with HTTP 409 instead of creating a duplicate. */
+    suspend fun createFile(
+        name: String,
+        parentId: String?,
+        content: ByteArray,
+        mimeType: String = OCTET_STREAM.toString(),
+        id: String? = null,
+        appProperties: Map<String, String> = emptyMap(),
+    ): DriveFile {
         checkUploadSize(content)
-        val metadata = Metadata(checkName(name), OCTET_STREAM.toString(), listOf(checkId(parentId)))
+        require(appProperties.size <= MAX_APP_PROPERTIES) { "Too many app properties" }
+        appProperties.forEach { (key, value) -> checkProperty(key, value) }
+        val metadata = Metadata(
+            checkName(name), mimeType, parentId?.let { listOf(checkId(it)) }, id?.let(::checkId), appProperties.ifEmpty { null },
+        )
         val body = MultipartBody.Builder().setType("multipart/related".toMediaType())
             .addPart(json.encodeToString(Metadata.serializer(), metadata).toRequestBody(JSON))
-            .addPart(content.toRequestBody(OCTET_STREAM))
+            .addPart(content.toRequestBody(mimeType.toMediaType()))
             .build()
         val url = uploads().addQueryParameter("uploadType", "multipart").addFields().build()
         return parseFile(send(Request.Builder().url(url).post(body), MAX_JSON_BYTES))
     }
 
     /** Replaces content in place so the file keeps the ID peers already know. */
-    suspend fun updateFile(fileId: String, content: ByteArray): DriveFile {
+    suspend fun updateFile(fileId: String, content: ByteArray, mimeType: String = OCTET_STREAM.toString()): DriveFile {
         checkUploadSize(content)
         val url = uploads(checkId(fileId)).addQueryParameter("uploadType", "media").addFields().build()
-        val file = parseFile(send(Request.Builder().url(url).patch(content.toRequestBody(OCTET_STREAM)), MAX_JSON_BYTES))
+        val file = parseFile(send(Request.Builder().url(url).patch(content.toRequestBody(mimeType.toMediaType())), MAX_JSON_BYTES))
+        if (file.id != fileId) throw DriveException.Malformed("Drive returned a different file")
+        return file
+    }
+
+    /** Metadata-only PATCH that never sends content. Drive keeps keys absent from [changes]; a null value deletes that key. */
+    suspend fun updateAppProperties(fileId: String, changes: Map<String, String?>): DriveFile {
+        require(changes.size in 1..MAX_APP_PROPERTIES) { "Invalid app property change count" }
+        changes.forEach { (key, value) -> checkProperty(key, value.orEmpty()) }
+        val body = buildJsonObject { putJsonObject("appProperties") { changes.forEach { (key, value) -> put(key, value) } } }
+        val url = files(checkId(fileId)).addFields().build()
+        val file = parseFile(send(Request.Builder().url(url).patch(body.toString().toRequestBody(JSON)), MAX_JSON_BYTES))
         if (file.id != fileId) throw DriveException.Malformed("Drive returned a different file")
         return file
     }
@@ -186,7 +224,14 @@ class DriveTransport(
 
     private class Reply(val code: Int, val body: ByteArray)
 
-    @Serializable private data class Metadata(val name: String, val mimeType: String, val parents: List<String>? = null)
+    @Serializable private data class Metadata(
+        val name: String,
+        val mimeType: String,
+        val parents: List<String>? = null,
+        val id: String? = null,
+        val appProperties: Map<String, String>? = null,
+    )
+    @Serializable private data class GeneratedIds(val ids: List<String> = emptyList())
     @Serializable private data class Permission(val type: String, val role: String, val emailAddress: String)
     @Serializable private data class IdOnly(val id: String)
     @Serializable private data class About(val user: User? = null)
@@ -202,25 +247,36 @@ class DriveTransport(
         val modifiedTime: String? = null,
         val md5Checksum: String? = null,
         val version: String? = null,
+        val ownedByMe: Boolean? = null,
+        val appProperties: Map<String, String>? = null,
+        val trashed: Boolean? = null,
     ) {
         fun toFile(): DriveFile {
             if (!ID.matches(id)) throw DriveException.Malformed("Invalid file ID")
-            return DriveFile(id, name, mimeType, size?.toLongOrNull(), modifiedTime, md5Checksum, version?.toLongOrNull())
+            val properties = appProperties.orEmpty()
+            if (properties.size > MAX_APP_PROPERTIES || properties.any { (key, value) -> !propertyFits(key, value) }) {
+                throw DriveException.Malformed("Invalid app properties")
+            }
+            return DriveFile(id, name, mimeType, size?.toLongOrNull(), modifiedTime, md5Checksum, version?.toLongOrNull(), ownedByMe, properties, trashed)
         }
     }
 
     companion object {
         const val FOLDER_MIME = "application/vnd.google-apps.folder"
         const val MAX_UPLOAD_BYTES = 5L * 1024 * 1024
+        const val MAX_APP_PROPERTIES = 30
+        const val MAX_PROPERTY_BYTES = 124
         private const val MAX_JSON_BYTES = 1L * 1024 * 1024
         private const val MAX_ERROR_BYTES = 64L * 1024
         private const val PAGE_SIZE = 100
-        private const val FILE_FIELDS = "id,name,mimeType,size,modifiedTime,md5Checksum,version"
+        private const val FILE_FIELDS = "id,name,mimeType,size,modifiedTime,md5Checksum,version,ownedByMe,appProperties,trashed"
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private val OCTET_STREAM = "application/octet-stream".toMediaType()
         private val ID = Regex("[A-Za-z0-9_-]{1,256}")
         private val EMAIL = Regex("[^\\s@]{1,64}@[^\\s@]{1,190}\\.[^\\s@]{1,63}")
         private val REASON = Regex("[A-Za-z_]{1,64}")
+        // Drive does not document allowed key characters, so writes stick to a conservative set.
+        private val PROPERTY_KEY = Regex("[A-Za-z0-9._-]+")
         private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
@@ -234,6 +290,13 @@ class DriveTransport(
         private fun checkName(name: String): String = name.also {
             require(it.isNotBlank() && it.length <= 255 && it.none(Char::isISOControl)) { "Invalid Drive file name" }
         }
+
+        private fun propertyFits(key: String, value: String) =
+            key.isNotEmpty() && (key + value).encodeToByteArray().size <= MAX_PROPERTY_BYTES
+
+        private fun checkProperty(key: String, value: String) = require(
+            PROPERTY_KEY.matches(key) && value.none(Char::isISOControl) && propertyFits(key, value),
+        ) { "Invalid app property" }
 
         // ponytail: multipart and media uploads are capped at 5 MiB by Drive; switch to resumable uploads if history files outgrow it.
         private fun checkUploadSize(content: ByteArray) {

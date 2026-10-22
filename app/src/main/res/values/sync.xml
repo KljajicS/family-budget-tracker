@@ -1,19 +1,26 @@
 <resources>
     <string name="sync_test_title">Drive connection test</string>
-    <string name="sync_test_description">Test files only. Financial data stays on this phone. Google Cloud setup is required before connecting.</string>
+    <string name="sync_test_description">Synthetic test file only. Financial data stays on this phone. Each phone creates one test file in its own Google Drive and shares it with the other phone. Google Cloud setup is required before connecting.</string>
+    <string name="sync_test_steps">Use a different Google account on each phone. Finish each step on both phones before the next one:\n1. Connect Google account.\n2. Create my test file. Copy my file ID and send it to the other phone yourself.\n3. Enter the other phone’s Google email, then Share my test file.\n4. Paste the other phone’s file ID, then Grant access to the other file. Select the only file shown.\n5. Read the other phone’s file. The result shows its phone code and write number.\n6. Phone 1: Update my test file. Phone 2: Read the other phone’s file again. Version and write number must grow. Repeat the other way round.\n7. Phone 1: Send test request. Phone 2: Read my requests (one from the other phone must be listed), then Remove the received request. Phone 1: Read the other phone’s file. The result must show “my request on other file: none”. Repeat the other way round.\n8. Force-stop and reopen the app, then repeat step 5 without granting again.\nIf a step fails, report its number and the error code.</string>
     <string name="sync_test_connect">Connect Google account</string>
     <string name="sync_test_account">Account: %1$s</string>
     <string name="sync_test_revoke">Revoke test app access</string>
-    <string name="sync_test_new_file">Write a new test file</string>
-    <string name="sync_test_create">Create test folder (first phone)</string>
-    <string name="sync_test_pick">Choose shared test folder</string>
-    <string name="sync_test_folder">Test folder: %1$s</string>
+    <string name="sync_test_own_section">This phone’s file</string>
+    <string name="sync_test_create_own">Create my test file</string>
+    <string name="sync_test_own_id">My file ID: %1$s</string>
+    <string name="sync_test_copy_id">Copy my file ID</string>
+    <string name="sync_test_update_own">Update my test file</string>
     <string name="sync_test_email">Other phone’s Google email</string>
-    <string name="sync_test_share">Share test folder</string>
-    <string name="sync_test_shared">Folder shared.</string>
-    <string name="sync_test_write">Write test file</string>
-    <string name="sync_test_read">Read both phones’ test files</string>
-    <string name="sync_test_count">Files read successfully: %1$d</string>
+    <string name="sync_test_share">Share my test file</string>
+    <string name="sync_test_read_mailbox">Read my requests</string>
+    <string name="sync_test_peer_section">Other phone’s file</string>
+    <string name="sync_test_peer_id_field">Other phone’s file ID</string>
+    <string name="sync_test_grant">Grant access to the other file</string>
+    <string name="sync_test_peer_id">Other file ID: %1$s</string>
+    <string name="sync_test_read">Read the other phone’s file</string>
+    <string name="sync_test_send_request">Send test request</string>
+    <string name="sync_test_remove_request">Remove the received request</string>
+    <string name="sync_test_result">Last result</string>
     <string name="sync_test_busy">Checking Drive…</string>
     <string name="sync_test_failed">Test failed or cancelled. Check Google Cloud setup, account access and connection, then retry.</string>
 </resources>

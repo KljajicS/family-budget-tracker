@@ -38,14 +38,23 @@ class DriveAuthorizer(
         mimeTypes: List<String> = listOf(DriveTransport.FOLDER_MIME),
         allowFolderSelection: Boolean = true,
         allowMultiple: Boolean = false,
+        fileIds: List<String> = emptyList(),
+        account: Account? = null,
     ): AuthorizationRequest = AuthorizationRequest.builder()
         .setRequestedScopes(listOf(Scope(DRIVE_FILE)))
         .setOptOutIncludingGrantedScopes(true)
-        .setPrompt(AuthorizationRequest.Prompt.CONSENT or AuthorizationRequest.Prompt.SELECT_ACCOUNT)
+        .setPrompt(
+            if (account == null) AuthorizationRequest.Prompt.CONSENT or AuthorizationRequest.Prompt.SELECT_ACCOUNT
+            else AuthorizationRequest.Prompt.CONSENT,
+        )
         // Value is undocumented for Android; "true" mirrors the desktop trigger_onepick=true parameter.
         .addResourceParameter(AuthorizationRequest.ResourceParameter.PICKER_OAUTH_TRIGGER, "true")
         .addResourceParameter(AuthorizationRequest.ResourceParameter.PICKER_MIMETYPES, mimeTypes.joinToString(","))
         .apply {
+            account?.let(::setAccount)
+            if (fileIds.isNotEmpty()) {
+                addResourceParameter(AuthorizationRequest.ResourceParameter.PICKER_FILE_IDS, fileIds.joinToString(",") { DriveTransport.checkId(it) })
+            }
             if (allowFolderSelection) addResourceParameter(AuthorizationRequest.ResourceParameter.PICKER_ALLOW_FOLDER_SELECTION, "true")
             if (allowMultiple) addResourceParameter(AuthorizationRequest.ResourceParameter.PICKER_ALLOW_MULTIPLE, "true")
         }
@@ -125,6 +134,11 @@ class DriveAuthorizer(
             return raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.map {
                 runCatching { DriveTransport.checkId(it) }.getOrElse { throw DriveException.Malformed("Invalid picked file ID") }
             }
+        }
+
+        /** PICKER_FILE_IDS only filters the picker view, so the grant must be checked against the requested file. */
+        fun requireExactPick(requested: String, picked: List<String>) {
+            if (picked != listOf(requested)) throw DriveException.AuthRequired("Picked file does not match", "PICKED_FILE_MISMATCH")
         }
     }
 }

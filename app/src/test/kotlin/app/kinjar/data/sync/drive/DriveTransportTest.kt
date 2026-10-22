@@ -1,5 +1,7 @@
 package app.kinjar.data.sync.drive
 
+import android.app.Activity
+import com.google.android.gms.auth.api.identity.AuthorizationClient
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -12,6 +14,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.lang.reflect.Proxy
 
 class DriveTransportTest {
     private val server = MockWebServer().apply { start() }
@@ -19,6 +22,14 @@ class DriveTransportTest {
     private val drive = DriveTransport(tokens, DriveTransport.defaultClient(), server.url("/"))
 
     @After fun stop() = server.shutdown()
+
+    @Test fun `metadata requests and decodes trash status`() = runTest {
+        for (trashed in listOf(true, false)) {
+            server.enqueue(json("""{"id":"f","name":"f","mimeType":"text/plain","trashed":$trashed}"""))
+            assertEquals(trashed, drive.metadata("f").trashed)
+            assertTrue(server.takeRequest().requestUrl!!.queryParameter("fields")!!.split(',').contains("trashed"))
+        }
+    }
 
     @Test fun `account identity uses exact grant without acquiring another account token`() = runTest {
         tokens.pending = true
@@ -201,8 +212,102 @@ class DriveTransportTest {
         assertTrue(runCatching { DriveAuthorizer.parsePickedFileIds("a,../b") }.exceptionOrNull() is DriveException.Malformed)
     }
 
+    @Test fun `generated file id is requested for drive files and validated`() = runTest {
+        server.enqueue(json("""{"kind":"drive#generatedIds","space":"drive","ids":["gen_1"]}"""))
+        assertEquals("gen_1", drive.generateFileId())
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("/drive/v3/files/generateIds", url.encodedPath)
+        assertEquals(listOf("1", "drive", "files"), listOf("count", "space", "type").map { url.queryParameter(it) })
+        for (body in listOf("""{"ids":[]}""", """{"ids":["a","b"]}""", """{"ids":["../x"]}""")) {
+            server.enqueue(json(body))
+            failure<DriveException.Malformed> { drive.generateFileId() }
+        }
+    }
+
+    @Test fun `create with generated id sends id marker and mime without parents`() = runTest {
+        server.enqueue(json(file("gen_1")))
+        drive.createFile("probe.txt", null, "x".toByteArray(), "text/plain", "gen_1", mapOf("kjrProbe" to "v1"))
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("""{"name":"probe.txt","mimeType":"text/plain","id":"gen_1","appProperties":{"kjrProbe":"v1"}}"""))
+        assertTrue(body.contains("Content-Type: text/plain"))
+        assertFalse(body.contains("parents"))
+        failure<IllegalArgumentException> { drive.createFile("p", null, byteArrayOf(1), id = "../x") }
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun `app property patch is metadata only and sends just the changed keys`() = runTest {
+        server.enqueue(json(file("f", """"appProperties":{"kjrProbe":"v1","kjrReq1.a":"v1.x"}""")))
+        val updated = drive.updateAppProperties("f", mapOf("kjrReq1.a" to "v1.x"))
+        assertEquals(mapOf("kjrProbe" to "v1", "kjrReq1.a" to "v1.x"), updated.appProperties)
+        val write = server.takeRequest()
+        assertEquals("PATCH", write.method)
+        assertEquals("/drive/v3/files/f", write.requestUrl!!.encodedPath)
+        assertNull(write.requestUrl!!.queryParameter("uploadType"))
+        assertTrue(write.getHeader("Content-Type")!!.startsWith("application/json"))
+        assertEquals("""{"appProperties":{"kjrReq1.a":"v1.x"}}""", write.body.readUtf8())
+
+        server.enqueue(json(file("f")))
+        drive.updateAppProperties("f", mapOf("kjrReq1.a" to null))
+        assertEquals("""{"appProperties":{"kjrReq1.a":null}}""", server.takeRequest().body.readUtf8())
+
+        server.enqueue(json(file("other")))
+        failure<DriveException.Malformed> { drive.updateAppProperties("f", mapOf("k" to "v")) }
+    }
+
+    @Test fun `app property bounds are enforced before any request`() = runTest {
+        val key = "k".repeat(60)
+        server.enqueue(json(file("f")))
+        drive.updateAppProperties("f", mapOf(key to "v".repeat(DriveTransport.MAX_PROPERTY_BYTES - 60)))
+        val rejected = listOf(
+            emptyMap<String, String>(),
+            mapOf(key to "v".repeat(DriveTransport.MAX_PROPERTY_BYTES - 59)),
+            mapOf(key to "š".repeat(33)),
+            mapOf("a/b" to "v"),
+            mapOf("" to "v"),
+            mapOf("k" to "line\nbreak"),
+            (0..DriveTransport.MAX_APP_PROPERTIES).associate { "k$it" to "v" },
+        )
+        for (changes in rejected) failure<IllegalArgumentException> { drive.updateAppProperties("f", changes) }
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun `metadata parses ownership and rejects oversized app properties`() = runTest {
+        server.enqueue(json(file("f", """"ownedByMe":false,"appProperties":{"kjrProbe":"v1"}""")))
+        val parsed = drive.metadata("f")
+        assertEquals(false, parsed.ownedByMe)
+        assertEquals(mapOf("kjrProbe" to "v1"), parsed.appProperties)
+        val tooMany = (0..DriveTransport.MAX_APP_PROPERTIES).joinToString(",") { "\"k$it\":\"v\"" }
+        server.enqueue(json(file("f", """"appProperties":{$tooMany}""")))
+        failure<DriveException.Malformed> { drive.metadata("f") }
+        server.enqueue(json(file("f", """"appProperties":{"k":"${"v".repeat(DriveTransport.MAX_PROPERTY_BYTES)}"}""")))
+        failure<DriveException.Malformed> { drive.metadata("f") }
+    }
+
+    @Test fun `media update can keep a text mime type`() = runTest {
+        server.enqueue(json(file("f")))
+        drive.updateFile("f", "x".toByteArray(), "text/plain")
+        assertTrue(server.takeRequest().getHeader("Content-Type")!!.startsWith("text/plain"))
+    }
+
+    @Test fun `exact pick accepts only the requested file`() {
+        DriveAuthorizer.requireExactPick("peer_1", listOf("peer_1"))
+        for (picked in listOf(emptyList<String>(), listOf("other"), listOf("peer_1", "other"))) {
+            val error = runCatching { DriveAuthorizer.requireExactPick("peer_1", picked) }.exceptionOrNull()
+            assertEquals("PICKED_FILE_MISMATCH", (error as DriveException.AuthRequired).reason)
+        }
+    }
+
+    @Test fun `cancelled picker result is reported without reading the intent`() {
+        val client = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(AuthorizationClient::class.java)) { _, _, _ ->
+            error("client must not be called")
+        } as AuthorizationClient
+        val error = runCatching { DriveAuthorizer(client).resultFromActivity(Activity.RESULT_CANCELED, null) }.exceptionOrNull()
+        assertTrue(error is DriveException.Cancelled)
+    }
+
     private fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
-    private fun file(id: String) = """{"id":"$id","name":"$id.bin","mimeType":"application/octet-stream","size":"3"}"""
+    private fun file(id: String, extra: String? = null) =
+        """{"id":"$id","name":"$id.bin","mimeType":"application/octet-stream","size":"3"${extra?.let { ",$it" }.orEmpty()}}"""
     private fun errorBody(reason: String) = """{"error":{"code":403,"errors":[{"reason":"$reason"}]}}"""
 
     private suspend inline fun <reified T : Throwable> failure(crossinline block: suspend () -> Unit): T {

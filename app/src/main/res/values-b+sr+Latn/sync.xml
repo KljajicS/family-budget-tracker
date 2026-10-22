@@ -1,19 +1,26 @@
 <resources>
     <string name="sync_test_title">Provera veze sa Drive-om</string>
-    <string name="sync_test_description">Samo probne datoteke. Finansijski podaci ostaju na ovom telefonu. Pre povezivanja podesite Google Cloud.</string>
+    <string name="sync_test_description">Samo probna datoteka. Finansijski podaci ostaju na ovom telefonu. Svaki telefon pravi jednu probnu datoteku na svom Google Drive-u i deli je sa drugim telefonom. Pre povezivanja podesite Google Cloud.</string>
+    <string name="sync_test_steps">Na svakom telefonu koristite drugi Google nalog. Završite svaki korak na oba telefona pre sledećeg:\n1. Poveži Google nalog.\n2. Napravi moju probnu datoteku. Kopiraj ID moje datoteke i sami ga pošaljite drugom telefonu.\n3. Unesite Google imejl drugog telefona, pa Podeli moju probnu datoteku.\n4. Nalepite ID datoteke drugog telefona, pa Odobri pristup drugoj datoteci. Izaberite jedinu prikazanu datoteku.\n5. Pročitaj datoteku drugog telefona. Rezultat prikazuje oznaku telefona i broj upisa.\n6. Telefon 1: Ažuriraj moju probnu datoteku. Telefon 2: ponovo Pročitaj datoteku drugog telefona. Verzija i broj upisa moraju da porastu. Ponovite u suprotnom smeru.\n7. Telefon 1: Pošalji probni zahtev. Telefon 2: Pročitaj moje zahteve (mora biti prikazan jedan od drugog telefona), pa Ukloni primljeni zahtev. Telefon 1: Pročitaj datoteku drugog telefona. Rezultat mora da prikaže „my request on other file: none”. Ponovite u suprotnom smeru.\n8. Prinudno zaustavite i ponovo otvorite aplikaciju, pa ponovite korak 5 bez novog odobravanja.\nAko korak ne uspe, javite njegov broj i kôd greške.</string>
     <string name="sync_test_connect">Poveži Google nalog</string>
     <string name="sync_test_account">Nalog: %1$s</string>
     <string name="sync_test_revoke">Ukini pristup probnoj aplikaciji</string>
-    <string name="sync_test_new_file">Upiši novu probnu datoteku</string>
-    <string name="sync_test_create">Napravi probnu fasciklu (prvi telefon)</string>
-    <string name="sync_test_pick">Izaberi deljenu probnu fasciklu</string>
-    <string name="sync_test_folder">Probna fascikla: %1$s</string>
+    <string name="sync_test_own_section">Datoteka ovog telefona</string>
+    <string name="sync_test_create_own">Napravi moju probnu datoteku</string>
+    <string name="sync_test_own_id">ID moje datoteke: %1$s</string>
+    <string name="sync_test_copy_id">Kopiraj ID moje datoteke</string>
+    <string name="sync_test_update_own">Ažuriraj moju probnu datoteku</string>
     <string name="sync_test_email">Google imejl drugog telefona</string>
-    <string name="sync_test_share">Podeli probnu fasciklu</string>
-    <string name="sync_test_shared">Fascikla je podeljena.</string>
-    <string name="sync_test_write">Upiši probnu datoteku</string>
-    <string name="sync_test_read">Pročitaj probne datoteke oba telefona</string>
-    <string name="sync_test_count">Uspešno pročitane datoteke: %1$d</string>
+    <string name="sync_test_share">Podeli moju probnu datoteku</string>
+    <string name="sync_test_read_mailbox">Pročitaj moje zahteve</string>
+    <string name="sync_test_peer_section">Datoteka drugog telefona</string>
+    <string name="sync_test_peer_id_field">ID datoteke drugog telefona</string>
+    <string name="sync_test_grant">Odobri pristup drugoj datoteci</string>
+    <string name="sync_test_peer_id">ID druge datoteke: %1$s</string>
+    <string name="sync_test_read">Pročitaj datoteku drugog telefona</string>
+    <string name="sync_test_send_request">Pošalji probni zahtev</string>
+    <string name="sync_test_remove_request">Ukloni primljeni zahtev</string>
+    <string name="sync_test_result">Poslednji rezultat</string>
     <string name="sync_test_busy">Provera Drive-a…</string>
     <string name="sync_test_failed">Provera nije uspela ili je otkazana. Proverite Google Cloud podešavanja, pristup nalogu i vezu, pa pokušajte ponovo.</string>
 </resources>
